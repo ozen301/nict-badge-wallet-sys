@@ -1,6 +1,6 @@
 # NICT Badge & Wallet System
 
-This repository implements the **Badge & Wallet System** for the NICT pilot project by Tohoku University. It manages NFT-based badges, bingo cards, and blockchain transaction logs.
+This repository implements the **Badge & Wallet System** for the NICT project by Tohoku University. It manages NFT-based badges, bingo cards, and blockchain transaction logs.
 
 ## Overview
 
@@ -39,7 +39,7 @@ nict-badge-wallet-sys/
 
 ---
 
-## Development Setup
+## Quick Start
 
 ### 1. Install dependencies
 
