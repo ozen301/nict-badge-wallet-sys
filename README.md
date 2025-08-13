@@ -31,7 +31,7 @@ nict-badge-wallet-sys/
 │  └─ utils/            # utility functions
 ├─ scripts/
 │  ├─ init_db.py        # create all tables in local SQLite
-│  └─ seed_dev.py       # (planned) seed dev data
+│  └─ seed_dev.py       # seed dev data
 ├─ tests/               # (planned) unit tests
 ├─ README.md
 └─ pyproject.toml / requirements.txt
@@ -51,6 +51,7 @@ pip install -r requirements.txt
 
 ```bash
 python scripts/init_db.py
+python scripts/seed_dev.py
 ```
 
 This creates `dev.db` (SQLite) with all schema objects.
