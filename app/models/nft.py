@@ -1,6 +1,6 @@
 from __future__ import annotations
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy import (
     BigInteger,
@@ -24,16 +24,16 @@ class NFTCondition(Base):
     __tablename__ = "nft_conditions"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
-    start_time: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    end_time: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    location_range: Mapped[str | None] = mapped_column(Text, nullable=True)
-    required_nft_id: Mapped[int | None] = mapped_column(
+    start_time: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    end_time: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    location_range: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    required_nft_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("nfts.id", ondelete="SET NULL"), nullable=True
     )
-    prohibited_nft_id: Mapped[int | None] = mapped_column(
+    prohibited_nft_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("nfts.id", ondelete="SET NULL"), nullable=True
     )
-    other_conditions: Mapped[str | None] = mapped_column(Text, nullable=True)
+    other_conditions: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
 
@@ -48,12 +48,12 @@ class NFT(Base):
     shared_key: Mapped[str] = mapped_column(String(255), nullable=False)
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     nft_type: Mapped[str] = mapped_column(String(50), nullable=False)
-    description: Mapped[str | None] = mapped_column(Text, nullable=True)
-    image_url: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    condition_id: Mapped[int | None] = mapped_column(
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    image_url: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    condition_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("nft_conditions.id", ondelete="SET NULL"), nullable=True
     )
-    max_supply: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    max_supply: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     minted_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     status: Mapped[str] = mapped_column(String(50), nullable=False, default="active")
     created_by_admin_id: Mapped[int] = mapped_column(
@@ -63,7 +63,7 @@ class NFT(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
 
     # relationships
-    condition: Mapped[NFTCondition | None] = relationship(foreign_keys=[condition_id])
+    condition: Mapped[Optional[NFTCondition]] = relationship(foreign_keys=[condition_id])
     ownerships: Mapped[list["UserNFTOwnership"]] = relationship(back_populates="nft")
     target_cells: Mapped[list["BingoCell"]] = relationship(back_populates="target_nft")
     chain_txs: Mapped[list["BlockchainTransaction"]] = relationship(

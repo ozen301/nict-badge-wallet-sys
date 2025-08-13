@@ -1,6 +1,6 @@
 from __future__ import annotations
 from datetime import datetime
-from typing import Iterable, TYPE_CHECKING
+from typing import Iterable, TYPE_CHECKING, Optional
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy import (
     BigInteger,
@@ -30,7 +30,7 @@ class BingoCard(Base):
     )
     grid_size: Mapped[int] = mapped_column(Integer, nullable=False, default=3)
     issued_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
-    completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     state: Mapped[str] = mapped_column(String(20), nullable=False, default="active")
 
     user: Mapped["User"] = relationship(back_populates="bingo_cards")
@@ -83,11 +83,11 @@ class BingoCell(Base):
         ForeignKey("user_nft_ownership.id", ondelete="SET NULL"), nullable=True
     )
     state: Mapped[str] = mapped_column(String(20), nullable=False, default="locked")
-    unlocked_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    unlocked_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
 
     card: Mapped["BingoCard"] = relationship(back_populates="cells")
     target_nft: Mapped["NFT"] = relationship(back_populates="target_cells")
-    matched_ownership: Mapped["UserNFTOwnership | None"] = relationship(
+    matched_ownership: Mapped[Optional["UserNFTOwnership"]] = relationship(
         back_populates="matched_cells"
     )
 

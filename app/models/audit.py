@@ -1,5 +1,6 @@
 from __future__ import annotations
 from datetime import datetime
+from typing import Optional
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy import BigInteger, String, DateTime, Text, ForeignKey, CheckConstraint
 from . import Base
@@ -10,16 +11,16 @@ class AuditLog(Base):
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     actor_type: Mapped[str] = mapped_column(String(20), nullable=False)
-    actor_admin_id: Mapped[int | None] = mapped_column(
+    actor_admin_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("admins.id", ondelete="SET NULL"), nullable=True
     )
-    actor_user_id: Mapped[int | None] = mapped_column(
+    actor_user_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
     action: Mapped[str] = mapped_column(String(100), nullable=False)
     subject_table: Mapped[str] = mapped_column(String(50), nullable=False)
-    subject_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
-    details_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    subject_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
+    details_json: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     occurred_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
 
     __table_args__ = (
