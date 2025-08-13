@@ -3,7 +3,6 @@ from datetime import datetime
 from typing import Iterable, TYPE_CHECKING, Optional
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy import (
-    BigInteger,
     Integer,
     String,
     DateTime,
@@ -24,7 +23,7 @@ if TYPE_CHECKING:
 class BingoCard(Base):
     __tablename__ = "bingo_cards"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
@@ -71,7 +70,7 @@ class BingoCard(Base):
 class BingoCell(Base):
     __tablename__ = "bingo_cells"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     bingo_card_id: Mapped[int] = mapped_column(
         ForeignKey("bingo_cards.id", ondelete="CASCADE"), nullable=False
     )

@@ -3,11 +3,10 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Optional
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy import (
-    BigInteger,
+    Integer,
     String,
     DateTime,
     Text,
-    Integer,
     ForeignKey,
     CheckConstraint,
     Index,
@@ -23,7 +22,7 @@ if TYPE_CHECKING:
 class NFTCondition(Base):
     __tablename__ = "nft_conditions"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     start_time: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     end_time: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     location_range: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
@@ -43,7 +42,7 @@ class NFTCondition(Base):
 class NFT(Base):
     __tablename__ = "nfts"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     prefix: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
     shared_key: Mapped[str] = mapped_column(String(255), nullable=False)
     name: Mapped[str] = mapped_column(String(100), nullable=False)

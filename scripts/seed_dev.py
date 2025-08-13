@@ -1,0 +1,161 @@
+from __future__ import annotations
+import sys
+from pathlib import Path
+from datetime import datetime, timedelta
+
+# ensure project root on sys.path
+repo_root = Path(__file__).resolve().parents[1]
+if str(repo_root) not in sys.path:
+    sys.path.insert(0, str(repo_root))
+
+from app.db.engine import make_engine, get_sessionmaker
+from app.models import (
+    Base,
+    Admin,
+    User,
+    NFTCondition,
+    NFT,
+    UserNFTOwnership,
+    BingoCard,
+    BingoCell,
+)
+
+
+def main() -> None:
+    """Seed the development database with sample data."""
+    engine = make_engine()
+
+    # Drop and recreate all tables. SQLite struggles with cyclic foreign-key
+    # dependencies during DROP, so temporarily disable foreign key checks to
+    # ensure a clean reset of the schema.
+    with engine.connect() as conn:
+        conn.exec_driver_sql("PRAGMA foreign_keys=OFF")
+        Base.metadata.drop_all(bind=conn)
+        conn.exec_driver_sql("PRAGMA foreign_keys=ON")
+
+    Base.metadata.create_all(engine)
+    Session = get_sessionmaker(engine)
+
+    now = datetime.utcnow()
+
+    with Session.begin() as session:
+        # Admin
+        admin = Admin(
+            paymail="admin@example.com",
+            password_hash="dev-hash",
+            name="DevAdmin",
+            role="superuser",
+            created_at=now,
+            updated_at=now,
+        )
+        session.add(admin)
+        session.flush()
+
+        # Users
+        user1 = User(
+            in_app_id="user_01",
+            wallet="wallet_01",
+            nickname="Alice",
+            created_at=now,
+            updated_at=now,
+        )
+        user2 = User(
+            in_app_id="user_02",
+            wallet="wallet_02",
+            nickname="Bob",
+            created_at=now,
+            updated_at=now,
+        )
+        session.add_all([user1, user2])
+        session.flush()
+
+        # NFT condition
+        condition = NFTCondition(
+            start_time=now,
+            end_time=now + timedelta(days=30),
+            created_at=now,
+            updated_at=now,
+        )
+        session.add(condition)
+        session.flush()
+
+        # NFTs
+        nft1 = NFT(
+            prefix="prefix-1",
+            shared_key="shared-key-1",
+            name="Game Entry Badge",
+            nft_type="default",
+            description="Issued for attending the game",
+            condition_id=condition.id,
+            created_by_admin_id=admin.id,
+            created_at=now,
+            updated_at=now,
+        )
+        nft2 = NFT(
+            prefix="prefix-2",
+            shared_key="shared-key-2",
+            name="Restaurant Visit Badge",
+            nft_type="event",
+            description="Issued for visiting partner restaurant",
+            created_by_admin_id=admin.id,
+            created_at=now,
+            updated_at=now,
+        )
+        session.add_all([nft1, nft2])
+        session.flush()
+
+        # Ownerships
+        own1 = UserNFTOwnership(
+            user_id=user1.id,
+            nft_id=nft1.id,
+            serial_number=1,
+            unique_nft_id="nft1-0001",
+            acquired_at=now,
+        )
+        own2 = UserNFTOwnership(
+            user_id=user1.id,
+            nft_id=nft2.id,
+            serial_number=1,
+            unique_nft_id="nft2-0001",
+            acquired_at=now,
+        )
+        session.add_all([own1, own2])
+        session.flush()
+
+        # Bingo card for user1
+        card = BingoCard(
+            user_id=user1.id,
+            grid_size=3,
+            issued_at=now,
+            state="active",
+        )
+        session.add(card)
+        session.flush()
+
+        # Bingo cells
+        cells: list[BingoCell] = []
+        for idx in range(9):
+            if idx == 4:
+                cell = BingoCell(
+                    bingo_card_id=card.id,
+                    idx=idx,
+                    target_nft_id=nft1.id,
+                    matched_ownership_id=own1.id,
+                    state="unlocked",
+                    unlocked_at=now,
+                )
+            else:
+                cell = BingoCell(
+                    bingo_card_id=card.id,
+                    idx=idx,
+                    target_nft_id=nft2.id,
+                    state="locked",
+                )
+            cells.append(cell)
+        session.add_all(cells)
+
+    print("Development database seeded.")
+
+
+if __name__ == "__main__":
+    main()

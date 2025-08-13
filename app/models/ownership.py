@@ -3,10 +3,9 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Optional
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy import (
-    BigInteger,
+    Integer,
     String,
     DateTime,
-    Integer,
     Text,
     ForeignKey,
     UniqueConstraint,
@@ -23,7 +22,7 @@ if TYPE_CHECKING:
 class UserNFTOwnership(Base):
     __tablename__ = "user_nft_ownership"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
