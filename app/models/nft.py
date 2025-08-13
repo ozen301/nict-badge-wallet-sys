@@ -27,10 +27,10 @@ class NFTCondition(Base):
     end_time: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     location_range: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     required_nft_id: Mapped[Optional[int]] = mapped_column(
-        ForeignKey("nfts.id", ondelete="SET NULL"), nullable=True
+        ForeignKey("nfts.id", ondelete="SET NULL", use_alter=True), nullable=True
     )
     prohibited_nft_id: Mapped[Optional[int]] = mapped_column(
-        ForeignKey("nfts.id", ondelete="SET NULL"), nullable=True
+        ForeignKey("nfts.id", ondelete="SET NULL", use_alter=True), nullable=True
     )
     other_conditions: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
@@ -50,7 +50,7 @@ class NFT(Base):
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     image_url: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     condition_id: Mapped[Optional[int]] = mapped_column(
-        ForeignKey("nft_conditions.id", ondelete="SET NULL"), nullable=True
+        ForeignKey("nft_conditions.id", ondelete="SET NULL", use_alter=True), nullable=True
     )
     max_supply: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     minted_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)

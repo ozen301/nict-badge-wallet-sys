@@ -1,7 +1,7 @@
 from __future__ import annotations
 import sys
 from pathlib import Path
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 # ensure project root on sys.path
 repo_root = Path(__file__).resolve().parents[1]
@@ -36,7 +36,7 @@ def main() -> None:
     Base.metadata.create_all(engine)
     Session = get_sessionmaker(engine)
 
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
 
     with Session.begin() as session:
         # Admin
