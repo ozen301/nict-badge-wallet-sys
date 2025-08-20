@@ -49,3 +49,9 @@ class BlockchainTransaction(Base):
         Index("ix_chain_status", "status"),
         Index("ix_chain_type_status", "type", "status"),
     )
+
+    def __repr__(self) -> str:
+        return (
+            f"<BlockchainTransaction(id={self.id}, user_id={self.user_id}, "
+            f"nft_id={self.nft_id}, status='{self.status}', created_at={self.created_at})>"
+        )

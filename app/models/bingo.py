@@ -66,6 +66,12 @@ class BingoCard(Base):
                 return True
         return False
 
+    def __repr__(self) -> str:
+        return (
+            f"<BingoCard(id={self.id}, user_id={self.user_id}, "
+            f"issued_at={self.issued_at}, state='{self.state}')>"
+        )
+
 
 class BingoCell(Base):
     __tablename__ = "bingo_cells"
@@ -99,3 +105,9 @@ class BingoCell(Base):
         ),
         Index("ix_bingo_cells_card", "bingo_card_id"),
     )
+
+    def __repr__(self) -> str:
+        return (
+            f"<BingoCell(id={self.id}, idx={self.idx}, "
+            f"target_nft_id={self.target_nft_id}, state='{self.state}')>"
+        )

@@ -56,15 +56,11 @@ def main() -> None:
             in_app_id="user_01",
             wallet="wallet_01",
             nickname="Alice",
-            created_at=now,
-            updated_at=now,
         )
         user2 = User(
             in_app_id="user_02",
             wallet="wallet_02",
             nickname="Bob",
-            created_at=now,
-            updated_at=now,
         )
         session.add_all([user1, user2])
         session.flush()

@@ -38,6 +38,13 @@ class NFTCondition(Base):
 
     # backrefs set on NFT via foreign keys
 
+    def __repr__(self) -> str:
+        return (
+            f"<NFTCondition(id={self.id}, start_time={self.start_time}, "
+            f"end_time={self.end_time}, location_range='{self.location_range}', "
+            f"updated_at={self.updated_at})>"
+        )
+
 
 class NFT(Base):
     __tablename__ = "nfts"
@@ -74,3 +81,9 @@ class NFT(Base):
             "status IN ('active','inactive','archived')", name="status_enum"
         ),
     )
+
+    def __repr__(self) -> str:
+        return (
+            f"<NFT(id={self.id}, prefix='{self.prefix}', shared_key='{self.shared_key}', "
+            f"name='{self.name}', condition_id={self.condition_id}, updated_at={self.updated_at})>"
+        )

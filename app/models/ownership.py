@@ -47,3 +47,9 @@ class UserNFTOwnership(Base):
         ),  # recommended
         Index("ix_unique_nft_id", "unique_nft_id"),
     )
+
+    def __repr__(self) -> str:
+        return (
+            f"<UserNFTOwnership(id={self.id}, user_id={self.user_id}, "
+            f"nft_id={self.nft_id}, acquired_at={self.acquired_at})>"
+        )

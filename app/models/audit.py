@@ -2,7 +2,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Optional
 from sqlalchemy.orm import Mapped, mapped_column
-from sqlalchemy import Integer, String, DateTime, Text, ForeignKey, CheckConstraint
+from sqlalchemy import Integer, String, DateTime, Text, ForeignKey, CheckConstraint, func
 from . import Base
 
 
@@ -21,7 +21,7 @@ class AuditLog(Base):
     subject_table: Mapped[str] = mapped_column(String(50), nullable=False)
     subject_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     details_json: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    occurred_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     __table_args__ = (
         CheckConstraint(
