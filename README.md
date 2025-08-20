@@ -78,7 +78,8 @@ DEFAULT_SQLITE_URL = "sqlite:///./dev.db"  # default
 
 ## Next Steps
 
-* Add repository methods for querying and updating entities.
+* Add methods for querying and updating entities.
+* Add __repr__ for models.
 * Integrate with API layer.
 * Add Alembic migrations.
 

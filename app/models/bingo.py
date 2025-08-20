@@ -93,7 +93,6 @@ class BingoCell(Base):
     __table_args__ = (
         UniqueConstraint("bingo_card_id", "idx", name="uq_card_idx"),
         CheckConstraint("state IN ('locked','unlocked')", name="state_enum"),
-        CheckConstraint("idx >= 0 AND idx <= 8", name="idx_range_3x3"),
         CheckConstraint(
             "(state = 'locked' AND matched_ownership_id IS NULL) OR (state = 'unlocked' AND matched_ownership_id IS NOT NULL)",
             name="locked_unlocked_consistency",
