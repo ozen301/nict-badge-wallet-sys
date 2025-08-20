@@ -1,6 +1,6 @@
 from __future__ import annotations
 from datetime import datetime
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Any, Optional
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy import (
     Integer,
@@ -10,6 +10,8 @@ from sqlalchemy import (
     ForeignKey,
     CheckConstraint,
     Index,
+    select,
+    func,
 )
 from . import Base
 
@@ -87,3 +89,13 @@ class NFT(Base):
             f"<NFT(id={self.id}, prefix='{self.prefix}', shared_key='{self.shared_key}', "
             f"name='{self.name}', condition_id={self.condition_id}, updated_at={self.updated_at})>"
         )
+
+    @classmethod
+    def count_nfts_by_prefix(cls, session, prefix: str) -> int:
+        stmt = select(func.count()).where(cls.prefix == prefix)
+        return session.scalar(stmt)
+    
+    @classmethod
+    def get_by_prefix(cls, session, prefix: str) -> list["NFT"]:
+        stmt = select(cls).where(cls.prefix == prefix)
+        return session.scalars(stmt).all()

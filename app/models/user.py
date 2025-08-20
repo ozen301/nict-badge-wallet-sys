@@ -3,6 +3,9 @@ from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Optional
 from sqlalchemy.orm import Session, Mapped, mapped_column, relationship
 from sqlalchemy import Integer, String, DateTime, func, select
+
+from .nft import NFT
+from .ownership import UserNFTOwnership
 from . import Base
 
 if TYPE_CHECKING:
@@ -45,14 +48,37 @@ class User(Base):
 
     @classmethod
     def get_by_in_app_id(cls, session: Session, in_app_id: str) -> User | None:
-        return session.scalars(select(cls).where(cls.in_app_id == in_app_id)).first()
+        return session.scalar(select(cls).where(cls.in_app_id == in_app_id))
 
-    def update_nickname(self, session: Session, new_nickname: str) -> None:
+    @classmethod
+    def get_by_wallet(cls, session: Session, wallet: str) -> User | None:
+        return session.scalar(select(cls).where(cls.wallet == wallet))
+
+    def set_nickname(self, new_nickname: str) -> None:
         self.nickname = new_nickname
         self.updated_at = datetime.now(timezone.utc)
-        session.commit()
 
-    def update_password_hash(self, session: Session, new_password_hash: str) -> None:
-        self.password_hash = new_password_hash
+    def set_password_hash(self, new_password_hash: str | None) -> None:
+        if new_password_hash is None:
+            self.password_hash = None
+        else:
+            self.password_hash = new_password_hash
         self.updated_at = datetime.now(timezone.utc)
-        session.commit()
+
+    def verify_password_hash(self, password_hash: str) -> bool:
+        return self.password_hash is not None and self.password_hash == password_hash
+
+    def issue_nft(self, session: Session, nft: NFT) -> None:
+        # minted_count = nft.minted_count if nft.minted_count is not None else 0
+        new_ownership = UserNFTOwnership(
+            user=self,
+            nft=nft,
+            serial_number=nft.minted_count,
+            unique_nft_id=nft.prefix
+            + "-"
+            + str(nft.minted_count),  # Need confirmation on format of unique_nft_id
+            acquired_at=nft.created_at,
+        )
+        self.ownerships.append(new_ownership)
+
+        nft.minted_count += 1  # Increment the minted count

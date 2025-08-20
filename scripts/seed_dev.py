@@ -56,11 +56,16 @@ def main() -> None:
             in_app_id="user_01",
             wallet="wallet_01",
             nickname="Alice",
+            created_at=now,
+            updated_at=now,
         )
         user2 = User(
             in_app_id="user_02",
             wallet="wallet_02",
             nickname="Bob",
+            created_at=now,
+            updated_at=now,
+
         )
         session.add_all([user1, user2])
         session.flush()
@@ -92,12 +97,85 @@ def main() -> None:
             shared_key="shared-key-2",
             name="Restaurant Visit Badge",
             nft_type="event",
-            description="Issued for visiting partner restaurant",
+            description="Issued for visiting partner restaurant #1",
             created_by_admin_id=admin.id,
             created_at=now,
             updated_at=now,
         )
-        session.add_all([nft1, nft2])
+        nft3 = NFT(
+            prefix="prefix-3",
+            shared_key="shared-key-3",
+            name="Coffee Shop Badge",
+            nft_type="event",
+            description="Issued for visiting partner restaurant #2",
+            created_by_admin_id=admin.id,
+            created_at=now,
+            updated_at=now,
+        )
+        nft4 = NFT(
+            prefix="prefix-4",
+            shared_key="shared-key-4",
+            name="Museum Visit Badge",
+            nft_type="event",
+            description="Issued for visiting partner restaurant #3",
+            created_by_admin_id=admin.id,
+            created_at=now,
+            updated_at=now,
+        )
+        nft5 = NFT(
+            prefix="prefix-5",
+            shared_key="shared-key-5",
+            name="Library Badge",
+            nft_type="event",
+            description="Issued for visiting partner restaurant #4",
+            created_by_admin_id=admin.id,
+            created_at=now,
+            updated_at=now,
+        )
+        nft6 = NFT(
+            prefix="prefix-6",
+            shared_key="shared-key-6",
+            name="Park Badge",
+            nft_type="event",
+            description="Issued for visiting partner restaurant #5",
+            created_by_admin_id=admin.id,
+            created_at=now,
+            updated_at=now,
+        )
+        nft7 = NFT(
+            prefix="prefix-7",
+            shared_key="shared-key-7",
+            name="Cinema Badge",
+            nft_type="event",
+            description="Issued for attending partner restaurant #6",
+            created_by_admin_id=admin.id,
+            created_at=now,
+            updated_at=now,
+        )
+        nft8 = NFT(
+            prefix="prefix-8",
+            shared_key="shared-key-8",
+            name="Bookstore Badge",
+            nft_type="event",
+            description="Issued for visiting partner restaurant #7",
+            created_by_admin_id=admin.id,
+            created_at=now,
+            updated_at=now,
+        )
+        nft9 = NFT(
+            prefix="prefix-9",
+            shared_key="shared-key-9",
+            name="Gym Badge",
+            nft_type="event",
+            description="Issued for visiting partner restaurant #8",
+            created_by_admin_id=admin.id,
+            created_at=now,
+            updated_at=now,
+        )
+
+
+
+        session.add_all([nft1, nft2, nft3, nft4, nft5, nft6, nft7, nft8, nft9])
         session.flush()
 
         # Ownerships
@@ -130,6 +208,7 @@ def main() -> None:
 
         # Bingo cells
         cells: list[BingoCell] = []
+        nft_list = [nft2, nft3, nft4, nft5, nft1, nft6, nft7, nft8, nft9]
         for idx in range(9):
             if idx == 4:
                 cell = BingoCell(
@@ -144,7 +223,7 @@ def main() -> None:
                 cell = BingoCell(
                     bingo_card_id=card.id,
                     idx=idx,
-                    target_nft_id=nft2.id,
+                    target_nft_id=nft_list[idx].id,
                     state="locked",
                 )
             cells.append(cell)
