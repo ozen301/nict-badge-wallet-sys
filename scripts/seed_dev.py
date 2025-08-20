@@ -199,7 +199,6 @@ def main() -> None:
         # Bingo card for user1
         card = BingoCard(
             user_id=user1.id,
-            grid_size=3,
             issued_at=now,
             state="active",
         )

@@ -27,7 +27,6 @@ class BingoCard(Base):
     user_id: Mapped[int] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    grid_size: Mapped[int] = mapped_column(Integer, nullable=False, default=3)
     issued_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     state: Mapped[str] = mapped_column(String(20), nullable=False, default="active")
@@ -43,8 +42,6 @@ class BingoCard(Base):
 
     # Convenience helpers (sync ORM)
     def winning_lines(self) -> list[tuple[int, int, int]]:
-        if self.grid_size != 3:
-            return []
         return [
             (0, 1, 2),
             (3, 4, 5),
@@ -103,6 +100,7 @@ class BingoCell(Base):
             "(state = 'locked' AND matched_ownership_id IS NULL) OR (state = 'unlocked' AND matched_ownership_id IS NOT NULL)",
             name="locked_unlocked_consistency",
         ),
+        CheckConstraint("idx >= 0 AND idx <= 8", name="idx_range"),
         Index("ix_bingo_cells_card", "bingo_card_id"),
     )
 

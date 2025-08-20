@@ -79,7 +79,7 @@ DEFAULT_SQLITE_URL = "sqlite:///./dev.db"  # default
 ## Next Steps
 
 * Add methods for querying and updating entities.
-* Add __repr__ for models.
+* Confirmation on format of unique_nft_id.
 * Integrate with API layer.
 * Add Alembic migrations.
 
