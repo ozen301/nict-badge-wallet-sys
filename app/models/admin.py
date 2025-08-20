@@ -29,4 +29,5 @@ class Admin(Base):
 
     @classmethod
     def get_by_paymail(cls, session: Session, paymail: str) -> Admin | None:
+        """Get admin by their paymail address."""
         return session.scalar(select(cls).where(cls.paymail == paymail))

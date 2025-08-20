@@ -92,10 +92,12 @@ class NFT(Base):
 
     @classmethod
     def count_nfts_by_prefix(cls, session, prefix: str) -> int:
+        """Get the count of NFTs with the specified prefix."""
         stmt = select(func.count()).where(cls.prefix == prefix)
         return session.scalar(stmt)
     
     @classmethod
     def get_by_prefix(cls, session, prefix: str) -> list["NFT"]:
+        """Get all NFTs with the specified prefix."""
         stmt = select(cls).where(cls.prefix == prefix)
         return session.scalars(stmt).all()

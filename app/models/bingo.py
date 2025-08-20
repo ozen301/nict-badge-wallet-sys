@@ -40,8 +40,15 @@ class BingoCard(Base):
         CheckConstraint("state IN ('active','completed','expired')", name="state_enum"),
     )
 
-    # Convenience helpers (sync ORM)
+    def __repr__(self) -> str:
+        return (
+            f"<BingoCard(id={self.id}, user_id={self.user_id}, "
+            f"issued_at={self.issued_at}, state='{self.state}')>"
+        )
+
+    # Convenience helpers
     def winning_lines(self) -> list[tuple[int, int, int]]:
+        """Get all possible winning line combinations for a 3x3 bingo card."""
         return [
             (0, 1, 2),
             (3, 4, 5),
@@ -53,21 +60,25 @@ class BingoCard(Base):
             (2, 4, 6),
         ]
 
-    def is_line_complete(self) -> bool:
-        cell_by_idx = {c.idx: c for c in self.cells}
+    def get_completed_lines(self) -> list[tuple[int, int, int]]:
+        """
+        Get all completed lines in the bingo card.
+        
+        Returns
+        -------
+        list[tuple[int, int, int]]
+            List of tuples containing the indices of cells that form completed lines.
+            Each tuple contains three integers representing the positions of cells
+            in a winning line that are all in 'unlocked' state.
+        """
+        result = []
         for a, b, c in self.winning_lines():
             if all(
-                cell_by_idx.get(i) and cell_by_idx[i].state == "unlocked"
-                for i in (a, b, c)
+                cell.state == "unlocked"
+                for cell in (self.cells[a], self.cells[b], self.cells[c])
             ):
-                return True
-        return False
-
-    def __repr__(self) -> str:
-        return (
-            f"<BingoCard(id={self.id}, user_id={self.user_id}, "
-            f"issued_at={self.issued_at}, state='{self.state}')>"
-        )
+                result.append((a, b, c))
+        return result
 
 
 class BingoCell(Base):

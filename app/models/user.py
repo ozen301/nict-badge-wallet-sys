@@ -48,17 +48,21 @@ class User(Base):
 
     @classmethod
     def get_by_in_app_id(cls, session: Session, in_app_id: str) -> User | None:
+        """Get user by their in-app ID."""
         return session.scalar(select(cls).where(cls.in_app_id == in_app_id))
 
     @classmethod
     def get_by_wallet(cls, session: Session, wallet: str) -> User | None:
+        """Get user by their wallet address."""
         return session.scalar(select(cls).where(cls.wallet == wallet))
 
     def set_nickname(self, new_nickname: str) -> None:
+        """Set user's nickname and update timestamp."""
         self.nickname = new_nickname
         self.updated_at = datetime.now(timezone.utc)
 
     def set_password_hash(self, new_password_hash: str | None) -> None:
+        """Set user's password hash and update timestamp."""
         if new_password_hash is None:
             self.password_hash = None
         else:
@@ -66,10 +70,26 @@ class User(Base):
         self.updated_at = datetime.now(timezone.utc)
 
     def verify_password_hash(self, password_hash: str) -> bool:
+        """Verify if the provided password hash matches the stored one."""
         return self.password_hash is not None and self.password_hash == password_hash
 
     def issue_nft(self, session: Session, nft: NFT) -> None:
-        # minted_count = nft.minted_count if nft.minted_count is not None else 0
+        """
+        Issue an NFT to this user.
+
+        Parameters
+        ----------
+        session : Session
+            SQLAlchemy session for database operations
+        nft : NFT
+            The NFT to issue to this user
+
+        Notes
+        -----
+        This method creates a new UserNFTOwnership record linking the user to the NFT,
+        assigns a serial number based on the current minted count, generates a unique
+        NFT ID, and increments the NFT's minted count.
+        """
         new_ownership = UserNFTOwnership(
             user=self,
             nft=nft,
