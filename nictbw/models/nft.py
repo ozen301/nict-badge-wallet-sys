@@ -21,6 +21,17 @@ if TYPE_CHECKING:
     from .chain import BlockchainTransaction
 
 class NFTCondition(Base):
+    def __init__(self, start_time: Optional[datetime] = None, end_time: Optional[datetime] = None, location_range: Optional[str] = None, required_nft_id: Optional[int] = None, prohibited_nft_id: Optional[int] = None, other_conditions: Optional[str] = None, created_at: Optional[datetime] = None, updated_at: Optional[datetime] = None):
+        self.start_time = start_time
+        self.end_time = end_time
+        self.location_range = location_range
+        self.required_nft_id = required_nft_id
+        self.prohibited_nft_id = prohibited_nft_id
+        self.other_conditions = other_conditions
+        if created_at is not None:
+            self.created_at = created_at
+        if updated_at is not None:
+            self.updated_at = updated_at
     __tablename__ = "nft_conditions"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -47,6 +58,23 @@ class NFTCondition(Base):
         )
 
 class NFT(Base):
+    def __init__(self, prefix: str, shared_key: str, name: str, nft_type: str, description: Optional[str] = None, image_url: Optional[str] = None, condition_id: Optional[int] = None, max_supply: Optional[int] = None, minted_count: int = 0, status: str = "active", created_by_admin_id: Optional[int] = None, created_at: Optional[datetime] = None, updated_at: Optional[datetime] = None):
+        self.prefix = prefix
+        self.shared_key = shared_key
+        self.name = name
+        self.nft_type = nft_type
+        self.description = description
+        self.image_url = image_url
+        self.condition_id = condition_id
+        self.max_supply = max_supply
+        self.minted_count = minted_count
+        self.status = status
+        if created_by_admin_id is not None:
+            self.created_by_admin_id = created_by_admin_id
+        if created_at is not None:
+            self.created_at = created_at
+        if updated_at is not None:
+            self.updated_at = updated_at
     __tablename__ = "nfts"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)

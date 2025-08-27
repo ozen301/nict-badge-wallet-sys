@@ -13,6 +13,15 @@ if TYPE_CHECKING:
     from .chain import BlockchainTransaction
 
 class User(Base):
+    def __init__(self, in_app_id: str, wallet: str, nickname: Optional[str] = None, password_hash: Optional[str] = None, created_at: Optional[datetime] = None, updated_at: Optional[datetime] = None):
+        self.in_app_id = in_app_id
+        self.wallet = wallet
+        self.nickname = nickname
+        self.password_hash = password_hash
+        if created_at is not None:
+            self.created_at = created_at
+        if updated_at is not None:
+            self.updated_at = updated_at
     __tablename__ = "users"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -89,14 +98,11 @@ class User(Base):
         NFT ID, and increments the NFT's minted count.
         """
         new_ownership = UserNFTOwnership(
-            user=self,
-            nft=nft,
+            user_id=self.id,
+            nft_id=nft.id,
             serial_number=nft.minted_count,
-            unique_nft_id=nft.prefix
-            + "-"
-            + str(nft.minted_count),  # Need confirmation on format of unique_nft_id
+            unique_nft_id=nft.prefix + "-" + str(nft.minted_count),
             acquired_at=nft.created_at,
         )
         self.ownerships.append(new_ownership)
-
         nft.minted_count += 1  # Increment the minted count

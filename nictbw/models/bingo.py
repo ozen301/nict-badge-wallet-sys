@@ -20,6 +20,11 @@ if TYPE_CHECKING:
     from .ownership import UserNFTOwnership
 
 class BingoCard(Base):
+    def __init__(self, user_id: int, issued_at: datetime, completed_at: Optional[datetime] = None, state: str = "active"):
+        self.user_id = user_id
+        self.issued_at = issued_at
+        self.completed_at = completed_at
+        self.state = state
     __tablename__ = "bingo_cards"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -80,6 +85,13 @@ class BingoCard(Base):
         return result
 
 class BingoCell(Base):
+    def __init__(self, bingo_card_id: int, idx: int, target_nft_id: int, matched_ownership_id: Optional[int] = None, state: str = "locked", unlocked_at: Optional[datetime] = None):
+        self.bingo_card_id = bingo_card_id
+        self.idx = idx
+        self.target_nft_id = target_nft_id
+        self.matched_ownership_id = matched_ownership_id
+        self.state = state
+        self.unlocked_at = unlocked_at
     __tablename__ = "bingo_cells"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
