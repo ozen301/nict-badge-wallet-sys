@@ -76,9 +76,9 @@ DEFAULT_SQLITE_URL = "sqlite:///./dev.db"  # default
 
 ---
 
-## Next Steps
-
+## TODO List
 * Add methods for querying and updating entities.
+* Add bingo card generator that randomizes NFT assignments to cells.
 * Confirmation on format of unique_nft_id.
 * Integrate with API layer.
 * Add Alembic migrations.

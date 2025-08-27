@@ -9,7 +9,6 @@ from .ownership import UserNFTOwnership
 from . import Base
 
 if TYPE_CHECKING:
-    from .ownership import UserNFTOwnership
     from .bingo import BingoCard
     from .chain import BlockchainTransaction
 

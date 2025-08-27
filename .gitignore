@@ -208,3 +208,6 @@ __marimo__/
 
 # dev db
 dev.db
+
+# tests during development
+dev_tests/
