@@ -6,7 +6,7 @@ from typing import Any, Optional, Mapping
 
 
 class ChainClient:
-    def __init__(self, base_fqdn: Optional[str] = None, timeout: int = 15):
+    def __init__(self, base_fqdn: Optional[str] = None, timeout: int = 45):
         load_dotenv()
         fqdn = base_fqdn or os.getenv("BLOCKCHAIN_BASE_FQDN")
         if not fqdn:
@@ -43,6 +43,7 @@ class ChainClient:
         params: Optional[dict] = None,
         json: Optional[dict] = None,
         data: Optional[dict] = None,
+        files: Optional[dict] = None,
     ) -> Any:
         url = urljoin(self.base_url + "/", path.lstrip("/"))
         r = self.session.request(
@@ -52,21 +53,63 @@ class ChainClient:
             params=params,
             json=json,
             data=data,
+            files=files,
             timeout=self.timeout,
         )
         r.raise_for_status()
-        # If some endpoints return non-JSON (e.g., 204), handle gracefully.
         return r.json() if r.content else None
 
-    # -------- API helpers --------
-    def get_user_info(self) -> Any:
+    # -------- API callers --------
+    def get_user_info(self) -> dict:
         return self._request("GET", "/api/v1/user/info", headers=self.auth_headers)
 
-    def get_user_nfts(self, nft_origin: Optional[str] = None) -> Any:
-        params = {"nft_origin": nft_origin} if nft_origin else None
+    def get_user_nfts(self, nft_origin: Optional[str] = None) -> list[dict]:
         return self._request(
             "GET",
             "/api/v1/user/nfts/info",
             headers=self.auth_headers,
-            params=params,
         )
+
+    def get_user_transactions(self) -> list[dict]:
+        return self._request(
+            "GET",
+            "/api/v1/user/transactions",
+            headers=self.auth_headers,
+        )
+
+    def get_user_balance(self) -> dict:
+        return self._request(
+            "GET",
+            "/api/v1/user/wallet/balance",
+            headers=self.auth_headers,
+        )
+
+    def admin_get_user_nfts(self, username: str) -> list[dict]:
+        return self._request(
+            "GET",
+            f"/api/v1/admin/nfts/info/{username}",
+            headers=self.auth_headers,
+        )
+
+    def create_nft(
+        self,
+        app: str,
+        name: str,
+        file_path: str = os.path.join(os.path.dirname(__file__), "yenpoint_logo.png"),
+        recipient_paymail: Optional[str] = None,
+        additional_info: Optional[dict] = None,
+    ) -> dict:
+        with open(file_path, "rb") as f:
+            response = self._request(
+                "POST",
+                "api/v1/nft/create",
+                data={
+                    "app": app,
+                    "name": name,
+                    "recipient_paymail": recipient_paymail,
+                    "additional_info": additional_info,
+                },
+                files={"file": f},
+                headers=self.auth_headers,
+            )
+        return response
