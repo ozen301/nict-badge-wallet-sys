@@ -1,9 +1,16 @@
 from __future__ import annotations
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from .metadata import metadata_obj
 
-DEFAULT_SQLITE_URL = "sqlite:///./dev.db"
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+DEFAULT_SQLITE_URL = os.getenv("DATABASE_URL", "sqlite:///./dev.db")
+
 
 def make_engine(database_url: str | None = None, echo: bool = False):
     url = database_url or DEFAULT_SQLITE_URL

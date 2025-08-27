@@ -6,7 +6,7 @@ from dotenv import load_dotenv, find_dotenv
 logger = logging.getLogger(__name__)
 
 def load_environment():
-    load_dotenv(find_dotenv())
+    load_dotenv()
 
 def open_session():
     fqdn = os.environ.get("BLOCKCHAIN_BASE_FQDN")
