@@ -20,7 +20,6 @@ if TYPE_CHECKING:
     from .bingo import BingoCell
     from .chain import BlockchainTransaction
 
-
 class NFTCondition(Base):
     __tablename__ = "nft_conditions"
 
@@ -46,7 +45,6 @@ class NFTCondition(Base):
             f"end_time={self.end_time}, location_range='{self.location_range}', "
             f"updated_at={self.updated_at})>"
         )
-
 
 class NFT(Base):
     __tablename__ = "nfts"

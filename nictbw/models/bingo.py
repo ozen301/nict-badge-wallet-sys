@@ -19,7 +19,6 @@ if TYPE_CHECKING:
     from .nft import NFT
     from .ownership import UserNFTOwnership
 
-
 class BingoCard(Base):
     __tablename__ = "bingo_cards"
 
@@ -79,7 +78,6 @@ class BingoCard(Base):
             ):
                 result.append((a, b, c))
         return result
-
 
 class BingoCell(Base):
     __tablename__ = "bingo_cells"

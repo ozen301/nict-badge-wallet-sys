@@ -5,7 +5,6 @@ from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy import Integer, String, DateTime, Text, ForeignKey, CheckConstraint, func
 from . import Base
 
-
 class AuditLog(Base):
     __tablename__ = "audit_logs"
 

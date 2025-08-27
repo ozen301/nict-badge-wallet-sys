@@ -5,7 +5,6 @@ from .metadata import metadata_obj
 
 DEFAULT_SQLITE_URL = "sqlite:///./dev.db"
 
-
 def make_engine(database_url: str | None = None, echo: bool = False):
     url = database_url or DEFAULT_SQLITE_URL
     # SQLite pragmas for better dev defaults
@@ -25,7 +24,6 @@ def make_engine(database_url: str | None = None, echo: bool = False):
             cursor.close()
 
     return engine
-
 
 def get_sessionmaker(engine):
     return sessionmaker(

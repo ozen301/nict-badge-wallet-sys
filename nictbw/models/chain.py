@@ -17,7 +17,6 @@ if TYPE_CHECKING:
     from .user import User
     from .nft import NFT
 
-
 class BlockchainTransaction(Base):
     __tablename__ = "blockchain_transactions"
 

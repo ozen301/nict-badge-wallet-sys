@@ -18,7 +18,6 @@ if TYPE_CHECKING:
     from .nft import NFT
     from .bingo import BingoCell
 
-
 class UserNFTOwnership(Base):
     __tablename__ = "user_nft_ownership"
 
@@ -37,7 +36,7 @@ class UserNFTOwnership(Base):
     user: Mapped["User"] = relationship(back_populates="ownerships")
     nft: Mapped["NFT"] = relationship(back_populates="ownerships")
     matched_cells: Mapped[list["BingoCell"]] = relationship(
-        back_populates="matched_ownership"
+        back_populates="matched_cells"
     )
 
     __table_args__ = (

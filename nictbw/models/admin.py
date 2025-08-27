@@ -5,7 +5,6 @@ from sqlalchemy.orm import Mapped, mapped_column, Session
 from sqlalchemy import Integer, String, DateTime, func, select
 from . import Base
 
-
 class Admin(Base):
     __tablename__ = "admins"
 

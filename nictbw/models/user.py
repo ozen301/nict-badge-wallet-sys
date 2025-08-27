@@ -12,7 +12,6 @@ if TYPE_CHECKING:
     from .bingo import BingoCard
     from .chain import BlockchainTransaction
 
-
 class User(Base):
     __tablename__ = "users"
 
