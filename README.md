@@ -34,17 +34,17 @@ nict-badge-wallet-sys/
 │  └─ seed_dev.py       # seed dev data
 ├─ tests/               # (planned) unit tests
 ├─ README.md
-└─ pyproject.toml / requirements.txt
+└─ requirements.txt
 ```
 
 ---
 
 ## Quick Start
 
-### 1. Install dependencies
+### 1. Install the library (editable mode)
 
 ```bash
-pip install -r requirements.txt
+pip install -e .
 ```
 
 ### 2. Initialize the database
@@ -79,6 +79,9 @@ DEFAULT_SQLITE_URL = "sqlite:///./dev.db"  # default
 ## TODO List
 * Add methods for querying and updating entities.
 * Add bingo card generator that randomizes NFT assignments to cells.
+* Update old files to adopt dotenv.
+* Switch to @property instead of getter/setter methods for models.
+* Update module imports to Python package style.
 * Confirmation on format of unique_nft_id.
 * Integrate with API layer.
 * Add Alembic migrations.
