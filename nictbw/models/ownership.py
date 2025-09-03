@@ -43,7 +43,7 @@ class UserNFTOwnership(Base):
     user: Mapped["User"] = relationship(back_populates="ownerships")
     nft: Mapped["NFT"] = relationship(back_populates="ownerships")
     matched_cells: Mapped[list["BingoCell"]] = relationship(
-        back_populates="matched_cells"
+        back_populates="matched_ownership"
     )
 
     __table_args__ = (

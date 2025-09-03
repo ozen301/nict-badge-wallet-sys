@@ -60,31 +60,32 @@ class ChainClient:
         return r.json() if r.content else None
 
     # -------- API callers --------
-    def get_user_info(self) -> dict:
+    def get_self_info(self) -> dict:
         return self._request("GET", "/api/v1/user/info", headers=self.auth_headers)
 
-    def get_user_nfts(self, nft_origin: Optional[str] = None) -> list[dict]:
+    def get_self_nfts(self, nft_origin: Optional[str] = None) -> list[dict]:
         return self._request(
             "GET",
             "/api/v1/user/nfts/info",
             headers=self.auth_headers,
         )
 
-    def get_user_transactions(self) -> list[dict]:
+    def get_self_transactions(self) -> list[dict]:
         return self._request(
             "GET",
             "/api/v1/user/transactions",
             headers=self.auth_headers,
         )
 
-    def get_user_balance(self) -> dict:
+    def get_self_balance(self) -> dict:
         return self._request(
             "GET",
             "/api/v1/user/wallet/balance",
             headers=self.auth_headers,
         )
 
-    def admin_get_user_nfts(self, username: str) -> list[dict]:
+    def get_user_nfts(self, username: str) -> list[dict]:
+        # Get NFTs owned by a specific user using admin privileges.
         return self._request(
             "GET",
             f"/api/v1/admin/nfts/info/{username}",

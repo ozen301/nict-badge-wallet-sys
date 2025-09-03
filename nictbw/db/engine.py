@@ -32,7 +32,11 @@ def make_engine(database_url: str | None = None, echo: bool = False):
 
     return engine
 
+
 def get_sessionmaker(engine):
     return sessionmaker(
-        bind=engine, autoflush=False, expire_on_commit=False, future=True
+        bind=engine,
+        autoflush=False,
+        expire_on_commit=False,  # Keep objects accessible after commit for dev convenience
+        future=True,
     )

@@ -1,7 +1,8 @@
 from __future__ import annotations
+from sqlalchemy.orm import DeclarativeBase
 from nictbw.db.metadata import metadata_obj
 
-class Base:
+class Base(DeclarativeBase):
     metadata = metadata_obj
 
 # import models so Alembic/autoloaders can discover mappers

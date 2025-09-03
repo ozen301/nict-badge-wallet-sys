@@ -1,7 +1,7 @@
 from __future__ import annotations
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Optional
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Session, Mapped, mapped_column, relationship
 from sqlalchemy import (
     Integer,
     String,
@@ -20,8 +20,19 @@ if TYPE_CHECKING:
     from .bingo import BingoCell
     from .chain import BlockchainTransaction
 
+
 class NFTCondition(Base):
-    def __init__(self, start_time: Optional[datetime] = None, end_time: Optional[datetime] = None, location_range: Optional[str] = None, required_nft_id: Optional[int] = None, prohibited_nft_id: Optional[int] = None, other_conditions: Optional[str] = None, created_at: Optional[datetime] = None, updated_at: Optional[datetime] = None):
+    def __init__(
+        self,
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None,
+        location_range: Optional[str] = None,
+        required_nft_id: Optional[int] = None,
+        prohibited_nft_id: Optional[int] = None,
+        other_conditions: Optional[str] = None,
+        created_at: Optional[datetime] = None,
+        updated_at: Optional[datetime] = None,
+    ):
         self.start_time = start_time
         self.end_time = end_time
         self.location_range = location_range
@@ -32,6 +43,7 @@ class NFTCondition(Base):
             self.created_at = created_at
         if updated_at is not None:
             self.updated_at = updated_at
+
     __tablename__ = "nft_conditions"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -57,8 +69,24 @@ class NFTCondition(Base):
             f"updated_at={self.updated_at})>"
         )
 
+
 class NFT(Base):
-    def __init__(self, prefix: str, shared_key: str, name: str, nft_type: str, description: Optional[str] = None, image_url: Optional[str] = None, condition_id: Optional[int] = None, max_supply: Optional[int] = None, minted_count: int = 0, status: str = "active", created_by_admin_id: Optional[int] = None, created_at: Optional[datetime] = None, updated_at: Optional[datetime] = None):
+    def __init__(
+        self,
+        prefix: str,
+        shared_key: str,
+        name: str,
+        nft_type: str,
+        description: Optional[str] = None,
+        image_url: Optional[str] = None,
+        condition_id: Optional[int] = None,
+        max_supply: Optional[int] = None,
+        minted_count: int = 0,
+        status: str = "active",
+        created_by_admin_id: Optional[int] = None,
+        created_at: Optional[datetime] = None,
+        updated_at: Optional[datetime] = None,
+    ):
         self.prefix = prefix
         self.shared_key = shared_key
         self.name = name
@@ -75,6 +103,7 @@ class NFT(Base):
             self.created_at = created_at
         if updated_at is not None:
             self.updated_at = updated_at
+
     __tablename__ = "nfts"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -85,7 +114,8 @@ class NFT(Base):
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     image_url: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     condition_id: Mapped[Optional[int]] = mapped_column(
-        ForeignKey("nft_conditions.id", ondelete="SET NULL", use_alter=True), nullable=True
+        ForeignKey("nft_conditions.id", ondelete="SET NULL", use_alter=True),
+        nullable=True,
     )
     max_supply: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     minted_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
@@ -97,7 +127,9 @@ class NFT(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
 
     # relationships
-    condition: Mapped[Optional[NFTCondition]] = relationship(foreign_keys=[condition_id])
+    condition: Mapped[Optional[NFTCondition]] = relationship(
+        foreign_keys=[condition_id]
+    )
     ownerships: Mapped[list["UserNFTOwnership"]] = relationship(back_populates="nft")
     target_cells: Mapped[list["BingoCell"]] = relationship(back_populates="target_nft")
     chain_txs: Mapped[list["BlockchainTransaction"]] = relationship(
@@ -117,13 +149,18 @@ class NFT(Base):
         )
 
     @classmethod
-    def count_nfts_by_prefix(cls, session, prefix: str) -> int:
+    def count_nfts_by_prefix(cls, session: Session, prefix: str) -> int:
         """Get the count of NFTs with the specified prefix."""
         stmt = select(func.count()).where(cls.prefix == prefix)
-        return session.scalar(stmt)
-    
+        res = session.scalar(stmt)
+        return res or 0
+
     @classmethod
-    def get_by_prefix(cls, session, prefix: str) -> list["NFT"]:
-        """Get all NFTs with the specified prefix."""
+    def get_by_prefix(cls, session: Session, prefix: str) -> Optional["NFT"]:
+        """Get the first NFT with the specified prefix."""
         stmt = select(cls).where(cls.prefix == prefix)
-        return session.scalars(stmt).all()
+        return session.scalar(stmt)
+
+    def count_same_prefix_nfts(self, session: Session) -> int:
+        """Get the count of NFTs with the same prefix as this NFT."""
+        return NFT.count_nfts_by_prefix(session, self.prefix)
