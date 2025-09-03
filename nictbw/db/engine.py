@@ -5,11 +5,16 @@ from sqlalchemy.orm import sessionmaker
 from .metadata import metadata_obj
 
 import os
+from pathlib import Path
 from dotenv import load_dotenv
+from .utils import resolve_sqlite_url
 
+# Get DB url
 load_dotenv()
-
-DEFAULT_SQLITE_URL = os.getenv("DATABASE_URL", "sqlite:///./dev.db")
+ROOT_DIR = Path(__file__).resolve().parents[3]
+DEFAULT_SQLITE_URL = resolve_sqlite_url(
+    os.getenv("DATABASE_URL", "sqlite:///./dev.db"), ROOT_DIR
+)
 
 
 def make_engine(database_url: str | None = None, echo: bool = False):
@@ -20,15 +25,15 @@ def make_engine(database_url: str | None = None, echo: bool = False):
         echo=echo,
         future=True,
     )
-    if url.startswith("sqlite"):
-        # ensure FK constraints are enforced on SQLite
-        from sqlalchemy import event
+    # if url.startswith("sqlite"):
+    #     # ensure FK constraints are enforced on SQLite
+    #     from sqlalchemy import event
 
-        @event.listens_for(engine, "connect")
-        def _set_sqlite_pragma(dbapi_connection, connection_record):
-            cursor = dbapi_connection.cursor()
-            cursor.execute("PRAGMA foreign_keys=ON")
-            cursor.close()
+    #     @event.listens_for(engine, "connect")
+    #     def _set_sqlite_pragma(dbapi_connection, connection_record):
+    #         cursor = dbapi_connection.cursor()
+    #         cursor.execute("PRAGMA foreign_keys=ON")
+    #         cursor.close()
 
     return engine
 
@@ -36,7 +41,7 @@ def make_engine(database_url: str | None = None, echo: bool = False):
 def get_sessionmaker(engine):
     return sessionmaker(
         bind=engine,
-        autoflush=False,
+        # autoflush=False,
         expire_on_commit=False,  # Keep objects accessible after commit for dev convenience
         future=True,
     )

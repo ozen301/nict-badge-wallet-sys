@@ -118,6 +118,7 @@ class User(Base):
         )
         self.ownerships.append(new_ownership)
         nft.minted_count += 1  # Increment the minted count
+        session.add(new_ownership)
 
     def sync_nfts_from_chain(
         self, session: Session, client: ChainClient | None = None
@@ -166,7 +167,7 @@ class User(Base):
                 )
 
         # Remove stale ownerships
-        # TODO: need to confirm if this is necessary
+        # TODO: confirm if this is necessary
         # for uid, ownership in existing_ownerships.items():
         #     if uid not in nft_origins_on_chain:
         #         session.delete(ownership)

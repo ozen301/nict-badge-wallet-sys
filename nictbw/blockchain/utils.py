@@ -1,12 +1,14 @@
 import os
 import logging
 import requests
-from dotenv import load_dotenv, find_dotenv
+from dotenv import load_dotenv
 
 logger = logging.getLogger(__name__)
 
+
 def load_environment():
     load_dotenv()
+
 
 def open_session():
     fqdn = os.environ.get("BLOCKCHAIN_BASE_FQDN")
@@ -35,6 +37,7 @@ def open_session():
 
     except Exception as e:
         logger.critical(f"Error occurred while starting session: {e}")
+
 
 def get_jwt_token(session):
     # Get login credentials from environment variables

@@ -1,38 +1,17 @@
 # NICT Badge & Wallet System
 
-This repository implements the **Badge & Wallet System** for the NICT project by Tohoku University. It manages NFT-based badges, bingo cards, and blockchain transaction logs.
-
-## Overview
-
-### Key Features
-
-* **Integrated Database** using SQLAlchemy ORM 2.0.
-* **SQLite** for development (easy to switch to other databases).
-* **Entities**:
-
-  * Admins, Users
-  * NFTs, NFT Conditions
-  * NFT Ownership Tracking
-  * Bingo Cards & Cells
-  * Blockchain Transactions
-  * Audit Logs
-
----
+This repository implements the **Badge & Wallet System** for the NICT project by Tohoku University. It manages NFT-based badges, bingo cards, and blockchain transactions.
 
 ## Project Structure
 
 ```
 nict-badge-wallet-sys/
-├─ app/
-│  ├─ db/               # DB engine, session, metadata
+├─ nictbw/
+│  ├─ db/               # DB engine, session, metadata, utilities
 │  ├─ models/           # SQLAlchemy ORM 2.0 models
-│  ├─ repositories/     # (planned) data access helpers
-│  ├─ services/         # (planned) domain logic (bingo, NFT minting, etc.)
-│  └─ utils/            # utility functions
 ├─ scripts/
 │  ├─ init_db.py        # create all tables in local SQLite
 │  └─ seed_dev.py       # seed dev data
-├─ tests/               # (planned) unit tests
 ├─ README.md
 └─ requirements.txt
 ```
@@ -41,7 +20,7 @@ nict-badge-wallet-sys/
 
 ## Quick Start
 
-### 1. Install the library (editable mode)
+### 1. Install the library (in editable mode)
 
 ```bash
 pip install -e .
@@ -68,10 +47,10 @@ Created tables: admins, users, nft_conditions, nfts, user_nft_ownership, bingo_c
 
 ## Switching Databases
 
-Change the DB URL in `app/db/engine.py`:
+Change the DB URL in `nictbw/db/engine.py`:
 
 ```python
-DEFAULT_SQLITE_URL = "sqlite:///./dev.db"  # default
+DEFAULT_SQLITE_URL = "sqlite:///./dev.db"  # SQLite by default
 ```
 
 ---
@@ -83,7 +62,6 @@ DEFAULT_SQLITE_URL = "sqlite:///./dev.db"  # default
 * Switch to @property instead of getter/setter methods for models.
 * Update module imports to Python package style.
 * Confirmation on format of unique_nft_id.
-* Integrate with API layer.
-* Add Alembic migrations.
-
+* Integrate with App API.
+* Add Alembic.
 ---
