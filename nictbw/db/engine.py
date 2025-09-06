@@ -11,9 +11,10 @@ from .utils import resolve_sqlite_url
 
 # Get DB url
 load_dotenv()
-ROOT_DIR = Path(__file__).resolve().parents[3]
+# Project root directory (repo root)
+ROOT_DIR = Path(__file__).resolve().parents[2]
 DEFAULT_SQLITE_URL = resolve_sqlite_url(
-    os.getenv("DATABASE_URL", "sqlite:///./dev.db"), ROOT_DIR
+    os.getenv("DB_URL", "sqlite:///./dev.db"), ROOT_DIR
 )
 
 
