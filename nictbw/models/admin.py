@@ -5,8 +5,17 @@ from sqlalchemy.orm import Mapped, mapped_column, Session
 from sqlalchemy import Integer, String, DateTime, func, select
 from . import Base
 
+
 class Admin(Base):
-    def __init__(self, paymail: str, password_hash: str, name: Optional[str] = None, role: Optional[str] = None, created_at: Optional[datetime] = None, updated_at: Optional[datetime] = None):
+    def __init__(
+        self,
+        paymail: str,
+        password_hash: str,
+        name: Optional[str] = None,
+        role: Optional[str] = None,
+        created_at: Optional[datetime] = None,
+        updated_at: Optional[datetime] = None,
+    ):
         self.paymail = paymail
         self.password_hash = password_hash
         self.name = name
@@ -15,6 +24,7 @@ class Admin(Base):
             self.created_at = created_at
         if updated_at is not None:
             self.updated_at = updated_at
+
     __tablename__ = "admins"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)

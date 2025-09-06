@@ -97,7 +97,7 @@ class ChainClient:
         """
         Retrieve NFT data by origin.
 
-        data_format: "binary" (default) or "base_64".
+        data_format: "binary" (default) or "base64".
         """
         return_in_json = False if data_format == "binary" else True
         return self._request(

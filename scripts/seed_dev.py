@@ -43,7 +43,7 @@ def main() -> None:
         admin = Admin(
             paymail="admin@example.com",
             password_hash="dev-hash",
-            name="DevAdmin",
+            name="test1",
             role="superuser",
             created_at=now,
             updated_at=now,
@@ -65,7 +65,6 @@ def main() -> None:
             nickname="Bob",
             created_at=now,
             updated_at=now,
-
         )
         session.add_all([user1, user2])
         session.flush()
@@ -172,8 +171,6 @@ def main() -> None:
             created_at=now,
             updated_at=now,
         )
-
-
 
         session.add_all([nft1, nft2, nft3, nft4, nft5, nft6, nft7, nft8, nft9])
         session.flush()

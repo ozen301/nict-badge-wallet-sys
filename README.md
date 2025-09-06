@@ -85,6 +85,8 @@ Any URL supported by SQLAlchemy is valid here.
 ---
 
 ## TODO
+* Update `sync_nfts_from_chain` method in `user.py` to include newly added NFT fields.
+* Switch to type checking imports instead of runtime imports for some modules.
 * Add methods for querying and updating entities.
 * Add docstrings and comments.
 * Add bingo card generator that randomizes NFT assignments to cells.
