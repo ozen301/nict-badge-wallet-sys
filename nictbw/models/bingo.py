@@ -72,18 +72,15 @@ class BingoCard(Base):
             (2, 4, 6),
         ]
 
-    def get_completed_lines(self) -> list[tuple[int, int, int]]:
-        """
-        Get all completed lines in the bingo card.
+    @property
+    def completed_lines(self) -> list[tuple[int, int, int]]:
+        """All completed lines in the bingo card.
 
-        Returns
-        -------
-        list[tuple[int, int, int]]
-            List of tuples containing the indices of cells that form completed lines.
-            Each tuple contains three integers representing the positions of cells
-            in a winning line that are all in 'unlocked' state.
+        The result is a list of tuples containing the indices of cells that form
+        completed lines. Each tuple represents the positions of cells in a winning
+        line that are all in ``"unlocked"`` state.
         """
-        result = []
+        result: list[tuple[int, int, int]] = []
         for a, b, c in self.winning_lines():
             if all(
                 cell.state == "unlocked"

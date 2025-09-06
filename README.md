@@ -66,7 +66,6 @@ Any URL supported by SQLAlchemy is valid here.
 * Add methods for querying and updating entities.
 * Add bingo card generator that randomizes NFT assignments to cells.
 * Include NFT metadata in blockchain related operations.
-* Switch to @property instead of getter/setter methods for models.
 * Update module imports to Python package style.
 * Confirmation on format of unique_nft_id.
 * Integrate with App API.
