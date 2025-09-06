@@ -42,8 +42,8 @@ def open_session():
 def get_jwt_token(session):
     # Get login credentials from environment variables
     credential = {
-        "username": os.environ.get("SERVER_MANAGEMENT_USERNAME"),
-        "password": os.environ.get("SERVER_MANAGEMENT_PASSWORD"),
+        "username": os.environ.get("BLOCKCHAIN_ADMIN_USERNAME"),
+        "password": os.environ.get("BLOCKCHAIN_ADMIN_PASSWORD"),
     }
     logger.debug(f"Login with credentials: {credential}")
 
