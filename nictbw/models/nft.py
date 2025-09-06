@@ -77,6 +77,9 @@ class NFT(Base):
         shared_key: str,
         name: str,
         nft_type: str,
+        id_on_chain: Optional[int] = None,
+        origin: Optional[str] = None,
+        current_location: Optional[str] = None,
         description: Optional[str] = None,
         image_url: Optional[str] = None,
         condition_id: Optional[int] = None,
@@ -91,6 +94,9 @@ class NFT(Base):
         self.shared_key = shared_key
         self.name = name
         self.nft_type = nft_type
+        self.id_on_chain = id_on_chain
+        self.origin = origin
+        self.current_location = current_location
         self.description = description
         self.image_url = image_url
         self.condition_id = condition_id
@@ -111,6 +117,9 @@ class NFT(Base):
     shared_key: Mapped[str] = mapped_column(String(255), nullable=False)
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     nft_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    id_on_chain: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    origin: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
+    current_location: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     image_url: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     condition_id: Mapped[Optional[int]] = mapped_column(

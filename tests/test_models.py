@@ -114,7 +114,7 @@ class DBTestCase(unittest.TestCase):
             self.assertEqual(len(user.ownerships), 0)
 
             # Act
-            user.issue_nft(session, nft)
+            user.issue_nft_dbwise(session, nft)
             session.commit()
 
             # Verify minted_count incremented

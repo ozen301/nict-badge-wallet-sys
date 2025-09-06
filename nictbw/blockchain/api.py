@@ -44,6 +44,7 @@ class ChainClient:
         json: Optional[dict] = None,
         data: Optional[dict] = None,
         files: Optional[dict] = None,
+        return_in_json: bool = True,
     ) -> Any:
         url = urljoin(self.base_url + "/", path.lstrip("/"))
         r = self.session.request(
@@ -57,31 +58,54 @@ class ChainClient:
             timeout=self.timeout,
         )
         r.raise_for_status()
+        if not return_in_json:
+            return r.content
         return r.json() if r.content else None
 
     # -------- API callers --------
-    def get_self_info(self) -> dict:
+    @property
+    def info(self) -> dict:
         return self._request("GET", "/api/v1/user/info", headers=self.auth_headers)
 
-    def get_self_nfts(self, nft_origin: Optional[str] = None) -> list[dict]:
+    @property
+    def balance(self) -> dict:
+        return self._request(
+            "GET",
+            "/api/v1/user/wallet/balance",
+            headers=self.auth_headers,
+        )
+
+    @property
+    def nfts(self) -> list[dict]:
         return self._request(
             "GET",
             "/api/v1/user/nfts/info",
             headers=self.auth_headers,
         )
 
-    def get_self_transactions(self) -> list[dict]:
+    @property
+    def transactions(self) -> list[dict]:
         return self._request(
             "GET",
             "/api/v1/user/transactions",
             headers=self.auth_headers,
         )
 
-    def get_self_balance(self) -> dict:
+    def get_nft_info(
+        self, nft_origin: str, data_format: Optional[str] = "binary"
+    ) -> dict:
+        """
+        Retrieve NFT data by origin.
+
+        data_format: "binary" (default) or "base_64".
+        """
+        return_in_json = False if data_format == "binary" else True
         return self._request(
             "GET",
-            "/api/v1/user/wallet/balance",
+            f"/api/v1/admin/nft/data/{nft_origin}",
             headers=self.auth_headers,
+            params={"data_format": data_format},
+            return_in_json=return_in_json,
         )
 
     def get_user_nfts(self, username: str) -> list[dict]:

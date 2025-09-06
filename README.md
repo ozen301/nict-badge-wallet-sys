@@ -86,6 +86,7 @@ Any URL supported by SQLAlchemy is valid here.
 
 ## TODO
 * Add methods for querying and updating entities.
+* Add docstrings and comments.
 * Add bingo card generator that randomizes NFT assignments to cells.
 * Include NFT metadata in blockchain related operations.
 * Update module imports to Python package style.

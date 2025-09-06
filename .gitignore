@@ -211,3 +211,6 @@ dev.db
 
 # tests during development
 dev_tests/
+
+# development notes
+dev_memo.md

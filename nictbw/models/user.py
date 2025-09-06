@@ -92,9 +92,9 @@ class User(Base):
         """Verify if the provided password hash matches the stored one."""
         return self.password_hash is not None and self.password_hash == password_hash
 
-    def issue_nft(self, session: Session, nft: NFT) -> None:
+    def issue_nft_dbwise(self, session: Session, nft: NFT) -> None:
         """
-        Issue an NFT to this user.
+        Issue an NFT to this user in the database. This does not interact with the blockchain.
 
         Parameters
         ----------
