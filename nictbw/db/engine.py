@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from .metadata import metadata_obj
@@ -18,7 +16,10 @@ DEFAULT_SQLITE_URL = resolve_sqlite_url(
 )
 
 
-def make_engine(database_url: str | None = None, echo: bool = False):
+from typing import Optional
+
+
+def make_engine(database_url: Optional[str] = None, echo: bool = False):
     url = database_url or DEFAULT_SQLITE_URL
     # SQLite pragmas for better dev defaults
     engine = create_engine(

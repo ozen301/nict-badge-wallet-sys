@@ -1,4 +1,3 @@
-from __future__ import annotations
 from datetime import datetime
 from typing import Optional
 from sqlalchemy.orm import Mapped, mapped_column, Session
@@ -46,6 +45,6 @@ class Admin(Base):
         )
 
     @classmethod
-    def get_by_paymail(cls, session: Session, paymail: str) -> Admin | None:
+    def get_by_paymail(cls, session: Session, paymail: str) -> Optional['Admin']:
         """Get admin by their paymail address."""
         return session.scalar(select(cls).where(cls.paymail == paymail))

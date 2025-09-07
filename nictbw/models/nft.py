@@ -1,4 +1,3 @@
-from __future__ import annotations
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Optional
 from sqlalchemy.orm import Session, Mapped, mapped_column, relationship
@@ -207,7 +206,7 @@ class NFT(Base):
     def mint_on_chain(
         self,
         session: Session,
-        client: Optional[ChainClient] = None,
+        client: Optional['ChainClient'] = None,
         *,
         app: str,
         recipient_paymail: Optional[str] = None,

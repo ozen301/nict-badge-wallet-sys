@@ -1,16 +1,14 @@
-from __future__ import annotations
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Optional
 from sqlalchemy.orm import Session, Mapped, mapped_column, relationship
 from sqlalchemy import Integer, String, DateTime, func, select
-
-from nictbw.blockchain.api import ChainClient
 
 from .nft import NFT
 from .ownership import UserNFTOwnership
 from . import Base
 
 if TYPE_CHECKING:
+    from nictbw.blockchain.api import ChainClient
     from .bingo import BingoCard
     from .chain import BlockchainTransaction
 
@@ -71,12 +69,12 @@ class User(Base):
         )
 
     @classmethod
-    def get_by_in_app_id(cls, session: Session, in_app_id: str) -> User | None:
+    def get_by_in_app_id(cls, session: Session, in_app_id: str) -> Optional['User']:
         """Get user by their in-app ID."""
         return session.scalar(select(cls).where(cls.in_app_id == in_app_id))
 
     @classmethod
-    def get_by_wallet(cls, session: Session, wallet: str) -> User | None:
+    def get_by_wallet(cls, session: Session, wallet: str) -> Optional['User']:
         """Get user by their wallet address."""
         return session.scalar(select(cls).where(cls.wallet == wallet))
 
@@ -85,7 +83,7 @@ class User(Base):
         self.nickname = new_nickname
         self.updated_at = datetime.now(timezone.utc)
 
-    def set_password_hash(self, new_password_hash: str | None) -> None:
+    def set_password_hash(self, new_password_hash: Optional[str]) -> None:
         """Set user's password hash and update timestamp."""
         if new_password_hash is None:
             self.password_hash = None
@@ -126,13 +124,15 @@ class User(Base):
         session.add(new_ownership)
 
     def sync_nfts_from_chain(
-        self, session: Session, client: Optional[ChainClient] = None
+        self, session: Session, client: Optional['ChainClient'] = None
     ) -> None:
         """Refresh this user's NFT ownership using the blockchain API."""
         if self.on_chain_id is None:
             raise ValueError("User does not have an on-chain ID set.")
 
+        from nictbw.blockchain.api import ChainClient
         client = client or ChainClient()
+
         chain_items = client.get_user_nfts(self.on_chain_id)
 
         existing_nft_origins = {o.nft.origin: o for o in self.ownerships}
@@ -183,8 +183,8 @@ class User(Base):
         # for ownership in self.ownerships:
         #     if ownership.nft.origin not in on_chain_nft_origins:
         #         session.delete(ownership)
-        # This will remove ownerships that are in the DB but not on chain,
-        # This works because ownerships are set to "ON DELETE CASCADE".
+        # This will remove ownerships that are in the DB but not on chain.
+        # It works because ownerships are set to "ON DELETE CASCADE".
 
         session.flush()
 

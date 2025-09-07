@@ -1,4 +1,3 @@
-from __future__ import annotations
 from datetime import datetime
 from typing import Iterable, TYPE_CHECKING, Optional
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -117,7 +116,7 @@ class BingoCell(Base):
     target_nft_id: Mapped[int] = mapped_column(
         ForeignKey("nfts.id", ondelete="RESTRICT"), nullable=False, index=True
     )
-    matched_ownership_id: Mapped[int | None] = mapped_column(
+    matched_ownership_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("user_nft_ownership.id", ondelete="SET NULL"), nullable=True
     )
     state: Mapped[str] = mapped_column(String(20), nullable=False, default="locked")
