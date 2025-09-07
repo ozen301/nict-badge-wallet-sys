@@ -1,14 +1,7 @@
-import sys
-from pathlib import Path
 from datetime import datetime, timedelta, timezone
 
-# ensure project root on sys.path
-repo_root = Path(__file__).resolve().parents[1]
-if str(repo_root) not in sys.path:
-    sys.path.insert(0, str(repo_root))
-
-from nictbw.db.engine import make_engine
 from sqlalchemy.orm import sessionmaker
+from nictbw.db.engine import make_engine
 from nictbw.models import (
     Base,
     Admin,

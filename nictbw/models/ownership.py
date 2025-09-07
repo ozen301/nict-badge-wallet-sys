@@ -59,7 +59,7 @@ class UserNFTOwnership(Base):
         UniqueConstraint("user_id", "nft_id", name="uq_user_nft"),
         UniqueConstraint(
             "nft_id", "serial_number", name="uq_nft_serial"
-        ),  # recommended
+        ),
         Index("ix_unique_nft_id", "unique_nft_id"),
     )
 

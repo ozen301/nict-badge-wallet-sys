@@ -1,8 +1,10 @@
 from sqlalchemy.orm import DeclarativeBase
 from nictbw.db.metadata import metadata_obj
 
+
 class Base(DeclarativeBase):
     metadata = metadata_obj
+
 
 # import models so Alembic/autoloaders can discover mappers
 from .admin import Admin  # noqa: F401

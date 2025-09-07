@@ -1,8 +1,9 @@
 import os
-from urllib.parse import urljoin
 from dotenv import load_dotenv
-from .utils import open_session, get_jwt_token
+from urllib.parse import urljoin
 from typing import Any, Optional, Mapping
+
+from .utils import open_session, get_jwt_token
 
 
 class ChainClient:
@@ -137,7 +138,7 @@ class ChainClient:
 
     def get_nft_info(
         self, nft_origin: str, data_format: Optional[str] = "binary"
-    ) -> dict:
+    ) -> Any:
         """
         Retrieve NFT data by origin.
 

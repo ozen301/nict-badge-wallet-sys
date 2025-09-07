@@ -8,7 +8,6 @@ from sqlalchemy import (
     Text,
     ForeignKey,
     CheckConstraint,
-    Index,
     select,
     func,
 )
@@ -71,8 +70,6 @@ class NFTCondition(Base):
         default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc),
     )
-
-    # backrefs set on NFT via foreign keys
 
     def __repr__(self) -> str:
         return (
@@ -222,7 +219,6 @@ class NFT(Base):
         - Returns the created BlockchainTransaction. Caller controls commit.
         """
         import json
-        from datetime import datetime, timezone
         from nictbw.models.chain import BlockchainTransaction
         from nictbw.blockchain.api import ChainClient
 

@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Iterable, TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Optional
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy import (
     Integer,
@@ -9,7 +9,6 @@ from sqlalchemy import (
     CheckConstraint,
     UniqueConstraint,
     Index,
-    select,
 )
 from . import Base
 
@@ -58,6 +57,7 @@ class BingoCard(Base):
         )
 
     # Convenience helpers
+    @property
     def winning_lines(self) -> list[tuple[int, int, int]]:
         """Get all possible winning line combinations for a 3x3 bingo card."""
         return [
@@ -80,7 +80,7 @@ class BingoCard(Base):
         line that are all in ``"unlocked"`` state.
         """
         result: list[tuple[int, int, int]] = []
-        for a, b, c in self.winning_lines():
+        for a, b, c in self.winning_lines:
             if all(
                 cell.state == "unlocked"
                 for cell in (self.cells[a], self.cells[b], self.cells[c])
