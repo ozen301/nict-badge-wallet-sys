@@ -20,6 +20,21 @@ from typing import Optional
 
 
 def make_engine(database_url: Optional[str] = None, echo: bool = False):
+    """Create a SQLAlchemy engine using the configured database URL.
+
+    Parameters
+    ----------
+    database_url : Optional[str]
+        Database URL. Defaults to the value resolved from `DB_URL` env var
+        or a local SQLite file.
+    echo : bool
+        Enable SQL logging for debugging. Defaults to ``False``.
+
+    Returns
+    -------
+    Engine
+        Configured SQLAlchemy engine instance.
+    """
     url = database_url or DEFAULT_SQLITE_URL
     # SQLite pragmas for better dev defaults
     engine = create_engine(
@@ -27,20 +42,11 @@ def make_engine(database_url: Optional[str] = None, echo: bool = False):
         echo=echo,
         future=True,
     )
-    # if url.startswith("sqlite"):
-    #     # ensure FK constraints are enforced on SQLite
-    #     from sqlalchemy import event
-
-    #     @event.listens_for(engine, "connect")
-    #     def _set_sqlite_pragma(dbapi_connection, connection_record):
-    #         cursor = dbapi_connection.cursor()
-    #         cursor.execute("PRAGMA foreign_keys=ON")
-    #         cursor.close()
-
     return engine
 
 
 def get_sessionmaker(engine):
+    """Return a configured `sessionmaker` bound to the given engine."""
     return sessionmaker(
         bind=engine,
         # autoflush=False,

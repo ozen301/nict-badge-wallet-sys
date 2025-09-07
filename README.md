@@ -81,7 +81,7 @@ python -m unittest -v test_db_utils test_models
 
 ## TODO
 * Add methods for querying and updating entities.
-* Add docstrings and comments.
+* Add code examples for common operations.
 * Update `sync_nfts_from_chain` method in `user.py` to handle NFTs that are on chain but not in DB.
 * Add bingo card generator that randomizes NFT assignments to cells.
 * Include NFT metadata in blockchain related operations.

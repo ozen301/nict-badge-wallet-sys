@@ -126,7 +126,28 @@ class User(Base):
     def sync_nfts_from_chain(
         self, session: Session, client: Optional['ChainClient'] = None
     ) -> None:
-        """Refresh this user's NFT ownership using the blockchain API."""
+        """Refresh this user's NFT ownership using the blockchain API.
+
+        Parameters
+        ----------
+        session : Session
+            Active SQLAlchemy session used to query and persist changes.
+        client : Optional[ChainClient]
+            Pre-initialized blockchain client. If ``None``, a new client is created.
+
+        Raises
+        ------
+        ValueError
+            If the user does not have an ``on_chain_id`` set.
+
+        Notes
+        -----
+        - Fetches NFTs from the chain for ``on_chain_id`` and ensures matching
+          ``NFT`` and ``UserNFTOwnership`` records exist locally.
+        - Newly seen on-chain NFTs are created in the DB with placeholder fields
+          where information is not available on chain.
+        - Caller is responsible for managing the outer transaction (commit/rollback).
+        """
         if self.on_chain_id is None:
             raise ValueError("User does not have an on-chain ID set.")
 

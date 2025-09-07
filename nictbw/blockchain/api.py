@@ -6,6 +6,18 @@ from typing import Any, Optional, Mapping
 
 
 class ChainClient:
+    """Client for interacting with the blockchain service.
+
+    Parameters
+    ----------
+    base_fqdn : Optional[str]
+        Base FQDN for the blockchain API (e.g. ``api.example.com``). If not
+        provided, the value is read from the ``BLOCKCHAIN_BASE_FQDN``
+        environment variable.
+    timeout : int
+        Per-request timeout in seconds. Defaults to ``45``.
+    """
+
     def __init__(self, base_fqdn: Optional[str] = None, timeout: int = 45):
         load_dotenv()
         fqdn = base_fqdn or os.getenv("BLOCKCHAIN_BASE_FQDN")
@@ -46,6 +58,38 @@ class ChainClient:
         files: Optional[dict] = None,
         return_in_json: bool = True,
     ) -> Any:
+        """Send an HTTP request and normalize the response.
+
+        Parameters
+        ----------
+        method : str
+            HTTP method, e.g. ``"GET"`` or ``"POST"``.
+        path : str
+            URL path appended to the client's base URL.
+        headers : Optional[Mapping[str, str]]
+            Request headers. If not provided, public or auth headers are used by callers.
+        params : Optional[dict]
+            Query parameters to append to the URL.
+        json : Optional[dict]
+            JSON body for the request.
+        data : Optional[dict]
+            Form-encoded body for the request.
+        files : Optional[dict]
+            Files mapping for multipart upload.
+        return_in_json : bool
+            If ``True``, parse JSON and return Python objects. If ``False``,
+            return raw ``bytes``.
+
+        Returns
+        -------
+        Any
+            Parsed JSON response, raw bytes, or ``None`` if the body is empty.
+
+        Raises
+        ------
+        requests.HTTPError
+            If the response status is not successful.
+        """
         url = urljoin(self.base_url + "/", path.lstrip("/"))
         r = self.session.request(
             method=method.upper(),
@@ -109,7 +153,7 @@ class ChainClient:
         )
 
     def get_user_nfts(self, username: str) -> list[dict]:
-        # Get NFTs owned by a specific user using admin privileges.
+        """Get NFTs owned by a specific user using admin privileges."""
         return self._request(
             "GET",
             f"/api/v1/admin/nfts/info/{username}",
@@ -119,7 +163,8 @@ class ChainClient:
     def get_sorted_user_nfts(
         self, username: str, sort_key: str = "created_at", reverse: bool = False
     ) -> list[dict]:
-        nfts = self.get_user_nfts(username) 
+        """Return user's NFTs sorted by a specific key."""
+        nfts = self.get_user_nfts(username)
         return sorted(nfts, key=lambda x: x.get(sort_key, ""), reverse=reverse)
 
     def create_nft(
@@ -130,6 +175,27 @@ class ChainClient:
         recipient_paymail: Optional[str] = None,
         additional_info: Optional[dict] = None,
     ) -> dict:
+        """Create a new NFT via the blockchain API.
+
+        Parameters
+        ----------
+        app : str
+            Application identifier to tag the NFT.
+        name : str
+            Human-readable name of the NFT.
+        file_path : str, default: module ``yenpoint_logo.png``
+            Path to the file to attach and mint as NFT content.
+        recipient_paymail : Optional[str]
+            If provided, transfer the minted NFT to this paymail.
+            If not provided, the NFT is transferred to the current client user.
+        additional_info : Optional[dict]
+            Additional metadata to include in the minting request.
+
+        Returns
+        -------
+        dict
+            Response payload in JSON format from the service containing transaction and NFT info.
+        """
         with open(file_path, "rb") as f:
             response = self._request(
                 "POST",
