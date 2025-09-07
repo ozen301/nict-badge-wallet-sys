@@ -18,14 +18,24 @@ if TYPE_CHECKING:
     from .nft import NFT
     from .bingo import BingoCell
 
+
 class UserNFTOwnership(Base):
-    def __init__(self, user_id: int, nft_id: int, serial_number: int, unique_nft_id: str, acquired_at: datetime, other_meta: Optional[str] = None):
+    def __init__(
+        self,
+        user_id: int,
+        nft_id: int,
+        serial_number: int,
+        unique_nft_id: str,
+        acquired_at: datetime,
+        other_meta: Optional[str] = None,
+    ):
         self.user_id = user_id
         self.nft_id = nft_id
         self.serial_number = serial_number
         self.unique_nft_id = unique_nft_id
         self.acquired_at = acquired_at
         self.other_meta = other_meta
+
     __tablename__ = "user_nft_ownership"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)

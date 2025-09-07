@@ -116,6 +116,12 @@ class ChainClient:
             headers=self.auth_headers,
         )
 
+    def get_sorted_user_nfts(
+        self, username: str, sort_key: str = "created_at", reverse: bool = False
+    ) -> list[dict]:
+        nfts = self.get_user_nfts(username) 
+        return sorted(nfts, key=lambda x: x.get(sort_key, ""), reverse=reverse)
+
     def create_nft(
         self,
         app: str,

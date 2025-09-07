@@ -20,6 +20,7 @@ class User(Base):
         self,
         in_app_id: str,
         wallet: str,
+        on_chain_id: Optional[str] = None,
         nickname: Optional[str] = None,
         password_hash: Optional[str] = None,
         created_at: Optional[datetime] = None,
@@ -27,6 +28,7 @@ class User(Base):
     ):
         self.in_app_id = in_app_id
         self.wallet = wallet
+        self.on_chain_id = on_chain_id
         self.nickname = nickname
         self.password_hash = password_hash
         if created_at is not None:
@@ -38,8 +40,11 @@ class User(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     in_app_id: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
-    nickname: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     wallet: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
+    on_chain_id: Mapped[Optional[str]] = mapped_column(
+        String(50), unique=True, nullable=True
+    )
+    nickname: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     password_hash: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
@@ -62,7 +67,7 @@ class User(Base):
     def __repr__(self) -> str:
         return (
             f"<User(id={self.id}, in_app_id='{self.in_app_id}', "
-            f"nickname='{self.nickname}', updated_at='{self.updated_at}')>"
+            f"nickname='{self.nickname}', on_chain_id='{self.on_chain_id}', updated_at='{self.updated_at}')>"
         )
 
     @classmethod
@@ -121,55 +126,66 @@ class User(Base):
         session.add(new_ownership)
 
     def sync_nfts_from_chain(
-        self, session: Session, client: ChainClient | None = None
+        self, session: Session, client: Optional[ChainClient] = None
     ) -> None:
         """Refresh this user's NFT ownership using the blockchain API."""
-        client = client or ChainClient()
-        chain_items = client.get_user_nfts(self.in_app_id)
+        if self.on_chain_id is None:
+            raise ValueError("User does not have an on-chain ID set.")
 
-        existing_ownerships = {o.unique_nft_id: o for o in self.ownerships}
-        nft_origins_on_chain: set[str] = set()
+        client = client or ChainClient()
+        chain_items = client.get_user_nfts(self.on_chain_id)
+
+        existing_nft_origins = {o.nft.origin: o for o in self.ownerships}
+        on_chain_nft_origins: set[str] = set()
 
         for item in chain_items:
-            unique_id = item["nft_origin"]
-            nft_origins_on_chain.add(unique_id)
+            origin = item["nft_origin"]
+            on_chain_nft_origins.add(origin)
 
             # Fetch or create the corresponding NFT record
-            nft = NFT.get_by_prefix(session, item["nft_origin"])
+            nft = NFT.get_by_origin(session, origin)
             if nft is None:
                 nft = NFT(
-                    prefix=item["nft_origin"],
+                    prefix=item[
+                        "nft_origin"
+                    ],  # TODO: need confirmation of how to set prefix
                     shared_key=item[
                         "nft_origin"
                     ],  # TODO: need confirmation of shared_key
-                    name=item["name"],
-                    nft_type=item.get("sub_type") or "default",
-                    description=item.get(
-                        "metadata"
-                    ),  # TODO: need confirmation of description
-                    created_by_admin_id=0,  # TODO: need retrieval of creator admin ID
+                    name=item.get("name", "Unnamed NFT"),
+                    nft_type=item.get("sub_type", "default"),
+                    description="default description",  # TODO: need confirmation of description
+                    created_by_admin_id=0,  # TODO: need confirmation of creator admin ID. The value 0 is a placeholder.
+                    # We might want to save the information above in the `metadata` field when minting NFTs.
                     created_at=datetime.fromisoformat(item["created_at"]),
                     updated_at=datetime.fromisoformat(item["updated_at"]),
                 )
                 session.add(nft)
                 session.flush()
 
-            # Upsert ownership
-            if unique_id not in existing_ownerships:
+            # Add ownership if not already present
+            if origin not in existing_nft_origins:
                 session.add(
                     UserNFTOwnership(
                         user_id=self.id,
                         nft_id=nft.id,
                         serial_number=nft.count_same_prefix_nfts(session) + 1,
-                        unique_nft_id=unique_id,
+                        # TODO: confirm if the serial number generation is correct
+                        unique_nft_id=origin,  # Using origin as unique NFT ID here. This is a temporary measure.
+                        # We need to generate a proper unique NFT ID using its prefix and serial number,
+                        # which are not stored on chain for now and thus not available.
                         acquired_at=datetime.fromisoformat(item["created_at"]),
                     )
                 )
 
         # Remove stale ownerships
         # TODO: confirm if this is necessary
-        # for uid, ownership in existing_ownerships.items():
-        #     if uid not in nft_origins_on_chain:
+        # for ownership in self.ownerships:
+        #     if ownership.nft.origin not in on_chain_nft_origins:
         #         session.delete(ownership)
+        # This will remove ownerships that are in the DB but not on chain,
+        # This works because ownerships are set to "ON DELETE CASCADE".
 
-        session.commit()
+        session.flush()
+
+        # The commit is handled by the caller, not here.

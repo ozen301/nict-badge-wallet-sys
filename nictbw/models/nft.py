@@ -179,6 +179,13 @@ class NFT(Base):
             f"name='{self.name}', condition_id={self.condition_id}, updated_at={self.updated_at})>"
         )
 
+    # --- utility methods ---
+    @classmethod
+    def get_by_origin(cls, session: Session, origin: str) -> Optional["NFT"]:
+        """Get the NFT with the specified origin."""
+        stmt = select(cls).where(cls.origin == origin)
+        return session.scalar(stmt)
+
     @classmethod
     def count_nfts_by_prefix(cls, session: Session, prefix: str) -> int:
         """Get the count of NFTs with the specified prefix."""
@@ -200,7 +207,7 @@ class NFT(Base):
     def mint_on_chain(
         self,
         session: Session,
-        client: "ChainClient",
+        client: Optional[ChainClient] = None,
         *,
         app: str,
         recipient_paymail: Optional[str] = None,
@@ -213,14 +220,14 @@ class NFT(Base):
         Notes
         -----
         - Does not assign ownership in the DB. Use User.issue_nft_dbwise for that.
-        - Updates `self.origin` if an origin is returned and not already set.
         - Returns the created BlockchainTransaction. Caller controls commit.
         """
         import json
         from datetime import datetime, timezone
-
-        # Lazy import to avoid circular imports at module import time
         from nictbw.models.chain import BlockchainTransaction
+        from nictbw.blockchain.api import ChainClient
+
+        client = client or ChainClient()
 
         # Compose metadata to send alongside mint
         meta: dict[str, Any] = dict(additional_info or {})
