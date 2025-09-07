@@ -1,6 +1,5 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from .metadata import metadata_obj
 
 import os
 from pathlib import Path
@@ -40,16 +39,5 @@ def make_engine(database_url: Optional[str] = None, echo: bool = False):
     engine = create_engine(
         url,
         echo=echo,
-        future=True,
     )
     return engine
-
-
-def get_sessionmaker(engine):
-    """Return a configured `sessionmaker` bound to the given engine."""
-    return sessionmaker(
-        bind=engine,
-        # autoflush=False,
-        expire_on_commit=False,  # Keep objects accessible after commit for dev convenience
-        future=True,
-    )

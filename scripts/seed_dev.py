@@ -7,7 +7,8 @@ repo_root = Path(__file__).resolve().parents[1]
 if str(repo_root) not in sys.path:
     sys.path.insert(0, str(repo_root))
 
-from nictbw.db.engine import make_engine, get_sessionmaker
+from nictbw.db.engine import make_engine
+from sqlalchemy.orm import sessionmaker
 from nictbw.models import (
     Base,
     Admin,
@@ -33,7 +34,7 @@ def main() -> None:
         conn.exec_driver_sql("PRAGMA foreign_keys=ON")
 
     Base.metadata.create_all(engine)
-    Session = get_sessionmaker(engine)
+    Session = sessionmaker(bind=engine)
 
     now = datetime.now(timezone.utc)
 
