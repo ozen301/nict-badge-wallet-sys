@@ -129,7 +129,7 @@ class ChainClient:
         )
 
     @property
-    def transactions(self) -> list[dict]:
+    def all_transactions(self) -> list[dict]:
         return self._request(
             "GET",
             "/api/v1/user/transactions",

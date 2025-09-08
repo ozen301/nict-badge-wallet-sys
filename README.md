@@ -41,10 +41,7 @@ python scripts/init_db.py
 python scripts/seed_dev.py  # optional, seed dev data
 ```
 
-This creates `dev.db` (SQLite) with all schema objects.
-
-### 4. Verify tables
-The init script will print all created tables:
+This by default creates `dev.db` (SQLite) with all schema objects. The `init_db.py` script will print all created tables:
 
 ```
 Created tables: admins, users, nft_conditions, nfts, user_nft_ownership, bingo_cards, bingo_cells, blockchain_transactions, audit_logs
@@ -52,7 +49,7 @@ Created tables: admins, users, nft_conditions, nfts, user_nft_ownership, bingo_c
 ---
 
 ## Switching Databases
-Change the `DB_URL` in `.env`:
+Simply change the `DB_URL` variable in `.env`:
 
 ```python
 DB_URL="sqlite:///./dev.db"  # SQLite by default
@@ -81,9 +78,9 @@ python -m unittest -v test_db_utils test_models
 
 ## TODO
 * Add code examples for common operations.
-* Include NFT metadata in blockchain related operations.
+* Include NFT metadata in blockchain related operations. (Currently not implemented due to API bugs.)
 * Update `sync_nfts_from_chain` method in `user.py` to handle NFTs that are on chain but not in DB.
 * Add bingo card generator that randomizes NFT assignments to cells.
 * Add Alembic.
-* Implement audit logging for admin actions.
+* Implement audit logging.
 ---
