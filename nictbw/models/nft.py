@@ -123,9 +123,15 @@ class NFT(Base):
     shared_key: Mapped[str] = mapped_column(String(255), nullable=False)
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     nft_type: Mapped[str] = mapped_column(String(50), nullable=False)
-    id_on_chain: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    origin: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
-    current_location: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
+    id_on_chain: Mapped[Optional[int]] = mapped_column(
+        Integer, nullable=True, unique=True
+    )
+    origin: Mapped[Optional[str]] = mapped_column(
+        String(128), nullable=True, unique=True
+    )
+    current_location: Mapped[Optional[str]] = mapped_column(
+        String(128), nullable=True, unique=True
+    )
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     image_url: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     condition_id: Mapped[Optional[int]] = mapped_column(
@@ -203,13 +209,13 @@ class NFT(Base):
     def mint_on_chain(
         self,
         session: Session,
-        client: Optional['ChainClient'] = None,
+        client: Optional["ChainClient"] = None,
         *,
         app: str,
         recipient_paymail: Optional[str] = None,
         file_path: Optional[str] = None,
         additional_info: Optional[dict] = None,
-    ) -> "BlockchainTransaction":
+    ) -> dict:
         """
         Mint this NFT on chain via ChainClient and record a BlockchainTransaction.
 
@@ -251,13 +257,8 @@ class NFT(Base):
         resp: dict = client.create_nft(**kwargs)
         tx_hash: str = resp["transaction_id"]
         nft_information: dict = resp["nft_information"]
-        nft_id_on_chain: int = nft_information["nft_id"]
-        nft_origin: str = nft_information["nft_origin"]
-        current_location: str = nft_information["current_nft_location"]
         # Update self
-        self.id_on_chain = nft_id_on_chain
-        self.origin = nft_origin
-        self.current_location = current_location
+        self.update_from_info_on_chain(nft_information)
 
         session.flush()
 
@@ -284,4 +285,23 @@ class NFT(Base):
             confirmed_at=now,
         )
         session.add(tx)
-        return tx
+        session.flush()
+
+        return resp
+
+    def update_from_info_on_chain(self, nft_info: dict) -> None:
+        """
+        Update the NFT instance with information from the blockchain.
+
+        Parameters
+        ----------
+        nft_info : dict
+            The NFT information from the blockchain. Typically obtained
+            from Blockchain API responses.
+        """
+        self.id_on_chain = nft_info.get("nft_id", self.id_on_chain)
+        self.origin = nft_info.get("nft_origin", self.origin)
+        self.current_location = nft_info.get(
+            "current_nft_location", self.current_location
+        )
+        self.updated_at = datetime.now(timezone.utc)

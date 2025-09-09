@@ -68,15 +68,25 @@ class User(Base):
             f"nickname='{self.nickname}', on_chain_id='{self.on_chain_id}', updated_at='{self.updated_at}')>"
         )
 
+    @property
+    def nfts(self) -> list[NFT]:
+        """Get a list of NFTs owned by this user."""
+        return [o.nft for o in self.ownerships]
+
     @classmethod
-    def get_by_in_app_id(cls, session: Session, in_app_id: str) -> Optional['User']:
+    def get_by_in_app_id(cls, session: Session, in_app_id: str) -> Optional["User"]:
         """Get user by their in-app ID."""
         return session.scalar(select(cls).where(cls.in_app_id == in_app_id))
 
     @classmethod
-    def get_by_wallet(cls, session: Session, wallet: str) -> Optional['User']:
+    def get_by_wallet(cls, session: Session, wallet: str) -> Optional["User"]:
         """Get user by their wallet address."""
         return session.scalar(select(cls).where(cls.wallet == wallet))
+
+    @classmethod
+    def get_by_on_chain_id(cls, session: Session, on_chain_id: str) -> Optional["User"]:
+        """Get user by their on-chain ID."""
+        return session.scalar(select(cls).where(cls.on_chain_id == on_chain_id))
 
     def set_nickname(self, new_nickname: str) -> None:
         """Set user's nickname and update timestamp."""
@@ -124,7 +134,7 @@ class User(Base):
         session.add(new_ownership)
 
     def sync_nfts_from_chain(
-        self, session: Session, client: Optional['ChainClient'] = None
+        self, session: Session, client: Optional["ChainClient"] = None
     ) -> None:
         """Refresh this user's NFT ownership using the blockchain API.
 
@@ -152,6 +162,7 @@ class User(Base):
             raise ValueError("User does not have an on-chain ID set.")
 
         from nictbw.blockchain.api import ChainClient
+
         client = client or ChainClient()
 
         chain_items = client.get_user_nfts(self.on_chain_id)
