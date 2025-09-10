@@ -226,7 +226,7 @@ class NFT(Base):
         Notes
         -----
         - Does not assign ownership in the DB. Use User.issue_nft_dbwise for that.
-        - Returns the created BlockchainTransaction. Caller controls commit.
+        - Returns the response from the blockchain client.
         """
         import json
         from nictbw.models.chain import BlockchainTransaction
