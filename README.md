@@ -10,12 +10,10 @@ nict-badge-wallet-sys/
 │  ├─ blockchain/       # Blockchain API interaction
 │  ├─ db/               # DB engine, session, metadata, utilities
 │  ├─ models/           # SQLAlchemy ORM 2.0 models
-├─ scripts/
-│  ├─ init_db.py        # create all tables in local SQLite
-│  └─ seed_dev.py       # seed dev data
+├─ scripts/             # utility scripts
 ├─ tests/               # unit tests
-├─ .env                 # environment variables (not in repo)
 ├─ .env.example         # environment variables example
+├─ code_examples.ipynb  # Jupyter notebook with code examples
 ├─ README.md
 └─ pyproject.toml
 ```
@@ -48,7 +46,7 @@ Created tables: admins, users, nft_conditions, nfts, user_nft_ownership, bingo_c
 ```
 ---
 
-## Switching Databases
+## Switch Databases
 Simply change the `DB_URL` variable in `.env`:
 
 ```python
@@ -56,6 +54,18 @@ DB_URL="sqlite:///./dev.db"  # SQLite by default
 ```
 
 Any URL supported by SQLAlchemy is valid here.
+
+---
+
+## Code Examples
+
+See the Jupyter notebook [`code_examples.ipynb`](code_examples.ipynb) for code snippets:
+
+- Setting up the engine and models
+- Basic CRUD with SQLAlchemy 2.0
+- Using `ChainClient` to get balance/NFTs and mint an NFT
+
+Before running the notebook, ensure your `.env` is configured (copy from `.env.example`).
 
 ---
 
@@ -77,7 +87,6 @@ python -m unittest -v test_db_utils test_models
 ---
 
 ## TODO
-* Add code examples for common operations.
 * Include NFT metadata in blockchain related operations. (Currently not implemented due to API bugs.)
 * Update `sync_nfts_from_chain` method in `user.py` to handle NFTs that are on chain but not in DB.
 * Add bingo card generator that randomizes NFT assignments to cells.

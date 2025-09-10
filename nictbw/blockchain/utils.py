@@ -37,14 +37,15 @@ def open_session():
 
         cookies = session.cookies
         if cookies:
-            for i, (name, value) in enumerate(cookies.items()):
-                logger.debug(f"Cookie #{i}\t{name}: {value}")
+            # Do not log cookie values; just count for diagnostics.
+            logger.debug(f"Received {len(cookies)} cookies from server")
         else:
             raise RuntimeError("Server did not return any cookies")
 
         csrf_token = response.cookies.get("csrftoken")
         if csrf_token:
-            logger.debug(f"CSRF token: {csrf_token}")
+            # Do not log the CSRF token value
+            logger.debug("CSRF token acquired")
             return session, csrf_token
         else:
             raise RuntimeError("Server did not return a CSRF token")
@@ -80,7 +81,8 @@ def get_jwt_token(session: requests.Session) -> str:
         "username": os.environ.get("BLOCKCHAIN_ADMIN_USERNAME"),
         "password": os.environ.get("BLOCKCHAIN_ADMIN_PASSWORD"),
     }
-    logger.debug(f"Login with credentials: {credential}")
+    # Never log raw credentials
+    logger.debug("Attempting JWT login with configured admin username")
 
     # Get JWT token
     fqdn = os.environ.get("BLOCKCHAIN_BASE_FQDN")
@@ -91,9 +93,8 @@ def get_jwt_token(session: requests.Session) -> str:
     response = session.post(url, json=credential)
     response.raise_for_status()
 
-    logger.debug(f"Request Header: {response.request.headers}")
-    logger.debug(f"Request Body  : {response.request.body}")
-    logger.debug(f"Response      : {response.text}")
+    # Avoid logging headers/body/response as they may contain sensitive data
+    logger.debug("JWT token response received (content redacted)")
 
     jwt_token = response.json()["access"]
     return jwt_token
