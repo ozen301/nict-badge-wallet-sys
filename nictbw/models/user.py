@@ -17,7 +17,7 @@ class User(Base):
     def __init__(
         self,
         in_app_id: str,
-        wallet: str,
+        paymail: str,
         on_chain_id: Optional[str] = None,
         nickname: Optional[str] = None,
         password_hash: Optional[str] = None,
@@ -25,7 +25,7 @@ class User(Base):
         updated_at: Optional[datetime] = None,
     ):
         self.in_app_id = in_app_id
-        self.wallet = wallet
+        self.paymail = paymail
         self.on_chain_id = on_chain_id
         self.nickname = nickname
         self.password_hash = password_hash
@@ -38,7 +38,7 @@ class User(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     in_app_id: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
-    wallet: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
+    paymail: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
     on_chain_id: Mapped[Optional[str]] = mapped_column(
         String(50), unique=True, nullable=True
     )
@@ -79,9 +79,9 @@ class User(Base):
         return session.scalar(select(cls).where(cls.in_app_id == in_app_id))
 
     @classmethod
-    def get_by_wallet(cls, session: Session, wallet: str) -> Optional["User"]:
-        """Get user by their wallet address."""
-        return session.scalar(select(cls).where(cls.wallet == wallet))
+    def get_by_paymail(cls, session: Session, paymail: str) -> Optional["User"]:
+        """Get user by their paymail address."""
+        return session.scalar(select(cls).where(cls.paymail == paymail))
 
     @classmethod
     def get_by_on_chain_id(cls, session: Session, on_chain_id: str) -> Optional["User"]:

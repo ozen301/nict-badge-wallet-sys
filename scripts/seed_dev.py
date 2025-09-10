@@ -47,14 +47,14 @@ def main() -> None:
         # Users
         user1 = User(
             in_app_id="user_01",
-            wallet="wallet_01",
+            paymail="paymail_01",
             nickname="Alice",
             created_at=now,
             updated_at=now,
         )
         user2 = User(
             in_app_id="user_02",
-            wallet="wallet_02",
+            paymail="paymail_02",
             nickname="Bob",
             created_at=now,
             updated_at=now,

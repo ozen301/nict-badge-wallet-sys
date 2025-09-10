@@ -105,7 +105,7 @@ class DBTestCase(unittest.TestCase):
                 created_at=now,
                 updated_at=now,
             )
-            user = User(in_app_id="u1", wallet="wallet1")
+            user = User(in_app_id="u1", paymail="wallet1")
             session.add_all([nft, user])
             session.flush()
 
