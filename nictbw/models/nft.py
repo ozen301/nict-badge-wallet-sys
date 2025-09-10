@@ -46,8 +46,12 @@ class NFTCondition(Base):
     __tablename__ = "nft_conditions"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    start_time: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
-    end_time: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    start_time: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    end_time: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     location_range: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     required_nft_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("nfts.id", ondelete="SET NULL", use_alter=True), nullable=True
@@ -57,13 +61,13 @@ class NFTCondition(Base):
     )
     other_conditions: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime,
+        DateTime(timezone=True),
         nullable=False,
         server_default=func.now(),
         default=lambda: datetime.now(timezone.utc),
     )
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime,
+        DateTime(timezone=True),
         nullable=False,
         server_default=func.now(),
         server_onupdate=func.now(),
@@ -145,13 +149,13 @@ class NFT(Base):
         ForeignKey("admins.id"), nullable=False
     )
     created_at: Mapped[datetime] = mapped_column(
-        DateTime,
+        DateTime(timezone=True),
         nullable=False,
         server_default=func.now(),
         default=lambda: datetime.now(timezone.utc),
     )
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime,
+        DateTime(timezone=True),
         nullable=False,
         server_default=func.now(),
         server_onupdate=func.now(),

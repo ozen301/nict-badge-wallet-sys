@@ -37,8 +37,12 @@ class BingoCard(Base):
     user_id: Mapped[int] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    issued_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
-    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    issued_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    completed_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     state: Mapped[str] = mapped_column(String(20), nullable=False, default="active")
 
     user: Mapped["User"] = relationship(back_populates="bingo_cards")
@@ -120,7 +124,9 @@ class BingoCell(Base):
         ForeignKey("user_nft_ownership.id", ondelete="SET NULL"), nullable=True
     )
     state: Mapped[str] = mapped_column(String(20), nullable=False, default="locked")
-    unlocked_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    unlocked_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
     card: Mapped["BingoCard"] = relationship(back_populates="cells")
     target_nft: Mapped["NFT"] = relationship(back_populates="target_cells")

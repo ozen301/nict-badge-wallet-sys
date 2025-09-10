@@ -32,8 +32,12 @@ class BlockchainTransaction(Base):
     tx_hash: Mapped[Optional[str]] = mapped_column(String(255), nullable=True, unique=True)
     request_payload_json: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     response_payload_json: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
-    confirmed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    confirmed_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
     user: Mapped[Optional["User"]] = relationship(back_populates="chain_txs")
     nft: Mapped[Optional["NFT"]] = relationship(back_populates="chain_txs")

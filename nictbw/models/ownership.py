@@ -46,7 +46,9 @@ class UserNFTOwnership(Base):
     )
     serial_number: Mapped[int] = mapped_column(Integer, nullable=False)
     unique_nft_id: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
-    acquired_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    acquired_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
     other_meta: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     user: Mapped["User"] = relationship(back_populates="ownerships")

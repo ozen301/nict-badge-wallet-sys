@@ -38,7 +38,7 @@ class DBTestCase(unittest.TestCase):
             self.assertEqual(found.paymail, "admin@example.com")
 
     def test_nft_count_and_get_by_prefix(self):
-        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        now = datetime.now(timezone.utc)
         with self.Session() as session:
             admin = Admin(paymail="a@b.com", password_hash="x")
             session.add(admin)
@@ -89,7 +89,7 @@ class DBTestCase(unittest.TestCase):
             self.assertEqual(same_prefix_count, 2)
 
     def test_user_issue_nft_creates_ownership_and_increments(self):
-        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        now = datetime.now(timezone.utc)
         with self.Session() as session:
             admin = Admin(paymail="owner@admin.com", password_hash="x")
             session.add(admin)
@@ -129,7 +129,7 @@ class DBTestCase(unittest.TestCase):
             self.assertEqual(ownership.acquired_at, nft.created_at)
 
     def test_bingo_completed_lines(self):
-        card = BingoCard(user_id=1, issued_at=datetime.now())
+        card = BingoCard(user_id=1, issued_at=datetime.now(timezone.utc))
         # Prepare 9 cells, initially locked
         for i in range(9):
             cell = BingoCell(
