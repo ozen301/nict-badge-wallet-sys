@@ -53,11 +53,14 @@ class DummySession:
 
 
 class TestChainClient(unittest.TestCase):
-    def test_requires_fqdn(self):
-        # Ensure environment variable is not set
+    @patch("nictbw.blockchain.api.open_session")
+    @patch("nictbw.blockchain.api.load_dotenv")
+    def test_requires_fqdn(self, mock_load_dotenv, mock_open_session):
+        # Ensure environment variable is not set and no network call is made
         with patch.dict(os.environ, {}, clear=True):
             with self.assertRaises(ValueError):
                 ChainClient()
+        mock_open_session.assert_not_called()
 
     @patch("nictbw.blockchain.api.get_jwt_token", return_value="jwt-token")
     @patch("nictbw.blockchain.api.open_session")
@@ -87,6 +90,15 @@ class TestChainClient(unittest.TestCase):
         session.response = byte_response
         result_bytes = client._request("GET", "/raw", return_in_json=False)
         self.assertEqual(result_bytes, b"data")
+
+    @patch("nictbw.blockchain.api.get_jwt_token")
+    @patch("nictbw.blockchain.api.open_session")
+    def test_init_reports_session_error(self, mock_open_session, mock_get_jwt):
+        mock_open_session.side_effect = RuntimeError("network unreachable")
+        with self.assertRaises(RuntimeError) as ctx:
+            ChainClient(base_fqdn="api.example.com")
+        self.assertIn("network unreachable", str(ctx.exception))
+        mock_get_jwt.assert_not_called()
 
 
 if __name__ == "__main__":

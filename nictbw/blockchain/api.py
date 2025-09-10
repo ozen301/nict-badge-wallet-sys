@@ -26,10 +26,10 @@ class ChainClient:
             raise ValueError("Environment variable 'BLOCKCHAIN_BASE_FQDN' is not set")
 
         self.base_url = f"https://{fqdn}".rstrip("/")
-        session_info = open_session()
-        if not session_info or len(session_info) != 2:
-            raise ValueError("open_session() must return (session, csrf_token)")
-        self.session, self.csrf = session_info
+        try:
+            self.session, self.csrf = open_session()
+        except Exception as e:
+            raise RuntimeError(f"Failed to initialize ChainClient session: {e}") from e
         self.jwt = get_jwt_token(self.session)
         self.timeout = timeout
 

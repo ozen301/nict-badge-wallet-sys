@@ -14,15 +14,16 @@ def open_session():
 
     Returns
     -------
-    tuple[requests.Session, str] | None
-        On success, the initialized session and CSRF token string.
-        On failure, logs the error and returns ``None``.
+    tuple[requests.Session, str]
+        The initialized session and CSRF token string.
 
     Raises
     ------
     RuntimeError
-        If ``BLOCKCHAIN_BASE_FQDN`` is not set, the server returns no cookies,
-        or a CSRF token cannot be retrieved.
+        If ``BLOCKCHAIN_BASE_FQDN`` is not set or the session cannot be
+        established, including when the server returns no cookies or a CSRF
+        token cannot be retrieved. Any underlying exception is re-raised as a
+        ``RuntimeError`` with context.
     """
     fqdn = os.environ.get("BLOCKCHAIN_BASE_FQDN")
     if not fqdn:
@@ -50,7 +51,7 @@ def open_session():
 
     except Exception as e:
         logger.critical(f"Error occurred while starting session: {e}")
-
+        raise RuntimeError(f"Failed to establish session: {e}") from e
 
 def get_jwt_token(session: requests.Session) -> str:
     """Obtain a JWT access token using admin credentials.
