@@ -2,11 +2,11 @@ from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Optional
 import warnings
 from sqlalchemy.orm import Session, Mapped, mapped_column, relationship
-from sqlalchemy import Integer, String, DateTime, func, select
+from sqlalchemy import Integer, String, DateTime, func, select, inspect
 
-from .nft import NFT
+from .nft import NFT, NFTTemplate
 from .ownership import UserNFTOwnership
-from . import Base
+from .base import Base
 
 if TYPE_CHECKING:
     from nictbw.blockchain.api import ChainClient
@@ -15,6 +15,8 @@ if TYPE_CHECKING:
 
 
 class User(Base):
+    """A user participating in the NICT project."""
+
     def __init__(
         self,
         in_app_id: str,
@@ -25,6 +27,26 @@ class User(Base):
         created_at: Optional[datetime] = None,
         updated_at: Optional[datetime] = None,
     ):
+        """Create a new :class:`User` record.
+
+        Parameters
+        ----------
+        in_app_id : str
+            User's ID in the mobile app.
+        paymail : str
+            User's paymail address.
+        on_chain_id : str, optional
+            Corresponding blockchain ID.
+        nickname : str, optional
+            Display name.
+        password_hash : str, optional
+            Hashed password.
+        created_at : datetime, optional
+            Explicit creation timestamp.
+        updated_at : datetime, optional
+            Explicit last update timestamp.
+        """
+
         self.in_app_id = in_app_id
         self.paymail = paymail
         self.on_chain_id = on_chain_id
@@ -60,7 +82,10 @@ class User(Base):
         back_populates="user", cascade="all, delete-orphan"
     )
     chain_txs: Mapped[list["BlockchainTransaction"]] = relationship(
-        back_populates="user"
+        "BlockchainTransaction",
+        primaryjoin="User.paymail==BlockchainTransaction.user_paymail",
+        back_populates="user",
+        viewonly=False,
     )
 
     def __repr__(self) -> str:
@@ -76,26 +101,31 @@ class User(Base):
 
     @classmethod
     def get_by_in_app_id(cls, session: Session, in_app_id: str) -> Optional["User"]:
-        """Get user by their in-app ID."""
+        """Retrieve a user by their in_app_id."""
+
         return session.scalar(select(cls).where(cls.in_app_id == in_app_id))
 
     @classmethod
     def get_by_paymail(cls, session: Session, paymail: str) -> Optional["User"]:
-        """Get user by their paymail address."""
+        """Retrieve a user by paymail address."""
+
         return session.scalar(select(cls).where(cls.paymail == paymail))
 
     @classmethod
     def get_by_on_chain_id(cls, session: Session, on_chain_id: str) -> Optional["User"]:
-        """Get user by their on-chain ID."""
+        """Retrieve a user by on_chain_id."""
+
         return session.scalar(select(cls).where(cls.on_chain_id == on_chain_id))
 
-    def set_nickname(self, new_nickname: str) -> None:
-        """Set user's nickname and update timestamp."""
-        self.nickname = new_nickname
-        self.updated_at = datetime.now(timezone.utc)
-
     def set_password_hash(self, new_password_hash: Optional[str]) -> None:
-        """Set user's password hash and update timestamp."""
+        """Set or clear the stored password hash.
+
+        Parameters
+        ----------
+        new_password_hash : str or None
+            New password hash, or ``None`` to remove it.
+        """
+
         if new_password_hash is None:
             self.password_hash = None
         else:
@@ -103,36 +133,54 @@ class User(Base):
         self.updated_at = datetime.now(timezone.utc)
 
     def verify_password_hash(self, password_hash: str) -> bool:
-        """Verify if the provided password hash matches the stored one."""
+        """Check whether ``password_hash`` matches the stored hash.
+
+        Returns
+        -------
+        bool
+            ``True`` if the hashes match, otherwise ``False``.
+        """
+
         return self.password_hash is not None and self.password_hash == password_hash
 
-    def issue_nft_dbwise(self, session: Session, nft: NFT) -> None:
-        """
-        Issue an NFT to this user in the database. This does not interact with the blockchain.
+    def issue_nft_dbwise(self, session: Session, nft: NFT) -> NFT:
+        """Assign ownership of ``nft`` to this user in the database.
 
-        Parameters
-        ----------
-        session : Session
-            SQLAlchemy session for database operations
-        nft : NFT
-            The NFT to issue to this user
-
-        Notes
-        -----
-        This method creates a new UserNFTOwnership record linking the user to the NFT,
-        assigns a serial number based on the current minted count, generates a unique
-        NFT ID, and increments the NFT's minted count.
+        Returns
+        -------
+        NFT
+            The same ``nft`` instance after ownership is recorded.
         """
+
+        # Enforce max supply before issuing
+        template = nft.template or session.get(NFTTemplate, nft.template_id)
+        if template is None:
+            raise ValueError("NFT template not found")
+        if (
+            template.max_supply is not None
+            and template.minted_count >= template.max_supply
+        ):
+            raise ValueError("Max supply for this template has been reached")
+
+        # Only add/flush the nft if it is not already persisted in the
+        # database or attached to the session. This avoids re-adding an
+        # existing NFT record.
+        if not inspect(nft).persistent:
+            session.add(nft)
+            session.flush()
+
+        serial = template.minted_count
         new_ownership = UserNFTOwnership(
             user_id=self.id,
             nft_id=nft.id,
-            serial_number=nft.minted_count,
-            unique_nft_id=nft.prefix + "-" + str(nft.minted_count),
+            serial_number=serial,
+            unique_nft_id=f"{template.prefix}_{nft.shared_key}",
             acquired_at=nft.created_at,
         )
         self.ownerships.append(new_ownership)
-        nft.minted_count += 1  # Increment the minted count
+        template.minted_count += 1
         session.add(new_ownership)
+        return nft
 
     def sync_nfts_from_chain(
         self, session: Session, client: Optional["ChainClient"] = None
@@ -171,7 +219,6 @@ class User(Base):
             category=UserWarning,
             stacklevel=2,
         )
-
         if self.on_chain_id is None:
             raise ValueError("User does not have an on-chain ID set.")
 
@@ -188,21 +235,29 @@ class User(Base):
             origin = item["nft_origin"]
             on_chain_nft_origins.add(origin)
 
-            # Fetch or create the corresponding NFT record
+            # Fetch or create the corresponding template and NFT record
+            template = NFTTemplate.get_by_prefix(session, origin)
+            if template is None:
+                template = NFTTemplate(
+                    prefix=origin,  # placeholder
+                    name=item.get("name", "Unnamed NFT"),
+                    category=item.get("type", "default"),
+                    subcategory=item.get("sub_type", "default"),
+                    description="default description",  # placeholder
+                    created_by_admin_id=0,  # placeholder
+                    created_at=datetime.fromisoformat(item["created_at"]),
+                    updated_at=datetime.fromisoformat(item["updated_at"]),
+                )
+                session.add(template)
+                session.flush()
+
             nft = NFT.get_by_origin(session, origin)
             if nft is None:
                 nft = NFT(
-                    prefix=item[
-                        "nft_origin"
-                    ],  # TODO: need confirmation of how to set prefix
-                    shared_key=item[
-                        "nft_origin"
-                    ],  # TODO: need confirmation of shared_key
-                    name=item.get("name", "Unnamed NFT"),
-                    nft_type=item.get("sub_type", "default"),
-                    description="default description",  # TODO: need confirmation of description
-                    created_by_admin_id=0,  # TODO: need confirmation of creator admin ID. The value 0 is a placeholder.
-                    # We might want to save the information above in the `metadata` field when minting NFTs.
+                    template_id=template.id,
+                    shared_key="unknown",  # placeholder
+                    origin=origin,
+                    created_by_admin_id=template.created_by_admin_id,
                     created_at=datetime.fromisoformat(item["created_at"]),
                     updated_at=datetime.fromisoformat(item["updated_at"]),
                 )
@@ -211,15 +266,14 @@ class User(Base):
 
             # Add ownership if not already present
             if origin not in existing_nft_origins:
+                serial = template.minted_count
+                template.minted_count += 1
                 session.add(
                     UserNFTOwnership(
                         user_id=self.id,
                         nft_id=nft.id,
-                        serial_number=nft.count_same_prefix_nfts(session) + 1,
-                        # TODO: confirm if the serial number generation is correct
-                        unique_nft_id=origin,  # Using origin as unique NFT ID here. This is a temporary measure.
-                        # We need to generate a proper unique NFT ID using its prefix and serial number,
-                        # which are not stored on chain for now and thus not available.
+                        serial_number=serial,
+                        unique_nft_id=f"{template.prefix}_unknown",  # placeholder
                         acquired_at=datetime.fromisoformat(item["created_at"]),
                     )
                 )

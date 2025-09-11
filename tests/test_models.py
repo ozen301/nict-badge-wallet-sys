@@ -8,6 +8,7 @@ from nictbw.models import (
     Base,
     User,
     Admin,
+    NFTTemplate,
     NFT,
     UserNFTOwnership,
     BingoCard,
@@ -44,49 +45,44 @@ class DBTestCase(unittest.TestCase):
             session.add(admin)
             session.flush()
 
-            n1 = NFT(
+            tpl_p = NFTTemplate(
                 prefix="P",
-                shared_key="s1",
-                name="NFT1",
-                nft_type="badge",
+                name="TemplateP",
+                category="cat",
+                subcategory="subp",
                 created_by_admin_id=admin.id,
                 created_at=now,
                 updated_at=now,
             )
-            n2 = NFT(
-                prefix="P",
-                shared_key="s2",
-                name="NFT2",
-                nft_type="badge",
-                created_by_admin_id=admin.id,
-                created_at=now,
-                updated_at=now,
-            )
-            n3 = NFT(
+            tpl_q = NFTTemplate(
                 prefix="Q",
-                shared_key="s3",
-                name="NFT3",
-                nft_type="badge",
+                name="TemplateQ",
+                category="cat",
+                subcategory="subq",
                 created_by_admin_id=admin.id,
                 created_at=now,
                 updated_at=now,
             )
-            session.add_all([n1, n2, n3])
+            user = User(in_app_id="u1", paymail="wallet1")
+            session.add_all([tpl_p, tpl_q, user])
+            session.flush()
+
+            nft1 = tpl_p.instantiate_nft(shared_key="s1")
+            user.issue_nft_dbwise(session, nft1)
+            nft2 = tpl_p.instantiate_nft(shared_key="s2")
+            user.issue_nft_dbwise(session, nft2)
+            nft3 = tpl_q.instantiate_nft(shared_key="s3")
+            user.issue_nft_dbwise(session, nft3)
             session.commit()
 
-            from nictbw.models.nft import NFT as NFTModel
-
-            count_p = NFTModel.count_nfts_by_prefix(session, "P")
+            count_p = NFT.count_nfts_by_prefix(session, "P")
             self.assertEqual(count_p, 2)
 
-            first_p = NFTModel.get_by_prefix(session, "P")
+            first_p = NFTTemplate.get_by_prefix(session, "P")
             self.assertIsNotNone(first_p)
-            # help static type checkers understand `first_p` is not None
             assert first_p is not None
             self.assertEqual(first_p.prefix, "P")
-
-            same_prefix_count = first_p.count_same_prefix_nfts(session)
-            self.assertEqual(same_prefix_count, 2)
+            self.assertEqual(first_p.minted_count, 2)
 
     def test_user_issue_nft_creates_ownership_and_increments(self):
         now = datetime.now(timezone.utc)
@@ -95,38 +91,74 @@ class DBTestCase(unittest.TestCase):
             session.add(admin)
             session.flush()
 
-            nft = NFT(
+            template = NFTTemplate(
                 prefix="ABC",
-                shared_key="key",
                 name="Token",
-                nft_type="badge",
+                category="cat",
+                subcategory="sub",
                 minted_count=0,
                 created_by_admin_id=admin.id,
                 created_at=now,
                 updated_at=now,
             )
             user = User(in_app_id="u1", paymail="wallet1")
-            session.add_all([nft, user])
+            session.add_all([template, user])
             session.flush()
 
             # Pre-condition
-            self.assertEqual(nft.minted_count, 0)
+            self.assertEqual(template.minted_count, 0)
             self.assertEqual(len(user.ownerships), 0)
 
             # Act
+            nft = template.instantiate_nft(shared_key="key")
             user.issue_nft_dbwise(session, nft)
             session.commit()
 
             # Verify minted_count incremented
-            self.assertEqual(nft.minted_count, 1)
+            self.assertEqual(template.minted_count, 1)
             # Ownership created and linked
             self.assertEqual(len(user.ownerships), 1)
             ownership: UserNFTOwnership = user.ownerships[0]
             self.assertEqual(ownership.user_id, user.id)
             self.assertEqual(ownership.nft_id, nft.id)
             self.assertEqual(ownership.serial_number, 0)
-            self.assertEqual(ownership.unique_nft_id, "ABC-0")
+            self.assertEqual(ownership.unique_nft_id, "ABC_key")
             self.assertEqual(ownership.acquired_at, nft.created_at)
+
+    def test_template_max_supply_enforced(self):
+        now = datetime.now(timezone.utc)
+        with self.Session() as session:
+            admin = Admin(paymail="admin@max.com", password_hash="x")
+            session.add(admin)
+            session.flush()
+
+            template = NFTTemplate(
+                prefix="SUP", 
+                name="Token",
+                category="cat",
+                subcategory="sub",
+                max_supply=1,
+                created_by_admin_id=admin.id,
+                created_at=now,
+                updated_at=now,
+            )
+            user = User(in_app_id="u1", paymail="wallet1")
+            session.add_all([template, user])
+            session.flush()
+
+            nft1 = template.instantiate_nft(shared_key="s1")
+            user.issue_nft_dbwise(session, nft1)
+
+            with self.assertRaises(ValueError):
+                template.instantiate_nft(shared_key="s2")
+
+            nft2 = NFT(
+                template_id=template.id,
+                shared_key="s3",
+                created_by_admin_id=admin.id,
+            )
+            with self.assertRaises(ValueError):
+                user.issue_nft_dbwise(session, nft2)
 
     def test_bingo_completed_lines(self):
         card = BingoCard(user_id=1, issued_at=datetime.now(timezone.utc))
@@ -135,7 +167,7 @@ class DBTestCase(unittest.TestCase):
             cell = BingoCell(
                 bingo_card_id=1,
                 idx=i,
-                target_nft_id=1,
+                target_template_id=1,
                 state="locked",
             )
             card.cells.append(cell)

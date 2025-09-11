@@ -7,8 +7,7 @@ from nictbw.models import (
     Admin,
     User,
     NFTCondition,
-    NFT,
-    UserNFTOwnership,
+    NFTTemplate,
     BingoCard,
     BingoCell,
 )
@@ -36,7 +35,7 @@ def main() -> None:
         admin = Admin(
             paymail="admin@example.com",
             password_hash="dev-hash",
-            name="test1",
+            name="nictbw_admin",
             role="superuser",
             created_at=now,
             updated_at=now,
@@ -72,120 +71,109 @@ def main() -> None:
         session.add(condition)
         session.flush()
 
-        # NFTs
-        nft1 = NFT(
+        # NFT templates
+        tpl1 = NFTTemplate(
             prefix="prefix-1",
-            shared_key="shared-key-1",
-            name="Game Entry Badge",
-            nft_type="default",
-            description="Issued for attending the game",
-            condition_id=condition.id,
+            name="Game Watching Badge",
+            category="game",
+            subcategory="Sendai89ers_2025-09-11",
+            description="Description to be shown in the mobile app goes here, e.g. issued for watching the game.",
+            default_condition_id=condition.id,
             created_by_admin_id=admin.id,
             created_at=now,
             updated_at=now,
         )
-        nft2 = NFT(
+        tpl2 = NFTTemplate(
             prefix="prefix-2",
-            shared_key="shared-key-2",
-            name="Restaurant Visit Badge",
-            nft_type="event",
-            description="Issued for visiting partner restaurant #1",
+            name="Game Watching Badge",
+            category="game",
+            subcategory="Sendai89ers_2025-09-12",
+            description="Description to be shown in the mobile app goes here, e.g. issued for watching the game.",
             created_by_admin_id=admin.id,
             created_at=now,
             updated_at=now,
         )
-        nft3 = NFT(
+        tpl3 = NFTTemplate(
             prefix="prefix-3",
-            shared_key="shared-key-3",
-            name="Coffee Shop Badge",
-            nft_type="event",
-            description="Issued for visiting partner restaurant #2",
+            name="ExampleShop-1 Badge",
+            category="restaurant",
+            subcategory="ExampleShopName-1",
+            description="Description to be shown in the mobile app goes here, e.g. issued for visiting partner restaurant #1.",
             created_by_admin_id=admin.id,
             created_at=now,
             updated_at=now,
         )
-        nft4 = NFT(
+        tpl4 = NFTTemplate(
             prefix="prefix-4",
-            shared_key="shared-key-4",
-            name="Museum Visit Badge",
-            nft_type="event",
-            description="Issued for visiting partner restaurant #3",
+            name="ExampleShop-2 Badge",
+            category="restaurant",
+            subcategory="ExampleShopName-2",
+            description="Description to be shown in the mobile app goes here, e.g. issued for visiting partner restaurant #2.",
             created_by_admin_id=admin.id,
             created_at=now,
             updated_at=now,
         )
-        nft5 = NFT(
+        tpl5 = NFTTemplate(
             prefix="prefix-5",
-            shared_key="shared-key-5",
-            name="Library Badge",
-            nft_type="event",
-            description="Issued for visiting partner restaurant #4",
+            name="ExampleShop-3 Badge",
+            category="restaurant",
+            subcategory="ExampleShopName-3",
+            description="Description to be shown in the mobile app goes here, e.g. issued for visiting partner restaurant #3.",
             created_by_admin_id=admin.id,
             created_at=now,
             updated_at=now,
         )
-        nft6 = NFT(
+        tpl6 = NFTTemplate(
             prefix="prefix-6",
-            shared_key="shared-key-6",
-            name="Park Badge",
-            nft_type="event",
-            description="Issued for visiting partner restaurant #5",
+            name="ExampleShop-4 Badge",
+            category="restaurant",
+            subcategory="ExampleShopName-4",
+            description="Description to be shown in the mobile app goes here, e.g. issued for visiting partner restaurant #4.",
             created_by_admin_id=admin.id,
             created_at=now,
             updated_at=now,
         )
-        nft7 = NFT(
+        tpl7 = NFTTemplate(
             prefix="prefix-7",
-            shared_key="shared-key-7",
-            name="Cinema Badge",
-            nft_type="event",
-            description="Issued for attending partner restaurant #6",
+            name="ExampleShop-5 Badge",
+            category="restaurant",
+            subcategory="ExampleShopName-5",
+            description="Description to be shown in the mobile app goes here, e.g. issued for attending partner restaurant #5.",
             created_by_admin_id=admin.id,
             created_at=now,
             updated_at=now,
         )
-        nft8 = NFT(
+        tpl8 = NFTTemplate(
             prefix="prefix-8",
-            shared_key="shared-key-8",
-            name="Bookstore Badge",
-            nft_type="event",
-            description="Issued for visiting partner restaurant #7",
+            name="ExampleEvent-1 Badge",
+            category="event",
+            subcategory="ExampleEventName-1",
+            description="Description to be shown in the mobile app goes here, e.g. issued for attending partner event #1.",
             created_by_admin_id=admin.id,
             created_at=now,
             updated_at=now,
         )
-        nft9 = NFT(
+        tpl9 = NFTTemplate(
             prefix="prefix-9",
-            shared_key="shared-key-9",
-            name="Gym Badge",
-            nft_type="event",
-            description="Issued for visiting partner restaurant #8",
+            name="ExampleEvent-2 Badge",
+            category="event",
+            subcategory="ExampleEventName-2",
+            description="Description to be shown in the mobile app goes here, e.g. issued for attending partner event #2.",
             created_by_admin_id=admin.id,
             created_at=now,
             updated_at=now,
         )
 
-        session.add_all([nft1, nft2, nft3, nft4, nft5, nft6, nft7, nft8, nft9])
+        session.add_all([tpl1, tpl2, tpl3, tpl4, tpl5, tpl6, tpl7, tpl8, tpl9])
         session.flush()
 
-        # Ownerships
-        own1 = UserNFTOwnership(
-            user_id=user1.id,
-            nft_id=nft1.id,
-            serial_number=1,
-            unique_nft_id="nft1-0001",
-            acquired_at=now,
-        )
-        own2 = UserNFTOwnership(
-            user_id=user1.id,
-            nft_id=nft2.id,
-            serial_number=1,
-            unique_nft_id="nft2-0001",
-            acquired_at=now,
-        )
-        session.add_all([own1, own2])
+        # Issue NFTs to user1
+        nft1 = tpl1.instantiate_nft(shared_key="shared-key-1")
+        user1.issue_nft_dbwise(session, nft1)
+        nft2 = tpl2.instantiate_nft(shared_key="shared-key-2")
+        user1.issue_nft_dbwise(session, nft2)
         session.flush()
-
+        own1 = user1.ownerships[0]
         # Bingo card for user1
         card = BingoCard(
             user_id=user1.id,
@@ -197,13 +185,14 @@ def main() -> None:
 
         # Bingo cells
         cells: list[BingoCell] = []
-        nft_list = [nft2, nft3, nft4, nft5, nft1, nft6, nft7, nft8, nft9]
+        tpl_list = [tpl2, tpl3, tpl4, tpl5, tpl1, tpl6, tpl7, tpl8, tpl9]
         for idx in range(9):
             if idx == 4:
                 cell = BingoCell(
                     bingo_card_id=card.id,
                     idx=idx,
-                    target_nft_id=nft1.id,
+                    target_template_id=tpl1.id,
+                    nft_id=nft1.id,
                     matched_ownership_id=own1.id,
                     state="unlocked",
                     unlocked_at=now,
@@ -212,7 +201,7 @@ def main() -> None:
                 cell = BingoCell(
                     bingo_card_id=card.id,
                     idx=idx,
-                    target_nft_id=nft_list[idx].id,
+                    target_template_id=tpl_list[idx].id,
                     state="locked",
                 )
             cells.append(cell)

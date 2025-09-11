@@ -10,15 +10,21 @@ from sqlalchemy import (
     UniqueConstraint,
     Index,
 )
-from . import Base
+from .base import Base
 
 if TYPE_CHECKING:
     from .user import User
-    from .nft import NFT
+    from .nft import NFT, NFTTemplate
     from .ownership import UserNFTOwnership
 
 
 class BingoCard(Base):
+    """Bingo card assigned to a user.
+
+    Represents a 3x3 grid of :class:`BingoCell` objects that can be unlocked by
+    collecting NFTs matching predefined templates.
+    """
+
     def __init__(
         self,
         user_id: int,
@@ -37,9 +43,7 @@ class BingoCard(Base):
     user_id: Mapped[int] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    issued_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False
-    )
+    issued_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     completed_at: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
@@ -94,18 +98,22 @@ class BingoCard(Base):
 
 
 class BingoCell(Base):
+    """Single cell within a :class:`BingoCard` grid."""
+
     def __init__(
         self,
         bingo_card_id: int,
         idx: int,
-        target_nft_id: int,
+        target_template_id: int,
+        nft_id: Optional[int] = None,
         matched_ownership_id: Optional[int] = None,
         state: str = "locked",
         unlocked_at: Optional[datetime] = None,
     ):
         self.bingo_card_id = bingo_card_id
         self.idx = idx
-        self.target_nft_id = target_nft_id
+        self.target_template_id = target_template_id
+        self.nft_id = nft_id
         self.matched_ownership_id = matched_ownership_id
         self.state = state
         self.unlocked_at = unlocked_at
@@ -117,8 +125,11 @@ class BingoCell(Base):
         ForeignKey("bingo_cards.id", ondelete="CASCADE"), nullable=False
     )
     idx: Mapped[int] = mapped_column(Integer, nullable=False)
-    target_nft_id: Mapped[int] = mapped_column(
-        ForeignKey("nfts.id", ondelete="RESTRICT"), nullable=False, index=True
+    target_template_id: Mapped[int] = mapped_column(
+        ForeignKey("nft_templates.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    nft_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("nfts.id", ondelete="SET NULL"), nullable=True, index=True
     )
     matched_ownership_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("user_nft_ownership.id", ondelete="SET NULL"), nullable=True
@@ -129,7 +140,8 @@ class BingoCell(Base):
     )
 
     card: Mapped["BingoCard"] = relationship(back_populates="cells")
-    target_nft: Mapped["NFT"] = relationship(back_populates="target_cells")
+    target_template: Mapped["NFTTemplate"] = relationship(back_populates="target_cells")
+    nft: Mapped[Optional["NFT"]] = relationship(back_populates="target_cell")
     matched_ownership: Mapped[Optional["UserNFTOwnership"]] = relationship(
         back_populates="matched_cells"
     )
@@ -138,7 +150,8 @@ class BingoCell(Base):
         UniqueConstraint("bingo_card_id", "idx", name="uq_card_idx"),
         CheckConstraint("state IN ('locked','unlocked')", name="state_enum"),
         CheckConstraint(
-            "(state = 'locked' AND matched_ownership_id IS NULL) OR (state = 'unlocked' AND matched_ownership_id IS NOT NULL)",
+            "(state = 'locked' AND nft_id IS NULL AND matched_ownership_id IS NULL) OR "
+            "(state = 'unlocked' AND nft_id IS NOT NULL AND matched_ownership_id IS NOT NULL)",
             name="locked_unlocked_consistency",
         ),
         CheckConstraint("idx >= 0 AND idx <= 8", name="idx_range"),
@@ -147,6 +160,6 @@ class BingoCell(Base):
 
     def __repr__(self) -> str:
         return (
-            f"<BingoCell(id={self.id}, idx={self.idx}, "
-            f"target_nft_id={self.target_nft_id}, state='{self.state}')>"
+            f"<BingoCell(id={self.id}, idx={self.idx}, target_template_id={self.target_template_id}, "
+            f"nft_id={self.nft_id}, state='{self.state}')>"
         )

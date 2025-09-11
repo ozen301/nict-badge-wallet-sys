@@ -42,7 +42,7 @@ python scripts/seed_dev.py  # optional, seed dev data
 This by default creates `dev.db` (SQLite) with all schema objects. The `init_db.py` script will print all created tables:
 
 ```
-Created tables: admins, users, nft_conditions, nfts, user_nft_ownership, bingo_cards, bingo_cells, blockchain_transactions, audit_logs
+Created tables: admins, audit_logs, bingo_cards, bingo_cells, blockchain_transactions, nft_conditions, nft_templates, nfts, user_nft_ownership, users
 ```
 ---
 
@@ -87,9 +87,14 @@ python -m unittest -v test_db_utils test_models
 ---
 
 ## TODO
+* Add a unique "name" field to the `NFTCondition` model.
+* Add bingo cell unlocking logic to `issue_badge_to_user` function.
+* Add bingo card generator that randomizes NFT Template assignments to cells.
+* Implement `NFTCondition`'s `location_range` and `othe rconditions` verification logic.
+* Update `BlockchainTransaction` model to include recipient paymail instead of user_id.
 * Include NFT metadata in blockchain related operations. (Currently not implemented due to API bugs.)
 * Update `sync_nfts_from_chain` method in `user.py` to handle NFTs that are on chain but not in DB.
-* Add bingo card generator that randomizes NFT assignments to cells.
+* Improve error handling for request-related functions.
 * Add Alembic.
 * Implement audit logging.
 ---

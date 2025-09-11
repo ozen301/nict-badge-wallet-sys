@@ -10,18 +10,26 @@ from sqlalchemy import (
     CheckConstraint,
     Index,
 )
-from . import Base
+from .base import Base
 
 if TYPE_CHECKING:
     from .user import User
     from .nft import NFT
 
+
 class BlockchainTransaction(Base):
+    """On-chain action associated with an NFT or user.
+
+    Stores request and response payloads for blockchain operations such as
+    minting or transferring NFTs.
+    """
+
     __tablename__ = "blockchain_transactions"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    user_id: Mapped[Optional[int]] = mapped_column(
-        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    # Changed from user_id (FK to users.id) to user_paymail (FK to users.paymail)
+    user_paymail: Mapped[Optional[str]] = mapped_column(
+        ForeignKey("users.paymail", ondelete="SET NULL"), nullable=True
     )
     nft_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("nfts.id", ondelete="SET NULL"), nullable=True
@@ -39,7 +47,11 @@ class BlockchainTransaction(Base):
         DateTime(timezone=True), nullable=True
     )
 
-    user: Mapped[Optional["User"]] = relationship(back_populates="chain_txs")
+    user: Mapped[Optional["User"]] = relationship(
+        "User",
+        primaryjoin="User.paymail==BlockchainTransaction.user_paymail",
+        back_populates="chain_txs",
+    )
     nft: Mapped[Optional["NFT"]] = relationship(back_populates="chain_txs")
 
     __table_args__ = (
@@ -50,10 +62,11 @@ class BlockchainTransaction(Base):
         Index("ix_chain_nft", "nft_id"),
         Index("ix_chain_status", "status"),
         Index("ix_chain_type_status", "type", "status"),
+        Index("ix_chain_user_paymail", "user_paymail"),
     )
 
     def __repr__(self) -> str:
         return (
-            f"<BlockchainTransaction(id={self.id}, user_id={self.user_id}, "
+            f"<BlockchainTransaction(id={self.id}, user_paymail={self.user_paymail}, "
             f"nft_id={self.nft_id}, status='{self.status}', created_at={self.created_at})>"
         )

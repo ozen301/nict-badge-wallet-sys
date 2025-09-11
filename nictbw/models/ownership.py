@@ -10,7 +10,7 @@ from sqlalchemy import (
     UniqueConstraint,
     Index,
 )
-from . import Base
+from .base import Base
 
 if TYPE_CHECKING:
     from .user import User
@@ -19,6 +19,8 @@ if TYPE_CHECKING:
 
 
 class UserNFTOwnership(Base):
+    """Association table recording which user owns which NFT."""
+
     def __init__(
         self,
         user_id: int,
@@ -28,6 +30,24 @@ class UserNFTOwnership(Base):
         acquired_at: datetime,
         other_meta: Optional[str] = None,
     ):
+        """Create a new ownership record.
+
+        Parameters
+        ----------
+        user_id : int
+            Owning user's ID.
+        nft_id : int
+            ID of the owned NFT.
+        serial_number : int
+            Serial number of this NFT within those minted from the same template.
+        unique_nft_id : str
+            Unique identifier for the NFT. The format is f"{nft.prefix}_{nft.shared_key}".
+        acquired_at : datetime
+            When the user acquired the NFT.
+        other_meta : str, optional
+            Additional metadata encoded as JSON string.
+        """
+
         self.user_id = user_id
         self.nft_id = nft_id
         self.serial_number = serial_number
@@ -59,9 +79,7 @@ class UserNFTOwnership(Base):
 
     __table_args__ = (
         UniqueConstraint("user_id", "nft_id", name="uq_user_nft"),
-        UniqueConstraint(
-            "nft_id", "serial_number", name="uq_nft_serial"
-        ),
+        UniqueConstraint("nft_id", "serial_number", name="uq_nft_serial"),
         Index("ix_unique_nft_id", "unique_nft_id"),
     )
 

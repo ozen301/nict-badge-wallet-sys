@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Optional
 from sqlalchemy.orm import Mapped, mapped_column, Session
 from sqlalchemy import Integer, String, DateTime, func, select
-from . import Base
+from .base import Base
 
 
 class Admin(Base):
