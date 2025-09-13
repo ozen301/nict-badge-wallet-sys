@@ -27,6 +27,7 @@ class NFTCondition(Base):
 
     def __init__(
         self,
+        internal_name: Optional[str] = None,
         start_time: Optional[datetime] = None,
         end_time: Optional[datetime] = None,
         location_range: Optional[str] = None,
@@ -40,6 +41,9 @@ class NFTCondition(Base):
 
         Parameters
         ----------
+        internal_name : str, optional
+            Internal, DB-only identifier used for referencing a condition. Not
+            displayed in the app. Must be unique if provided.
         start_time : datetime, optional
             Earliest time when the NFT is valid.
         end_time : datetime, optional
@@ -58,6 +62,7 @@ class NFTCondition(Base):
             Explicit last update timestamp.
         """
 
+        self.internal_name = internal_name
         self.start_time = start_time
         self.end_time = end_time
         self.location_range = location_range
@@ -72,6 +77,9 @@ class NFTCondition(Base):
     __tablename__ = "nft_conditions"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    internal_name: Mapped[Optional[str]] = mapped_column(
+        String(100), nullable=True, unique=True, index=True
+    )
     start_time: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
@@ -107,6 +115,16 @@ class NFTCondition(Base):
             f"end_time={self.end_time}, location_range='{self.location_range}', "
             f"updated_at={self.updated_at})>"
         )
+
+    # --- utility methods ---
+    @classmethod
+    def get_by_internal_name(
+        cls, session: Session, internal_name: str
+    ) -> Optional["NFTCondition"]:
+        """Retrieve a condition by its unique internal name."""
+
+        stmt = select(cls).where(cls.internal_name == internal_name)
+        return session.scalar(stmt)
 
 
 class NFTTemplate(Base):

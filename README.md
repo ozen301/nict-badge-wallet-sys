@@ -87,7 +87,6 @@ python -m unittest -v test_db_utils test_models
 ---
 
 ## TODO
-* Add a unique "name" field to the `NFTCondition` model.
 * Add bingo cell unlocking logic to `issue_badge_to_user` function.
 * Add bingo card generator that randomizes NFT Template assignments to cells.
 * Implement `NFTCondition`'s `location_range` and `othe rconditions` verification logic.
