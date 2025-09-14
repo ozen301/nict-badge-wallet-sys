@@ -1,5 +1,6 @@
 import unittest
 from datetime import datetime, timezone
+import random
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -21,7 +22,9 @@ class DBTestCase(unittest.TestCase):
         # In-memory SQLite for isolation
         self.engine = create_engine("sqlite+pysqlite:///:memory:", future=True)
         Base.metadata.create_all(self.engine)
-        self.Session = sessionmaker(bind=self.engine, future=True, expire_on_commit=False)
+        self.Session = sessionmaker(
+            bind=self.engine, future=True, expire_on_commit=False
+        )
 
     def tearDown(self):
         self.engine.dispose()
@@ -68,11 +71,11 @@ class DBTestCase(unittest.TestCase):
             session.flush()
 
             nft1 = tpl_p.instantiate_nft(shared_key="s1")
-            user.issue_nft_dbwise(session, nft1)
+            nft1.issue_dbwise_to(session, user)
             nft2 = tpl_p.instantiate_nft(shared_key="s2")
-            user.issue_nft_dbwise(session, nft2)
+            nft2.issue_dbwise_to(session, user)
             nft3 = tpl_q.instantiate_nft(shared_key="s3")
-            user.issue_nft_dbwise(session, nft3)
+            nft3.issue_dbwise_to(session, user)
             session.commit()
 
             count_p = NFT.count_nfts_by_prefix(session, "P")
@@ -111,7 +114,7 @@ class DBTestCase(unittest.TestCase):
 
             # Act
             nft = template.instantiate_nft(shared_key="key")
-            user.issue_nft_dbwise(session, nft)
+            nft.issue_dbwise_to(session, user)
             session.commit()
 
             # Verify minted_count incremented
@@ -133,7 +136,7 @@ class DBTestCase(unittest.TestCase):
             session.flush()
 
             template = NFTTemplate(
-                prefix="SUP", 
+                prefix="SUP",
                 name="Token",
                 category="cat",
                 subcategory="sub",
@@ -147,7 +150,7 @@ class DBTestCase(unittest.TestCase):
             session.flush()
 
             nft1 = template.instantiate_nft(shared_key="s1")
-            user.issue_nft_dbwise(session, nft1)
+            nft1.issue_dbwise_to(session, user)
 
             with self.assertRaises(ValueError):
                 template.instantiate_nft(shared_key="s2")
@@ -158,7 +161,7 @@ class DBTestCase(unittest.TestCase):
                 created_by_admin_id=admin.id,
             )
             with self.assertRaises(ValueError):
-                user.issue_nft_dbwise(session, nft2)
+                nft2.issue_dbwise_to(session, user)
 
     def test_bingo_completed_lines(self):
         card = BingoCard(user_id=1, issued_at=datetime.now(timezone.utc))
@@ -187,7 +190,285 @@ class DBTestCase(unittest.TestCase):
         # Ensure no false positives: a column not fully unlocked
         self.assertNotIn((0, 3, 6), lines)
 
+    def test_issue_nft_unlocks_bingo_cells_and_completes_card(self):
+        now = datetime.now(timezone.utc)
+        with self.Session() as session:
+            admin = Admin(paymail="admin@example.com", password_hash="x")
+            session.add(admin)
+            session.flush()
+
+            tpl_a = NFTTemplate(
+                prefix="A",
+                name="A",
+                category="cat",
+                subcategory="sa",
+                created_by_admin_id=admin.id,
+                created_at=now,
+                updated_at=now,
+            )
+            tpl_b = NFTTemplate(
+                prefix="B",
+                name="B",
+                category="cat",
+                subcategory="sb",
+                created_by_admin_id=admin.id,
+                created_at=now,
+                updated_at=now,
+            )
+            tpl_c = NFTTemplate(
+                prefix="C",
+                name="C",
+                category="cat",
+                subcategory="sc",
+                created_by_admin_id=admin.id,
+                created_at=now,
+                updated_at=now,
+            )
+            tpl_x = NFTTemplate(
+                prefix="X",
+                name="X",
+                category="cat",
+                subcategory="sx",
+                created_by_admin_id=admin.id,
+                created_at=now,
+                updated_at=now,
+            )
+            user = User(in_app_id="u1", paymail="wallet1")
+            session.add_all([tpl_a, tpl_b, tpl_c, tpl_x, user])
+            session.flush()
+
+            card = BingoCard(user_id=user.id, issued_at=now)
+            session.add(card)
+            session.flush()
+
+            cells = [
+                BingoCell(bingo_card_id=card.id, idx=0, target_template_id=tpl_a.id),
+                BingoCell(bingo_card_id=card.id, idx=1, target_template_id=tpl_b.id),
+                BingoCell(bingo_card_id=card.id, idx=2, target_template_id=tpl_c.id),
+            ]
+            for i in range(3, 9):
+                cells.append(
+                    BingoCell(bingo_card_id=card.id, idx=i, target_template_id=tpl_x.id)
+                )
+            for c in cells:
+                card.cells.append(c)
+                session.add(c)
+            session.flush()
+
+            nft_a = tpl_a.instantiate_nft(shared_key="sa")
+            nft_a.issue_dbwise_to(session, user)
+            nft_b = tpl_b.instantiate_nft(shared_key="sb")
+            nft_b.issue_dbwise_to(session, user)
+            nft_c = tpl_c.instantiate_nft(shared_key="sc")
+            nft_c.issue_dbwise_to(session, user)
+            session.commit()
+
+            # Only a row unlocked so far; card should still be active
+            self.assertEqual(card.state, "active")
+            self.assertIsNone(card.completed_at)
+
+            # Unlock remaining cells with template X NFTs
+            for i in range(6):
+                nft_x = tpl_x.instantiate_nft(shared_key=f"sx{i}")
+                nft_x.issue_dbwise_to(session, user)
+            session.commit()
+
+            self.assertEqual(card.state, "completed")
+            self.assertIsNotNone(card.completed_at)
+            self.assertTrue(all(c.state == "unlocked" for c in card.cells))
+            self.assertTrue(all(c.matched_ownership_id is not None for c in card.cells))
+
+    def test_user_unlock_cells_for_nft(self):
+        now = datetime.now(timezone.utc)
+        with self.Session() as session:
+            admin = Admin(paymail="admin@example.com", password_hash="x")
+            session.add(admin)
+            session.flush()
+
+            tpl = NFTTemplate(
+                prefix="T",
+                name="TokenT",
+                category="cat",
+                subcategory="subt",
+                created_by_admin_id=admin.id,
+                created_at=now,
+                updated_at=now,
+            )
+            tpl_other = NFTTemplate(
+                prefix="O",
+                name="Other",
+                category="cat",
+                subcategory="subo",
+                created_by_admin_id=admin.id,
+                created_at=now,
+                updated_at=now,
+            )
+            user = User(in_app_id="u1", paymail="wallet1")
+            session.add_all([tpl, tpl_other, user])
+            session.flush()
+
+            nft = tpl.instantiate_nft(shared_key="s1")
+            nft.issue_dbwise_to(session, user)
+
+            card = BingoCard(user_id=user.id, issued_at=now)
+            session.add(card)
+            session.flush()
+
+            cells = [BingoCell(bingo_card_id=card.id, idx=0, target_template_id=tpl.id)]
+            for i in range(1, 9):
+                cells.append(
+                    BingoCell(
+                        bingo_card_id=card.id,
+                        idx=i,
+                        target_template_id=tpl_other.id,
+                    )
+                )
+            for c in cells:
+                card.cells.append(c)
+                session.add(c)
+            session.flush()
+
+            cell = cells[0]
+            self.assertEqual(cell.state, "locked")
+
+            result = user.unlock_cells_for_nft(session, nft)
+            self.assertTrue(result)
+            self.assertEqual(cell.state, "unlocked")
+            self.assertEqual(cell.matched_ownership_id, user.ownerships[0].id)
+
+            # Reset and test using the NFT's ID
+            cell.state = "locked"
+            cell.nft_id = None
+            cell.matched_ownership_id = None
+            session.flush()
+
+            result = user.unlock_cells_for_nft(session, nft.id)
+            self.assertTrue(result)
+            self.assertEqual(cell.state, "unlocked")
+            self.assertEqual(cell.matched_ownership_id, user.ownerships[0].id)
+
+    def test_bingocard_generate_for_user(self):
+        now = datetime.now(timezone.utc)
+        rng = random.Random(0)
+        with self.Session() as session:
+            admin = Admin(paymail="admin@example.com", password_hash="x")
+            session.add(admin)
+            session.flush()
+
+            templates = [
+                NFTTemplate(
+                    prefix=f"T{i}",
+                    name=f"T{i}",
+                    category="cat",
+                    subcategory=f"s{i}",
+                    created_by_admin_id=admin.id,
+                    created_at=now,
+                    updated_at=now,
+                    triggers_bingo_card=(i == 0),
+                )
+                for i in range(10)
+            ]
+            user = User(in_app_id="u1", paymail="wallet1")
+            session.add_all(templates + [user])
+            session.flush()
+
+            nft = templates[0].instantiate_nft(shared_key="s1")
+            nft.issue_dbwise_to(session, user)
+            session.commit()
+
+            card = BingoCard.generate_for_user(
+                session=session,
+                user=user,
+                center_template=templates[0],
+                rng=rng,
+            )
+            self.assertEqual(len(card.cells), 9)
+            self.assertEqual(
+                len({c.target_template_id for c in card.cells}), 9
+            )
+            center = next(c for c in card.cells if c.idx == 4)
+            self.assertEqual(center.state, "unlocked")
+
+    def test_user_ensure_bingo_cards(self):
+        now = datetime.now(timezone.utc)
+        with self.Session() as session:
+            admin = Admin(paymail="admin@example.com", password_hash="x")
+            session.add(admin)
+            session.flush()
+
+            tpl_trigger = NFTTemplate(
+                prefix="TR",
+                name="Trigger",
+                category="cat",
+                subcategory="subtr",
+                created_by_admin_id=admin.id,
+                created_at=now,
+                updated_at=now,
+                triggers_bingo_card=True,
+            )
+            others = [
+                NFTTemplate(
+                    prefix=f"O{i}",
+                    name=f"O{i}",
+                    category="cat",
+                    subcategory=f"so{i}",
+                    created_by_admin_id=admin.id,
+                    created_at=now,
+                    updated_at=now,
+                )
+                for i in range(8)
+            ]
+            user = User(in_app_id="u1", paymail="wallet1")
+            session.add_all([tpl_trigger, user] + others)
+            session.flush()
+
+            nft = tpl_trigger.instantiate_nft(shared_key="s1")
+            nft.issue_dbwise_to(session, user)
+            session.commit()
+
+            created = user.ensure_bingo_cards(session)
+            session.commit()
+            self.assertEqual(created, 1)
+            self.assertEqual(len(user.bingo_cards), 1)
+
+    def test_ownership_get_by_user_and_nft(self):
+        now = datetime.now(timezone.utc)
+        with self.Session() as session:
+            admin = Admin(paymail="admin@example.com", password_hash="x")
+            session.add(admin)
+            session.flush()
+
+            tpl = NFTTemplate(
+                prefix="T",
+                name="TokenT",
+                category="cat",
+                subcategory="subt",
+                created_by_admin_id=admin.id,
+                created_at=now,
+                updated_at=now,
+            )
+            user = User(in_app_id="u1", paymail="wallet1")
+            session.add_all([tpl, user])
+            session.flush()
+
+            nft = tpl.instantiate_nft(shared_key="s1")
+            nft.issue_dbwise_to(session, user)
+            session.commit()
+
+            ownership = UserNFTOwnership.get_by_user_and_nft(session, user, nft)
+            self.assertIsNotNone(ownership)
+            assert ownership is not None
+            self.assertEqual(ownership.user_id, user.id)
+            self.assertEqual(ownership.nft_id, nft.id)
+
+            # Also verify lookup works with IDs
+            ownership2 = UserNFTOwnership.get_by_user_and_nft(
+                session, user.id, nft.id
+            )
+            self.assertIsNotNone(ownership2)
+            assert ownership2 is not None
+            self.assertEqual(ownership2.id, ownership.id)
+
 
 if __name__ == "__main__":
     unittest.main()
-

@@ -87,12 +87,10 @@ python -m unittest -v test_db_utils test_models
 ---
 
 ## TODO
-* Add bingo cell unlocking logic to `issue_badge_to_user` function.
-* Add bingo card generator that randomizes NFT Template assignments to cells.
-* Implement `NFTCondition`'s `location_range` and `othe rconditions` verification logic.
-* Update `BlockchainTransaction` model to include recipient paymail instead of user_id.
+* Add workflow examples of typical scenarios including user registration and user's NFT acquisition & bingo card update.
+* Implement `NFTCondition`'s `location_range` and `other_conditions` verification logic.
 * Include NFT metadata in blockchain related operations. (Currently not implemented due to API bugs.)
-* Update `sync_nfts_from_chain` method in `user.py` to handle NFTs that are on chain but not in DB.
+* Update `sync_nfts_from_chain` method in `user.py` to handle NFTs that are on chain but not in DB (Need NFT metadata to be embedded in the NFTs on chain).
 * Improve error handling for request-related functions.
 * Add Alembic.
 * Implement audit logging.

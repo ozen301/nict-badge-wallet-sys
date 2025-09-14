@@ -78,8 +78,9 @@ def main() -> None:
             category="game",
             subcategory="Sendai89ers_2025-09-11",
             description="Description to be shown in the mobile app goes here, e.g. issued for watching the game.",
-            default_condition_id=condition.id,
+            default_condition=condition,
             created_by_admin_id=admin.id,
+            triggers_bingo_card=True,
             created_at=now,
             updated_at=now,
         )
@@ -90,6 +91,7 @@ def main() -> None:
             subcategory="Sendai89ers_2025-09-12",
             description="Description to be shown in the mobile app goes here, e.g. issued for watching the game.",
             created_by_admin_id=admin.id,
+            triggers_bingo_card=True,
             created_at=now,
             updated_at=now,
         )
@@ -163,15 +165,47 @@ def main() -> None:
             created_at=now,
             updated_at=now,
         )
+        tpl10 = NFTTemplate(
+            prefix="prefix-10",
+            name="ExampleEvent-3 Badge",
+            category="event",
+            subcategory="ExampleEventName-3",
+            description="Description to be shown in the mobile app goes here, e.g. issued for attending partner event #3.",
+            created_by_admin_id=admin.id,
+            created_at=now,
+            updated_at=now,
+        )
+        tpl11 = NFTTemplate(
+            prefix="prefix-11",
+            name="ExampleEvent-4 Badge",
+            category="event",
+            subcategory="ExampleEventName-4",
+            description="Description to be shown in the mobile app goes here, e.g. issued for attending partner event #4.",
+            created_by_admin_id=admin.id,
+            created_at=now,
+            updated_at=now,
+        )
+        tpl12 = NFTTemplate(
+            prefix="prefix-12",
+            name="ExampleShop-6 Badge",
+            category="restaurant",
+            subcategory="ExampleShopName-6",
+            description="Description to be shown in the mobile app goes here, e.g. issued for visiting partner restaurant #6.",
+            created_by_admin_id=admin.id,
+            created_at=now,
+            updated_at=now,
+        )
 
-        session.add_all([tpl1, tpl2, tpl3, tpl4, tpl5, tpl6, tpl7, tpl8, tpl9])
+        session.add_all(
+            [tpl1, tpl2, tpl3, tpl4, tpl5, tpl6, tpl7, tpl8, tpl9, tpl10, tpl11, tpl12]
+        )
         session.flush()
 
         # Issue NFTs to user1
         nft1 = tpl1.instantiate_nft(shared_key="shared-key-1")
-        user1.issue_nft_dbwise(session, nft1)
+        nft1.issue_dbwise_to(session, user1)
         nft2 = tpl2.instantiate_nft(shared_key="shared-key-2")
-        user1.issue_nft_dbwise(session, nft2)
+        nft2.issue_dbwise_to(session, user1)
         session.flush()
         own1 = user1.ownerships[0]
         # Bingo card for user1

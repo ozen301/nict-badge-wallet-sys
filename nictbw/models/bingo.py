@@ -1,6 +1,7 @@
-from datetime import datetime
-from typing import TYPE_CHECKING, Optional
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from datetime import datetime, timezone
+import random
+from typing import TYPE_CHECKING, Iterable, Optional
+from sqlalchemy.orm import Mapped, Session, mapped_column, relationship
 from sqlalchemy import (
     Integer,
     String,
@@ -9,6 +10,7 @@ from sqlalchemy import (
     CheckConstraint,
     UniqueConstraint,
     Index,
+    select,
 )
 from .base import Base
 
@@ -64,6 +66,143 @@ class BingoCard(Base):
             f"issued_at={self.issued_at}, state='{self.state}')>"
         )
 
+    @classmethod
+    def generate_for_user(
+        cls,
+        session: Session,
+        user: "User",
+        center_template: "NFTTemplate",
+        *,
+        excluded_templates: Optional[Iterable["int | NFTTemplate"]] = None,
+        included_templates: Optional[Iterable["int | NFTTemplate"]] = None,
+        issued_at: Optional[datetime] = None,
+        state: str = "active",
+        rng: Optional[random.Random] = None,
+    ) -> "BingoCard":
+        """Generate and persist a bingo card for a user.
+
+        Creates a 3x3 BingoCard (centre at index 4) populated with NFT templates.
+        The card is added to and flushed on the provided SQLAlchemy session
+        before being returned.
+
+        Parameters
+        ----------
+        session : Session
+            Active SQLAlchemy session.
+        user : User
+            Recipient of the card.
+        center_template : NFTTemplate
+            Template assigned to the centre cell (index 4).
+        excluded_templates : iterable[int | NFTTemplate], optional
+            Templates that must not appear on the card. Can be specified as a list of
+            `NFTTemplate` objects or their integer primary keys.
+        included_templates : iterable[int | NFTTemplate], optional
+            If provided, the method will select non-centre templates only from
+            this set (after removing any excluded_templates). If omitted or
+            empty, templates are chosen from all available NFTTemplate records.
+            Can be specified as a list of `NFTTemplate` objects or their integer primary keys.
+        issued_at : datetime, optional
+            Timestamp for card issuance. Defaults to the current UTC time.
+        state : str, optional
+            Initial card state. Defaults to "active".
+        rng : random.Random, optional
+            Random generator to use; useful for deterministic tests. If not
+            provided, a new non-deterministic generator is used.
+
+        Raises
+        ------
+        ValueError
+            If there are fewer than 8 eligible templates to fill the non-centre
+            cells after applying included/excluded constraints.
+
+        Returns
+        -------
+        BingoCard
+            The newly created BingoCard (already added to the session). Cells
+            for which the user already owns a matching NFT will be created in
+            the "unlocked" state and linked to that ownership.
+        """
+
+        from .ownership import UserNFTOwnership
+        from .nft import NFT, NFTTemplate
+
+        def _to_id(t: int | NFTTemplate) -> int:
+            return t if isinstance(t, int) else t.id
+
+        rng = rng or random.Random()
+
+        # Convert include/exclude inputs into sets of template IDs
+        excluded_ids = {_to_id(t) for t in (excluded_templates or [])}
+        included_ids = {_to_id(t) for t in (included_templates or [])}
+
+        if included_ids:
+            candidate_ids = set(included_ids)
+        else:
+            candidate_ids = set(session.scalars(select(NFTTemplate.id)))
+
+        candidate_ids.discard(center_template.id)
+        candidate_ids -= excluded_ids
+
+        if len(candidate_ids) < 8:
+            raise ValueError("Not enough NFT templates to populate bingo card")
+
+        # Randomly pick 8 distinct templates for the non-centre cells, then
+        # shuffle the destination positions (excluding the centre at 4).
+        selected_ids = rng.sample(list(candidate_ids), 8)
+        positions = [0, 1, 2, 3, 5, 6, 7, 8]
+        rng.shuffle(positions)
+
+        # Create the card itself
+        issued_at = issued_at or datetime.now(timezone.utc)
+        card = cls(user_id=user.id, issued_at=issued_at, state=state)
+        session.add(card)
+        session.flush()
+
+        # Fetch any existing UserNFTOwnerships for the selected templates.
+        # Matching cells will be created as unlocked, typically including the centre.
+        template_ids_needed = set(selected_ids) | {center_template.id}
+        ownerships = session.scalars(
+            select(UserNFTOwnership)
+            .join(NFT)
+            .where(
+                UserNFTOwnership.user_id == user.id,
+                NFT.template_id.in_(template_ids_needed),
+            )
+        ).all()
+        ownership_map = {o.nft.template_id: o for o in ownerships}
+
+        # Helper to build a cell
+        def build_cell(idx: int, template_id: int) -> "BingoCell":
+            ownership = ownership_map.get(template_id)
+            # If the user already owns this NFT, build the cell as unlocked
+            if ownership is not None:
+                return BingoCell(
+                    bingo_card_id=card.id,
+                    idx=idx,
+                    target_template_id=template_id,
+                    nft_id=ownership.nft_id,
+                    matched_ownership_id=ownership.id,
+                    state="unlocked",
+                    unlocked_at=datetime.now(timezone.utc),
+                )
+            # Otherwise, build it as locked
+            return BingoCell(
+                bingo_card_id=card.id,
+                idx=idx,
+                target_template_id=template_id,
+            )
+
+        # Build the centre cell first, then the others
+        cells = [build_cell(4, center_template.id)]
+        for idx, tid in zip(positions, selected_ids):
+            cells.append(build_cell(idx, tid))
+
+        # Add cells to the card and flush
+        card.cells.extend(cells)
+        session.flush()
+
+        return card
+
     # Convenience helpers
     @property
     def winning_lines(self) -> list[tuple[int, int, int]]:
@@ -95,6 +234,41 @@ class BingoCard(Base):
             ):
                 result.append((a, b, c))
         return result
+
+    def unlock_cells_for_ownership(
+        self, session: Session, ownership: "UserNFTOwnership"
+    ) -> bool:
+        """Unlock cells matched by the given ownership.
+
+        Parameters
+        ----------
+        session : Session
+            Active SQLAlchemy session (unused but kept for API symmetry).
+        ownership : UserNFTOwnership
+            Ownership to match against locked cells.
+
+        Returns
+        -------
+        bool
+            ``True`` if at least one cell was unlocked, otherwise ``False``.
+        """
+
+        unlocked_any = False
+        template_id = ownership.nft.template_id
+        for cell in self.cells:
+            if cell.state == "locked" and cell.target_template_id == template_id:
+                cell.nft_id = ownership.nft_id
+                cell.matched_ownership_id = ownership.id
+                cell.state = "unlocked"
+                cell.unlocked_at = datetime.now(timezone.utc)
+                unlocked_any = True
+
+        if unlocked_any and self.completed_at is None:
+            if all(cell.state == "unlocked" for cell in self.cells):
+                self.completed_at = datetime.now(timezone.utc)
+                self.state = "completed"
+
+        return unlocked_any
 
 
 class BingoCell(Base):

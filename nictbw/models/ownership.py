@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import TYPE_CHECKING, Optional
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship, Session
 from sqlalchemy import (
     Integer,
     String,
@@ -9,6 +9,7 @@ from sqlalchemy import (
     ForeignKey,
     UniqueConstraint,
     Index,
+    select,
 )
 from .base import Base
 
@@ -87,4 +88,37 @@ class UserNFTOwnership(Base):
         return (
             f"<UserNFTOwnership(id={self.id}, user_id={self.user_id}, "
             f"nft_id={self.nft_id}, acquired_at={self.acquired_at})>"
+        )
+
+    @classmethod
+    def get_by_user_and_nft(
+        cls,
+        session: Session,
+        user: "User | int",
+        nft: "NFT | int",
+    ) -> Optional["UserNFTOwnership"]:
+        """Retrieve ownership record linking ``user`` to ``nft``.
+
+        Parameters
+        ----------
+        session : Session
+            Active SQLAlchemy session.
+        user : User | int
+            The owning user or their primary key. Can be a ``User`` instance or its primary key.
+        nft : NFT | int
+            NFT whose ownership is queried, or its primary key. Can be an ``NFT`` instance or its primary key.
+
+        Returns
+        -------
+        Optional[UserNFTOwnership]
+            The matching ownership or ``None`` if not owned.
+        """
+
+        def _to_id(obj: "int | User | NFT") -> int:
+            return obj if isinstance(obj, int) else obj.id
+
+        user_id = _to_id(user)
+        nft_id = _to_id(nft)
+        return session.scalar(
+            select(cls).where(cls.user_id == user_id, cls.nft_id == nft_id)
         )

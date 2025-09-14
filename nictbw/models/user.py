@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Optional
 import warnings
 from sqlalchemy.orm import Session, Mapped, mapped_column, relationship
-from sqlalchemy import Integer, String, DateTime, func, select, inspect
+from sqlalchemy import Integer, String, DateTime, func, select
 
 from .nft import NFT, NFTTemplate
 from .ownership import UserNFTOwnership
@@ -99,6 +99,101 @@ class User(Base):
         """Get a list of NFTs owned by this user."""
         return [o.nft for o in self.ownerships]
 
+    def unlock_bingo_cells(self, session: Session, ownership: UserNFTOwnership) -> bool:
+        """Unlock bingo cells on this user's active cards.
+
+        Parameters
+        ----------
+        session : Session
+            Active SQLAlchemy session.
+        ownership : UserNFTOwnership
+            Newly created ownership to match against bingo cells.
+
+        Returns
+        -------
+        bool
+            ``True`` if any cell was unlocked.
+        """
+
+        unlocked_any = False
+        for card in self.bingo_cards:
+            if card.state == "active":
+                if card.unlock_cells_for_ownership(session, ownership):
+                    unlocked_any = True
+
+        return unlocked_any
+
+    def unlock_cells_for_nft(self, session: Session, nft: "NFT | int") -> bool:
+        """Unlock bingo cells for a specific NFT owned by this user.
+
+        Parameters
+        ----------
+        session : Session
+            Active SQLAlchemy session.
+        nft : NFT | int
+            The NFT to match against locked cells. Can be an ``NFT`` instance or its primary key.
+
+        Returns
+        -------
+        bool
+            ``True`` if any cell was unlocked, otherwise ``False``.
+        """
+
+        def _to_id(n: int | NFT) -> int:
+            return n if isinstance(n, int) else n.id
+
+        ownership = UserNFTOwnership.get_by_user_and_nft(session, self.id, _to_id(nft))
+        if ownership is None:
+            return False
+
+        # Reload bingo cards to ensure newly created cards are considered
+        session.expire(self, ["bingo_cards"])
+        return self.unlock_bingo_cells(session, ownership)
+
+    def ensure_bingo_cards(self, session: Session) -> int:
+        """Create bingo cards for owned templates that trigger them.
+
+        Returns
+        -------
+        int
+            Number of newly created bingo cards.
+        """
+
+        from sqlalchemy import select
+        from .bingo import BingoCard, BingoCell
+
+        # Select the templates the user owns that trigger bingo cards
+        triggering_templates = session.scalars(
+            select(NFTTemplate)
+            .join(NFT)
+            .join(UserNFTOwnership)
+            .where(
+                UserNFTOwnership.user_id == self.id,
+                NFTTemplate.triggers_bingo_card.is_(True),
+            )
+            .distinct()
+        ).all()
+
+        # For each template, check if a corresponding bingo card already exists
+        created = 0
+        for tpl in triggering_templates:
+            exists = session.scalar(
+                select(BingoCard)
+                .join(BingoCell)
+                .where(
+                    BingoCard.user_id == self.id,
+                    BingoCell.idx == 4,
+                    BingoCell.target_template_id == tpl.id,
+                )
+            )
+            # If not, create one
+            if exists is None:
+                card = BingoCard.generate_for_user(session, self, tpl)
+                self.bingo_cards.append(card)
+                created += 1
+
+        return created
+
     @classmethod
     def get_by_in_app_id(cls, session: Session, in_app_id: str) -> Optional["User"]:
         """Retrieve a user by their in_app_id."""
@@ -142,45 +237,6 @@ class User(Base):
         """
 
         return self.password_hash is not None and self.password_hash == password_hash
-
-    def issue_nft_dbwise(self, session: Session, nft: NFT) -> NFT:
-        """Assign ownership of ``nft`` to this user in the database.
-
-        Returns
-        -------
-        NFT
-            The same ``nft`` instance after ownership is recorded.
-        """
-
-        # Enforce max supply before issuing
-        template = nft.template or session.get(NFTTemplate, nft.template_id)
-        if template is None:
-            raise ValueError("NFT template not found")
-        if (
-            template.max_supply is not None
-            and template.minted_count >= template.max_supply
-        ):
-            raise ValueError("Max supply for this template has been reached")
-
-        # Only add/flush the nft if it is not already persisted in the
-        # database or attached to the session. This avoids re-adding an
-        # existing NFT record.
-        if not inspect(nft).persistent:
-            session.add(nft)
-            session.flush()
-
-        serial = template.minted_count
-        new_ownership = UserNFTOwnership(
-            user_id=self.id,
-            nft_id=nft.id,
-            serial_number=serial,
-            unique_nft_id=f"{template.prefix}_{nft.shared_key}",
-            acquired_at=nft.created_at,
-        )
-        self.ownerships.append(new_ownership)
-        template.minted_count += 1
-        session.add(new_ownership)
-        return nft
 
     def sync_nfts_from_chain(
         self, session: Session, client: Optional["ChainClient"] = None

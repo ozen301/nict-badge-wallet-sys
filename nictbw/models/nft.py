@@ -6,6 +6,7 @@ from sqlalchemy import (
     String,
     DateTime,
     Text,
+    Boolean,
     ForeignKey,
     CheckConstraint,
     UniqueConstraint,
@@ -20,6 +21,7 @@ if TYPE_CHECKING:
     from .bingo import BingoCell
     from .chain import BlockchainTransaction
     from nictbw.blockchain.api import ChainClient
+    from .user import User
 
 
 class NFTCondition(Base):
@@ -137,13 +139,13 @@ class NFTTemplate(Base):
         category: str,
         subcategory: str,
         created_by_admin_id: int,
-        default_condition: Optional[NFTCondition] = None,
-        default_condition_id: Optional[int] = None,
+        default_condition: Optional["int | NFTCondition"] = None,
         description: Optional[str] = None,
         image_url: Optional[str] = None,
         max_supply: Optional[int] = None,
         minted_count: int = 0,
         status: str = "active",
+        triggers_bingo_card: bool = False,
         created_at: Optional[datetime] = None,
         updated_at: Optional[datetime] = None,
     ):
@@ -161,12 +163,9 @@ class NFTTemplate(Base):
             More specific classification, such as the name of a restaurant or event.
         created_by_admin_id : int
             Admin responsible for creating the template.
-        default_condition : NFTCondition, optional
-            Default usage condition associated with NFTs from this template. Either this
-            or ``default_condition_id`` can be provided.
-        default_condition_id : int, optional
-            Primary key of the default condition if the object isn't loaded. Either this
-            or ``default_condition`` can be provided.
+        default_condition : int | NFTCondition, optional
+            Default usage condition associated with NFTs from this template. May be
+            provided as an object or its primary key.
         description : str, optional
             Human-readable description.
         image_url : str, optional
@@ -177,22 +176,20 @@ class NFTTemplate(Base):
             Number of NFTs already minted. Defaults to ``0``.
         status : str, optional
             Template status (e.g., ``"active"``). Defaults to ``"active"``.
+        triggers_bingo_card : bool, optional
+            Whether obtaining an NFT from this template should issue a bingo card.
+            Defaults to ``False``.
         created_at : datetime, optional
             Explicit creation timestamp.
         updated_at : datetime, optional
             Explicit last update timestamp.
         """
 
-        if default_condition and default_condition_id:
-            raise ValueError(
-                "Provide either default_condition or default_condition_id, not both."
-            )
+        def _to_id(c: "int | NFTCondition") -> int:
+            return c if isinstance(c, int) else c.id
+
         if default_condition is not None:
-            # Assign relationship; SQLAlchemy will handle the foreign key
-            # `default_condition_id` on flush.
-            self.default_condition = default_condition
-        else:
-            self.default_condition_id = default_condition_id
+            self.default_condition_id = _to_id(default_condition)
 
         self.prefix = prefix
         self.name = name
@@ -204,6 +201,7 @@ class NFTTemplate(Base):
         self.max_supply = max_supply
         self.minted_count = minted_count
         self.status = status
+        self.triggers_bingo_card = triggers_bingo_card
         self.created_at = created_at or datetime.now(timezone.utc)
         self.updated_at = updated_at or datetime.now(timezone.utc)
 
@@ -225,6 +223,9 @@ class NFTTemplate(Base):
     max_supply: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     minted_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     status: Mapped[str] = mapped_column(String(50), nullable=False, default="active")
+    triggers_bingo_card: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False
+    )
     created_by_admin_id: Mapped[int] = mapped_column(
         ForeignKey("admins.id"), nullable=False
     )
@@ -506,6 +507,62 @@ class NFT(Base):
         return res or 0
 
     # --- blockchain integration ---
+    def issue_dbwise_to(self, session: Session, user: "User") -> "NFT":
+        """Assign ownership of this NFT to a user in the database.
+
+        Parameters
+        ----------
+        session : Session
+            Active SQLAlchemy session.
+        user : User
+            User who will own this NFT.
+
+        Returns
+        -------
+        NFT
+            Returns ``self`` after ownership is recorded.
+
+        Notes
+        -----
+        - Enforces template ``max_supply``.
+        - Ensures the NFT is persisted before creating the ownership row.
+        - Increments the template's ``minted_count``.
+        """
+        # Local import to avoid circular imports at module load time
+        from nictbw.models.ownership import UserNFTOwnership
+
+        # Enforce max supply before issuing
+        template = self.template or session.get(NFTTemplate, self.template_id)
+        if template is None:
+            raise ValueError("NFT template not found")
+        if (
+            template.max_supply is not None
+            and template.minted_count >= template.max_supply
+        ):
+            raise ValueError("Max supply for this template has been reached")
+
+        # Ensure NFT is persisted/attached before creating ownership
+        if not inspect(self).persistent:
+            session.add(self)
+            session.flush()
+
+        serial = template.minted_count
+        new_ownership = UserNFTOwnership(
+            user_id=user.id,
+            nft_id=self.id,
+            serial_number=serial,
+            unique_nft_id=f"{template.prefix}_{self.shared_key}",
+            acquired_at=self.created_at,
+        )
+        session.add(new_ownership)
+        user.ownerships.append(new_ownership)
+        template.minted_count += 1
+        session.flush()
+
+        user.unlock_bingo_cells(session, new_ownership)
+
+        return self
+
     def mint_on_chain(
         self,
         session: Session,
@@ -542,8 +599,8 @@ class NFT(Base):
 
         Notes
         -----
-        - This method does not create a local ownership record; call 
-        ``User.issue_nft_dbwise`` separately.
+        - This method does not create a local ownership record; call
+        ``NFT.issue_dbwise_to`` separately.
         """
         import json
         from nictbw.models.chain import BlockchainTransaction
