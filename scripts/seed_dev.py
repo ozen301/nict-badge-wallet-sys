@@ -8,8 +8,6 @@ from nictbw.models import (
     User,
     NFTCondition,
     NFTTemplate,
-    BingoCard,
-    BingoCell,
 )
 
 
@@ -81,6 +79,7 @@ def main() -> None:
             default_condition=condition,
             created_by_admin_id=admin.id,
             triggers_bingo_card=True,
+            image_url="https://upload.wikimedia.org/wikipedia/commons/thumb/1/10/Basketball_through_hoop.jpg/330px-Basketball_through_hoop.jpg",
             created_at=now,
             updated_at=now,
         )
@@ -92,6 +91,7 @@ def main() -> None:
             description="Description to be shown in the mobile app goes here, e.g. issued for watching the game.",
             created_by_admin_id=admin.id,
             triggers_bingo_card=True,
+            image_url="https://upload.wikimedia.org/wikipedia/commons/4/4e/Basketball_Goal.jpg",
             created_at=now,
             updated_at=now,
         )
@@ -102,6 +102,7 @@ def main() -> None:
             subcategory="ExampleShopName-1",
             description="Description to be shown in the mobile app goes here, e.g. issued for visiting partner restaurant #1.",
             created_by_admin_id=admin.id,
+            image_url="https://upload.wikimedia.org/wikipedia/commons/8/85/Intel_logo_2023.svg",
             created_at=now,
             updated_at=now,
         )
@@ -112,6 +113,7 @@ def main() -> None:
             subcategory="ExampleShopName-2",
             description="Description to be shown in the mobile app goes here, e.g. issued for visiting partner restaurant #2.",
             created_by_admin_id=admin.id,
+            image_url="https://upload.wikimedia.org/wikipedia/commons/7/7c/AMD_Logo.svg",
             created_at=now,
             updated_at=now,
         )
@@ -122,6 +124,7 @@ def main() -> None:
             subcategory="ExampleShopName-3",
             description="Description to be shown in the mobile app goes here, e.g. issued for visiting partner restaurant #3.",
             created_by_admin_id=admin.id,
+            image_url="https://upload.wikimedia.org/wikipedia/commons/a/a4/NVIDIA_logo.svg",
             created_at=now,
             updated_at=now,
         )
@@ -132,6 +135,7 @@ def main() -> None:
             subcategory="ExampleShopName-4",
             description="Description to be shown in the mobile app goes here, e.g. issued for visiting partner restaurant #4.",
             created_by_admin_id=admin.id,
+            image_url="https://upload.wikimedia.org/wikipedia/commons/9/96/Microsoft_logo_%282012%29.svg",
             created_at=now,
             updated_at=now,
         )
@@ -142,6 +146,7 @@ def main() -> None:
             subcategory="ExampleShopName-5",
             description="Description to be shown in the mobile app goes here, e.g. issued for attending partner restaurant #5.",
             created_by_admin_id=admin.id,
+            image_url="https://upload.wikimedia.org/wikipedia/commons/f/fa/Apple_logo_black.svg",
             created_at=now,
             updated_at=now,
         )
@@ -152,6 +157,7 @@ def main() -> None:
             subcategory="ExampleEventName-1",
             description="Description to be shown in the mobile app goes here, e.g. issued for attending partner event #1.",
             created_by_admin_id=admin.id,
+            image_url="https://upload.wikimedia.org/wikipedia/commons/thumb/3/31/Basketball_historic.tif/lossless-page1-236px-Basketball_historic.tif.png",
             created_at=now,
             updated_at=now,
         )
@@ -162,6 +168,7 @@ def main() -> None:
             subcategory="ExampleEventName-2",
             description="Description to be shown in the mobile app goes here, e.g. issued for attending partner event #2.",
             created_by_admin_id=admin.id,
+            image_url="https://upload.wikimedia.org/wikipedia/commons/thumb/5/54/SPALDING_NBA_OFFICIAL_GAME_BALL.jpg/250px-SPALDING_NBA_OFFICIAL_GAME_BALL.jpg",
             created_at=now,
             updated_at=now,
         )
@@ -172,6 +179,7 @@ def main() -> None:
             subcategory="ExampleEventName-3",
             description="Description to be shown in the mobile app goes here, e.g. issued for attending partner event #3.",
             created_by_admin_id=admin.id,
+            image_url="https://upload.wikimedia.org/wikipedia/commons/thumb/d/db/FIBA_Basketballs_2004-2005.JPG/330px-FIBA_Basketballs_2004-2005.JPG",
             created_at=now,
             updated_at=now,
         )
@@ -182,6 +190,7 @@ def main() -> None:
             subcategory="ExampleEventName-4",
             description="Description to be shown in the mobile app goes here, e.g. issued for attending partner event #4.",
             created_by_admin_id=admin.id,
+            image_url="https://upload.wikimedia.org/wikipedia/commons/7/7a/Basketball.png",
             created_at=now,
             updated_at=now,
         )
@@ -192,6 +201,7 @@ def main() -> None:
             subcategory="ExampleShopName-6",
             description="Description to be shown in the mobile app goes here, e.g. issued for visiting partner restaurant #6.",
             created_by_admin_id=admin.id,
+            image_url="https://upload.wikimedia.org/wikipedia/commons/2/2f/Google_2015_logo.svg",
             created_at=now,
             updated_at=now,
         )
