@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 import random
-from typing import TYPE_CHECKING, Iterable, Optional
+from typing import TYPE_CHECKING, Iterable, Optional, Any
 from sqlalchemy.orm import Mapped, Session, mapped_column, relationship
 from sqlalchemy import (
     Integer,
@@ -13,6 +13,7 @@ from sqlalchemy import (
     select,
 )
 from .base import Base
+from nictbw.db.utils import dt_iso
 
 if TYPE_CHECKING:
     from .user import User
@@ -65,6 +66,35 @@ class BingoCard(Base):
             f"<BingoCard(id={self.id}, user_id={self.user_id}, "
             f"issued_at={self.issued_at}, state='{self.state}')>"
         )
+
+    def to_json(self, *, compact: bool = False) -> dict[str, Any]:
+        """Return a JSON (dict) representation of this BingoCard.
+
+        When compact is True, return essential fields only.
+        Includes all cells serialized via BingoCell.to_json(compact=compact).
+        """
+        cells_list: list[dict[str, Any]] = [
+            c.to_json(compact=compact) for c in sorted(self.cells, key=lambda c: c.idx)
+        ]
+
+        full = {
+            "id": self.id,
+            "user_id": self.user_id,
+            "issued_at": dt_iso(self.issued_at),
+            "completed_at": dt_iso(self.completed_at),
+            "state": self.state,
+            "cells": cells_list,
+        }
+        if not compact:
+            return full
+        keep = {"id", "state", "completed_at", "cells"}
+        return {k: v for k, v in full.items() if k in keep}
+
+    def to_json_str(self, *, compact: bool = False) -> str:
+        """Serialize this BingoCard to a JSON string including its cells."""
+        import json
+
+        return json.dumps(self.to_json(compact=compact), ensure_ascii=False)
 
     @classmethod
     def generate_for_user(
@@ -337,3 +367,34 @@ class BingoCell(Base):
             f"<BingoCell(id={self.id}, idx={self.idx}, target_template_id={self.target_template_id}, "
             f"nft_id={self.nft_id}, state='{self.state}')>"
         )
+
+    def to_json(self, *, compact: bool = False) -> dict[str, Any]:
+        """Return a JSON (dict) for this BingoCell.
+
+        When compact is True, keep only essential fields and a compact template.
+        """
+        template_obj = self.target_template.to_json(compact=compact)
+
+        full = {
+            "id": self.id,
+            "bingo_card_id": self.bingo_card_id,
+            "idx": self.idx,
+            "state": self.state,
+            "unlocked_at": dt_iso(self.unlocked_at),
+            "nft_id": self.nft_id,
+            "matched_ownership_id": self.matched_ownership_id,
+            "target_template": template_obj,
+        }
+        if not compact:
+            return full
+        keep = {"id", "idx", "state", "unlocked_at", "target_template"}
+        return {k: v for k, v in full.items() if k in keep}
+
+    def to_json_str(self, *, compact: bool = False) -> str:
+        """Serialize this BingoCell to a JSON string.
+
+        Timestamps are formatted as ISO 8601 (UTC) using the dt_iso helper.
+        """
+        import json
+
+        return json.dumps(self.to_json(compact=compact), ensure_ascii=False)

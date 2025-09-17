@@ -207,39 +207,9 @@ def main() -> None:
         nft2 = tpl2.instantiate_nft(shared_key="shared-key-2")
         nft2.issue_dbwise_to(session, user1)
         session.flush()
-        own1 = user1.ownerships[0]
-        # Bingo card for user1
-        card = BingoCard(
-            user_id=user1.id,
-            issued_at=now,
-            state="active",
-        )
-        session.add(card)
-        session.flush()
 
-        # Bingo cells
-        cells: list[BingoCell] = []
-        tpl_list = [tpl2, tpl3, tpl4, tpl5, tpl1, tpl6, tpl7, tpl8, tpl9]
-        for idx in range(9):
-            if idx == 4:
-                cell = BingoCell(
-                    bingo_card_id=card.id,
-                    idx=idx,
-                    target_template_id=tpl1.id,
-                    nft_id=nft1.id,
-                    matched_ownership_id=own1.id,
-                    state="unlocked",
-                    unlocked_at=now,
-                )
-            else:
-                cell = BingoCell(
-                    bingo_card_id=card.id,
-                    idx=idx,
-                    target_template_id=tpl_list[idx].id,
-                    state="locked",
-                )
-            cells.append(cell)
-        session.add_all(cells)
+        user1.ensure_bingo_cards(session)
+        session.flush()
 
     print("Development database seeded.")
 

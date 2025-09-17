@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Optional
+from nictbw.db.utils import dt_iso
 from sqlalchemy.orm import Session, Mapped, mapped_column, relationship
 from sqlalchemy import (
     Integer,
@@ -274,6 +275,65 @@ class NFTTemplate(Base):
         stmt = select(cls).where(cls.prefix == prefix)
         return session.scalar(stmt)
 
+    @classmethod
+    def get_by_name(cls, session: Session, name: str) -> Optional["NFTTemplate"]:
+        """Retrieve a template by its name."""
+
+        stmt = select(cls).where(cls.name == name)
+        return session.scalar(stmt)
+
+    def to_json(self, *, compact: bool = False) -> dict[str, Any]:
+        """Return a JSON (dict) of the template's properties.
+
+        When compact is True, only essential fields are returned.
+        """
+        full = {
+            "id": self.id,
+            "prefix": self.prefix,
+            "name": self.name,
+            "category": self.category,
+            "subcategory": self.subcategory,
+            "default_condition_id": self.default_condition_id,
+            "description": self.description,
+            "image_url": self.image_url,
+            "max_supply": self.max_supply,
+            "minted_count": self.minted_count,
+            "status": self.status,
+            "triggers_bingo_card": self.triggers_bingo_card,
+            "created_by_admin_id": self.created_by_admin_id,
+            "created_at": dt_iso(self.created_at),
+            "updated_at": dt_iso(self.updated_at),
+        }
+        if not compact:
+            return full
+        keep = {
+            "id",
+            "prefix",
+            "name",
+            "category",
+            "subcategory",
+            "description",
+            "image_url",
+            "status",
+        }
+        return {k: v for k, v in full.items() if k in keep}
+
+    def to_json_str(self, *, compact: bool = False) -> str:
+        """
+        Serialize the template's public properties to a JSON string.
+
+        Timestamps are converted to ISO 8601 strings in UTC. Fields with
+        value None are included as null in the resulting JSON.
+
+        Returns
+        -------
+        str
+            JSON string representation of the template.
+        """
+        import json
+
+        return json.dumps(self.to_json(compact=compact), ensure_ascii=False)
+
     def instantiate_nft(
         self,
         shared_key: str,
@@ -508,7 +568,7 @@ class NFT(Base):
 
     # --- blockchain integration ---
     def issue_dbwise_to(self, session: Session, user: "User") -> "NFT":
-        """Assign ownership of this NFT to a user in the database.
+        """Assign ownership of this NFT to a user in the database, and unlock bingo cells if needed.
 
         Parameters
         ----------
@@ -535,18 +595,18 @@ class NFT(Base):
         template = self.template or session.get(NFTTemplate, self.template_id)
         if template is None:
             raise ValueError("NFT template not found")
-        if (
-            template.max_supply is not None
-            and template.minted_count >= template.max_supply
-        ):
-            raise ValueError("Max supply for this template has been reached")
+        needs_increment = self.id_on_chain is None
+        if template.max_supply is not None:
+            projected_count = template.minted_count + (1 if needs_increment else 0)
+            if projected_count > template.max_supply:
+                raise ValueError("Max supply for this template has been reached")
 
         # Ensure NFT is persisted/attached before creating ownership
         if not inspect(self).persistent:
             session.add(self)
             session.flush()
 
-        serial = template.minted_count
+        serial = template.minted_count if needs_increment else template.minted_count - 1
         new_ownership = UserNFTOwnership(
             user_id=user.id,
             nft_id=self.id,
@@ -556,7 +616,9 @@ class NFT(Base):
         )
         session.add(new_ownership)
         user.ownerships.append(new_ownership)
-        template.minted_count += 1
+        if needs_increment:
+            template.minted_count += 1
+
         session.flush()
 
         user.unlock_bingo_cells(session, new_ownership)
@@ -572,7 +634,7 @@ class NFT(Base):
         file_path: Optional[str] = None,
         additional_info: Optional[dict[str, Any]] = None,
     ) -> dict[str, Any]:
-        """Mint this NFT on chain and record a `BlockchainTransaction`.
+        """Mint this NFT on chain, update its database record, and create a `BlockchainTransaction`.
 
         Parameters
         ----------
@@ -640,7 +702,7 @@ class NFT(Base):
         kwargs: dict[str, Any] = {
             "app": app,
             "name": template.name,
-            "additional_info": meta,
+            "additional_info": json.dumps(meta, ensure_ascii=False),
         }
         if recipient_paymail:
             kwargs["recipient_paymail"] = recipient_paymail
@@ -649,18 +711,21 @@ class NFT(Base):
 
         # Call the chain API (normalized response)
         resp: dict = client.create_nft(**kwargs)
+
+        # Drop transaction_hex field before persisting to DB
+        resp.pop("transaction_hex", None)
         tx_hash: str = resp["transaction_id"]
         nft_information: dict = resp["nft_information"]
 
         # Update self
         self.update_from_info_on_chain(nft_information)
-        if self.template:
-            self.template.minted_count += 1
-
+        if template:
+            template.minted_count += 1
         session.flush()
 
         # Record blockchain transaction (status 'sent')
         now = datetime.now(timezone.utc)
+
         tx = BlockchainTransaction(
             user_paymail=recipient_paymail if recipient_paymail else None,
             nft_id=self.id,

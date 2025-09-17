@@ -6,6 +6,9 @@ This repository implements the **Badge & Wallet System** for the NICT project ca
 
 ```
 nict-badge-wallet-sys/
+├─ docs/
+│  ├─ code_examples.ipynb  # Jupyter notebook with code examples
+│  ├─ workflows.md         # Common workflows documentation
 ├─ nictbw/
 │  ├─ blockchain/       # Blockchain API interaction
 │  ├─ db/               # DB engine, session, metadata, utilities
@@ -13,7 +16,6 @@ nict-badge-wallet-sys/
 ├─ scripts/             # utility scripts
 ├─ tests/               # unit tests
 ├─ .env.example         # environment variables example
-├─ code_examples.ipynb  # Jupyter notebook with code examples
 ├─ README.md
 └─ pyproject.toml
 ```
@@ -57,15 +59,13 @@ Any URL supported by SQLAlchemy is valid here.
 
 ---
 
-## Code Examples
+## Documentation and Examples
+See [docs/workflows.md](./docs/workflows.md) for common workflows. 
 
-See the Jupyter notebook [`code_examples.ipynb`](code_examples.ipynb) for code snippets:
-
+Check the Jupyter notebook [`code_examples.ipynb`](./docs/code_examples.ipynb) for code snippets, including:
 - Setting up the engine and models
 - Basic CRUD with SQLAlchemy 2.0
-- Using `ChainClient` to get balance/NFTs and mint an NFT
-
-Before running the notebook, ensure your `.env` is configured (copy from `.env.example`).
+- Using the models defined in this project to create users, NFTs, bingo cards, etc.
 
 ---
 
@@ -87,10 +87,10 @@ python -m unittest -v test_db_utils test_models
 ---
 
 ## TODO
-* Add workflow examples of typical scenarios including user registration and user's NFT acquisition & bingo card update.
 * Implement `NFTCondition`'s `location_range` and `other_conditions` verification logic.
 * Include NFT metadata in blockchain related operations. (Currently not implemented due to API bugs.)
-* Update `sync_nfts_from_chain` method in `user.py` to handle NFTs that are on chain but not in DB (Need NFT metadata to be embedded in the NFTs on chain).
+* Implement user registration workflow. (Relevant API features not available yet.)
+* Update `sync_nfts_from_chain` method in `user.py` to handle NFTs that are on chain but not in DB (Need NFT metadata to be embedded in the NFTs on chain. Currently not available).
 * Improve error handling for request-related functions.
 * Add Alembic.
 * Implement audit logging.

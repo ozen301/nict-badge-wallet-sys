@@ -383,9 +383,7 @@ class DBTestCase(unittest.TestCase):
                 rng=rng,
             )
             self.assertEqual(len(card.cells), 9)
-            self.assertEqual(
-                len({c.target_template_id for c in card.cells}), 9
-            )
+            self.assertEqual(len({c.target_template_id for c in card.cells}), 9)
             center = next(c for c in card.cells if c.idx == 4)
             self.assertEqual(center.state, "unlocked")
 
@@ -431,6 +429,80 @@ class DBTestCase(unittest.TestCase):
             self.assertEqual(created, 1)
             self.assertEqual(len(user.bingo_cards), 1)
 
+    def test_user_ensure_bingo_cells(self):
+        now = datetime.now(timezone.utc)
+        with self.Session() as session:
+            admin = Admin(paymail="admin@example.com", password_hash="x")
+            session.add(admin)
+            session.flush()
+
+            tpl_trigger = NFTTemplate(
+                prefix="TR",
+                name="Trigger",
+                category="cat",
+                subcategory="subtr",
+                created_by_admin_id=admin.id,
+                created_at=now,
+                updated_at=now,
+                triggers_bingo_card=True,
+            )
+            tpl_unlock = NFTTemplate(
+                prefix="UN",
+                name="Unlock",
+                category="cat",
+                subcategory="subun",
+                created_by_admin_id=admin.id,
+                created_at=now,
+                updated_at=now,
+            )
+            others = [
+                NFTTemplate(
+                    prefix=f"O{i}",
+                    name=f"O{i}",
+                    category="cat",
+                    subcategory=f"so{i}",
+                    created_by_admin_id=admin.id,
+                    created_at=now,
+                    updated_at=now,
+                )
+                for i in range(7)
+            ]
+            user = User(in_app_id="u1", paymail="wallet1")
+            session.add_all([tpl_trigger, tpl_unlock, user] + others)
+            session.flush()
+
+            nft_tr = tpl_trigger.instantiate_nft(shared_key="s1")
+            nft_tr.issue_dbwise_to(session, user)
+            session.commit()
+
+            created = user.ensure_bingo_cards(session)
+            session.commit()
+            self.assertEqual(created, 1)
+
+            card = user.bingo_cards[0]
+            cell = next(c for c in card.cells if c.target_template_id == tpl_unlock.id)
+            self.assertEqual(cell.state, "locked")
+
+            nft_un = tpl_unlock.instantiate_nft(shared_key="s2")
+            session.add(nft_un)
+            session.flush()
+            ownership = UserNFTOwnership(
+                user_id=user.id,
+                nft_id=nft_un.id,
+                serial_number=0,
+                unique_nft_id=f"{tpl_unlock.prefix}_{nft_un.shared_key}",
+                acquired_at=now,
+            )
+            session.add(ownership)
+            session.flush()
+
+            unlocked = user.ensure_bingo_cells(session)
+            session.commit()
+            self.assertEqual(unlocked, 1)
+            self.assertEqual(cell.state, "unlocked")
+            self.assertEqual(cell.nft_id, nft_un.id)
+            self.assertEqual(cell.matched_ownership_id, ownership.id)
+
     def test_ownership_get_by_user_and_nft(self):
         now = datetime.now(timezone.utc)
         with self.Session() as session:
@@ -462,9 +534,7 @@ class DBTestCase(unittest.TestCase):
             self.assertEqual(ownership.nft_id, nft.id)
 
             # Also verify lookup works with IDs
-            ownership2 = UserNFTOwnership.get_by_user_and_nft(
-                session, user.id, nft.id
-            )
+            ownership2 = UserNFTOwnership.get_by_user_and_nft(session, user.id, nft.id)
             self.assertIsNotNone(ownership2)
             assert ownership2 is not None
             self.assertEqual(ownership2.id, ownership.id)

@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Optional, Any
 import warnings
 from sqlalchemy.orm import Session, Mapped, mapped_column, relationship
 from sqlalchemy import Integer, String, DateTime, func, select
@@ -94,10 +94,78 @@ class User(Base):
             f"nickname='{self.nickname}', on_chain_id='{self.on_chain_id}', updated_at='{self.updated_at}')>"
         )
 
+    @classmethod
+    def get_by_in_app_id(cls, session: Session, in_app_id: str) -> Optional["User"]:
+        """Retrieve a user by their in_app_id."""
+
+        return session.scalar(select(cls).where(cls.in_app_id == in_app_id))
+
+    @classmethod
+    def get_by_paymail(cls, session: Session, paymail: str) -> Optional["User"]:
+        """Retrieve a user by paymail address."""
+
+        return session.scalar(select(cls).where(cls.paymail == paymail))
+
+    @classmethod
+    def get_by_on_chain_id(cls, session: Session, on_chain_id: str) -> Optional["User"]:
+        """Retrieve a user by on_chain_id."""
+
+        return session.scalar(select(cls).where(cls.on_chain_id == on_chain_id))
+
     @property
     def nfts(self) -> list[NFT]:
         """Get a list of NFTs owned by this user."""
         return [o.nft for o in self.ownerships]
+
+    def bingo_cards_json(self, *, compact: bool = False) -> list[dict[str, Any]]:
+        """Return a list of this user's bingo cards as JSON-serializable dicts.
+
+        Uses :meth:`BingoCard.to_json` for each card. By default returns full
+        representations unless ``compact`` is True.
+        """
+        return [card.to_json(compact=compact) for card in self.bingo_cards]
+
+    def bingo_cards_json_str(self, *, compact: bool = False) -> str:
+        """Serialize this user's bingo cards to a JSON string."""
+        import json
+
+        return json.dumps(self.bingo_cards_json(compact=compact), ensure_ascii=False)
+
+    def register_on_chain(
+        self, session: Session, client: Optional["ChainClient"] = None
+    ) -> None:
+        """Register the user on-chain using the blockchain API.
+
+        Parameters
+        ----------
+        session : Session
+            Active SQLAlchemy session used to query and persist changes.
+        client : Optional[ChainClient]
+            Pre-initialized blockchain client. If ``None``, a new client is created.
+
+        Notes
+        -----
+        - Calls the blockchain API to register the user and obtain an on-chain ID.
+        - Updates the user's ``on_chain_id`` field in the database.
+        - Caller is responsible for managing the outer transaction (commit/rollback).
+        """
+        if self.on_chain_id is not None:
+            return  # Already registered
+
+        from nictbw.blockchain.api import ChainClient
+
+        client = client or ChainClient()
+
+        # TODO: Implement the actual registration logic with the blockchain API.
+        # (Currently not available in the API v1.)
+        # # Call the blockchain API to register the user
+        # on_chain_id = client.register_user(self.in_app_id, self.paymail)
+
+        # # Update the user record
+        # self.on_chain_id = on_chain_id
+        # self.updated_at = datetime.now(timezone.utc)
+        # session.add(self)
+        # session.flush()
 
     def unlock_bingo_cells(self, session: Session, ownership: UserNFTOwnership) -> bool:
         """Unlock bingo cells on this user's active cards.
@@ -194,23 +262,51 @@ class User(Base):
 
         return created
 
-    @classmethod
-    def get_by_in_app_id(cls, session: Session, in_app_id: str) -> Optional["User"]:
-        """Retrieve a user by their in_app_id."""
+    def ensure_bingo_cells(self, session: Session) -> int:
+        """Unlock bingo cells for NFTs already owned by this user.
 
-        return session.scalar(select(cls).where(cls.in_app_id == in_app_id))
+        Returns
+        -------
+        int
+            Number of cells unlocked.
+        """
 
-    @classmethod
-    def get_by_paymail(cls, session: Session, paymail: str) -> Optional["User"]:
-        """Retrieve a user by paymail address."""
+        from sqlalchemy import select
+        from .ownership import UserNFTOwnership
+        from .nft import NFT
 
-        return session.scalar(select(cls).where(cls.paymail == paymail))
+        # Reload relationships to capture newly created cards or ownerships
+        session.expire(self, ["bingo_cards", "ownerships"])
 
-    @classmethod
-    def get_by_on_chain_id(cls, session: Session, on_chain_id: str) -> Optional["User"]:
-        """Retrieve a user by on_chain_id."""
+        # Map template_id -> ownership for quick lookup
+        ownerships = session.scalars(
+            select(UserNFTOwnership)
+            .join(NFT)
+            .where(UserNFTOwnership.user_id == self.id)
+        ).all()
+        ownership_map = {o.nft.template_id: o for o in ownerships}
 
-        return session.scalar(select(cls).where(cls.on_chain_id == on_chain_id))
+        unlocked = 0
+        for card in self.bingo_cards:
+            if card.state != "active":
+                continue
+            card_unlocked = False
+            for cell in card.cells:
+                if cell.state == "locked":
+                    ownership = ownership_map.get(cell.target_template_id)
+                    if ownership is not None:
+                        cell.nft_id = ownership.nft_id
+                        cell.matched_ownership_id = ownership.id
+                        cell.state = "unlocked"
+                        cell.unlocked_at = datetime.now(timezone.utc)
+                        unlocked += 1
+                        card_unlocked = True
+            if card_unlocked and card.completed_at is None:
+                if all(c.state == "unlocked" for c in card.cells):
+                    card.completed_at = datetime.now(timezone.utc)
+                    card.state = "completed"
+
+        return unlocked
 
     def set_password_hash(self, new_password_hash: Optional[str]) -> None:
         """Set or clear the stored password hash.
