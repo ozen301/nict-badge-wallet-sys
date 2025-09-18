@@ -88,9 +88,8 @@ python -m unittest -v test_db_utils test_models
 
 ## TODO
 * Implement `NFTCondition`'s `location_range` and `other_conditions` verification logic.
-* Include NFT metadata in blockchain related operations. (Currently not implemented due to API bugs.)
-* Implement user registration workflow. (Relevant API features not available yet.)
-* Update `sync_nfts_from_chain` method in `user.py` to handle NFTs that are on chain but not in DB (Need NFT metadata to be embedded in the NFTs on chain. Currently not available).
+* Include NFT metadata in blockchain related operations. (Need confirmation on blockchain API behaviors.)
+* Update `sync_nfts_from_chain` method in `user.py` to handle NFTs that are on chain but not in DB (Need NFT metadata to be embedded in the NFTs on chain.).
 * Improve error handling for request-related functions.
 * Add Alembic.
 * Implement audit logging.

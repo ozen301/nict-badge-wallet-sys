@@ -1,19 +1,103 @@
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 from sqlalchemy.orm import Session
 
 from .models.user import User
 
 if TYPE_CHECKING:
     from .models import Admin, NFT, NFTTemplate
+    from nictbw.blockchain.api import ChainClient
 
 
-def register_user(session: Session, user: User) -> User:
-    """Create a new user in the database and trigger its on-chain registration."""
+def register_user(
+    session: Session,
+    user: User,
+    password: str,
+    email: str,
+    username: Optional[str] = None,
+    group: Optional[str] = None,
+    profile_pic_filepath: Optional[str] = None,
+    client: Optional["ChainClient"] = None,
+) -> User:
+    """Create a new user in the database and register them with the blockchain API.
+
+    The workflow performs two coordinated tasks:
+
+    1. Call the blockchain sign-up endpoint to register the wallet user and
+       capture the generated paymail address.
+    2. Persist the User record locally with the obtained paymail.
+
+    The blockchain ``username`` defaults to the ``user.in_app_id`` when not
+    explicitly provided.
+
+    Parameters
+    ----------
+    session : Session
+        Active SQLAlchemy session.
+    user : User
+        The User to be registered. Its ``paymail`` attribute will
+        be overwritten with the value returned by the blockchain service.
+    password : str
+        User's password forwarded to the blockchain API.
+    email : str
+        User's email forwarded to the blockchain API.
+    username : Optional[str]
+        Optional blockchain username. When omitted ``user.in_app_id`` is used.
+    group : Optional[str]
+        Optional blockchain user group assigned during sign-up.
+    profile_pic_filepath : Optional[str]
+        Optional path to a profile picture uploaded during sign-up.
+    client : Optional[ChainClient]
+        Optional pre-configured :class:`~nictbw.blockchain.api.ChainClient`.
+        If not provided, a default one will be created.
+
+    Returns
+    -------
+    User
+        The persisted ``User`` instance with populated ``id`` and ``paymail``.
+    """
+    from datetime import datetime, timezone
+
     if user.id is not None:
         raise ValueError("User already has an ID, cannot register again.")
 
+    signup_username = username or user.in_app_id
+    if not signup_username:
+        raise ValueError("A blockchain username is required to register the user.")
+
+    if client is None:
+        from nictbw.blockchain.api import ChainClient
+
+        client = ChainClient()
+
+    # Call the blockchain sign-up endpoint
+    response = client.signup_user(
+        username=signup_username,
+        email=email,
+        password=password,
+        profile_pic_filepath=profile_pic_filepath,
+        group=group,
+    )
+
+    # Expect a dict response from the blockchain API
+    if not isinstance(response, dict):
+        raise RuntimeError(f"Unexpected blockchain sign-up response: {response!r}")
+
+    status = response.get("status")
+    if status != "success":
+        message = response.get("message")
+        raise RuntimeError(
+            "Blockchain sign-up failed" + (f": {message}" if message else ".")
+        )
+
+    paymail = response.get("paymail")
+    if not paymail:
+        raise ValueError("Blockchain sign-up response did not include a paymail.")
+
+    user.paymail = paymail
+    user.on_chain_id = signup_username
+    user.updated_at = datetime.now(timezone.utc)
+
     session.add(user)
-    user.register_on_chain(session)
     session.flush()
 
     return user

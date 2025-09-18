@@ -211,3 +211,59 @@ class ChainClient:
                 headers=self.auth_headers,
             )
         return response
+
+    def signup_user(
+        self,
+        username: str,
+        email: str,
+        password: str,
+        profile_pic_filepath: Optional[str] = None,
+        group: Optional[str] = None,
+    ) -> dict[str, Any]:
+        """Sign up a new user via the blockchain API.
+
+        Parameters
+        ----------
+        username : str
+            Desired username for the new user.
+        email : str
+            Email address for the new user.
+        password : str
+            Password for the new user.
+        profile_pic_filepath : Optional[str]
+            Path to a profile picture file to upload. If not provided, no picture is uploaded.
+        group : Optional[str]
+            User group to assign.
+
+        Returns
+        -------
+        dict
+            Response payload in JSON format from the service containing user info.
+        """
+        if profile_pic_filepath:
+            with open(profile_pic_filepath, "rb") as f:
+                response = self._request(
+                    "POST",
+                    "api/v1/auth/sign-up",
+                    data={
+                        "username": username,
+                        "email": email,
+                        "password": password,
+                        "group": group,
+                    },
+                    files={"profile_pic": f} if f else None,
+                    headers=self.auth_headers,
+                )
+        else:
+            response = self._request(
+                "POST",
+                "api/v1/auth/sign-up",
+                json={
+                    "username": username,
+                    "email": email,
+                    "password": password,
+                    "group": group,
+                },
+                headers=self.auth_headers,
+            )
+        return response
