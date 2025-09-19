@@ -219,7 +219,7 @@ class ChainClient:
         password: str,
         profile_pic_filepath: Optional[str] = None,
         group: Optional[str] = None,
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Sign up a new user via the blockchain API.
 
         Parameters

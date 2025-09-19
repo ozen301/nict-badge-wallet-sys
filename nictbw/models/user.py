@@ -20,7 +20,7 @@ class User(Base):
     def __init__(
         self,
         in_app_id: str,
-        paymail: str,
+        paymail: Optional[str] = None,
         on_chain_id: Optional[str] = None,
         nickname: Optional[str] = None,
         password_hash: Optional[str] = None,
@@ -33,8 +33,9 @@ class User(Base):
         ----------
         in_app_id : str
             User's ID in the mobile app.
-        paymail : str
-            User's paymail address.
+        paymail : str, optional
+            User's paymail address. It can be left ``None`` until the blockchain
+            registration workflow supplies the generated paymail.
         on_chain_id : str, optional
             Corresponding blockchain ID.
         nickname : str, optional
@@ -48,10 +49,11 @@ class User(Base):
         """
 
         self.in_app_id = in_app_id
-        self.paymail = paymail
         self.on_chain_id = on_chain_id
         self.nickname = nickname
         self.password_hash = password_hash
+        if paymail is not None:
+            self.paymail = paymail
         if created_at is not None:
             self.created_at = created_at
         if updated_at is not None:
@@ -61,7 +63,9 @@ class User(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     in_app_id: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
-    paymail: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
+    paymail: Mapped[Optional[str]] = mapped_column(
+        String(100), unique=True, nullable=False
+    )
     on_chain_id: Mapped[Optional[str]] = mapped_column(
         String(50), unique=True, nullable=True
     )
