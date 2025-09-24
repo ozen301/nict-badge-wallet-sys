@@ -1,7 +1,6 @@
 from datetime import datetime, timezone
 import json
 from typing import TYPE_CHECKING, Optional, Any
-import warnings
 from sqlalchemy.orm import Session, Mapped, mapped_column, relationship
 from sqlalchemy import Integer, String, DateTime, func, select
 
@@ -308,11 +307,6 @@ class User(Base):
     ) -> None:
         """Refresh this user's NFT ownership using the blockchain API.
 
-        Warning
-        -------
-        WIP/Experimental: This method is not finalized and may change or be removed.
-        Do not rely on it in production. Behavior and schema are subject to change.
-
         Parameters
         ----------
         session : Session
@@ -334,13 +328,7 @@ class User(Base):
           unavailable.
         - Caller is responsible for managing the outer transaction (commit/rollback).
         """
-        # Emit a runtime warning so callers see that this is work-in-progress.
-        warnings.warn(
-            "User.sync_nfts_from_chain is WIP/experimental and may change or be removed; "
-            "avoid using in production.",
-            category=UserWarning,
-            stacklevel=2,
-        )
+
         if self.on_chain_id is None:
             raise ValueError("User does not have an on-chain ID set.")
 
