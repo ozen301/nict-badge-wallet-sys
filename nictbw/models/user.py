@@ -348,6 +348,7 @@ class User(Base):
 
         client = client or ChainClient()
 
+        # Retrieve the latest state of the user's NFTs from the blockchain.
         chain_items = client.get_user_nfts(self.on_chain_id) or []
 
         from .admin import Admin
@@ -414,12 +415,16 @@ class User(Base):
 
             return meta
 
+        # Track already-known NFTs by their on-chain origin so we can decide
+        # whether to update an ownership record or create a brand new one.
         existing_nft_origins = {
             ownership.nft.origin: ownership
             for ownership in self.ownerships
             if ownership.nft and ownership.nft.origin
         }
 
+        # Cache expensive per-template counts and remember which templates were
+        # touched so that their minted totals can be reconciled afterwards.
         template_nft_counts: dict[int, int] = {}
         touched_template_ids: set[int] = set()
         default_admin_id: Optional[int] = None
@@ -447,6 +452,7 @@ class User(Base):
                     default_admin_id = 0
             return default_admin_id
 
+        # Process each NFT payload returned by the blockchain.
         for item in chain_items:
             if not isinstance(item, dict):
                 continue
@@ -512,6 +518,8 @@ class User(Base):
             # Ensure a local template exists for the prefix returned on-chain.
             template = NFTTemplate.get_by_prefix(session, prefix)
             if template is None:
+                # No template exists locally yet; create a shell from the
+                # metadata embedded in the blockchain payload.
                 template = NFTTemplate(
                     prefix=prefix,
                     name=template_name,
@@ -616,6 +624,8 @@ class User(Base):
                 continue
 
             serial = max(template_nft_counts.get(template.id, current_count) - 1, 0)
+            # The NFT is new to the local database; create a corresponding
+            # ownership entry for this user.
             ownership = UserNFTOwnership(
                 user_id=self.id,
                 nft_id=nft.id,

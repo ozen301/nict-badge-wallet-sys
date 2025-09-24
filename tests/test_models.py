@@ -1,8 +1,10 @@
-import unittest
-from datetime import datetime, timezone
+import json
 import random
+import unittest
+import warnings
+from datetime import datetime, timezone
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
 
 from nictbw.models import (
@@ -15,6 +17,16 @@ from nictbw.models import (
     BingoCard,
     BingoCell,
 )
+
+
+class DummyChainClient:
+    def __init__(self, items: list[dict]):
+        self._items = items
+        self.requested_usernames: list[str] = []
+
+    def get_user_nfts(self, username: str) -> list[dict]:
+        self.requested_usernames.append(username)
+        return self._items
 
 
 class DBTestCase(unittest.TestCase):
@@ -538,6 +550,243 @@ class DBTestCase(unittest.TestCase):
             self.assertIsNotNone(ownership2)
             assert ownership2 is not None
             self.assertEqual(ownership2.id, ownership.id)
+
+    def test_sync_nfts_from_chain_requires_on_chain_id(self):
+        with self.Session() as session:
+            user = User(in_app_id="u-sync-none", paymail="wallet-none")
+            session.add(user)
+            session.flush()
+
+            client = DummyChainClient([])
+
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", UserWarning)
+                with self.assertRaises(ValueError):
+                    user.sync_nfts_from_chain(session, client=client)
+
+    def test_sync_nfts_from_chain_creates_local_records(self):
+        created_at = datetime(2024, 1, 1, 12, 0, tzinfo=timezone.utc)
+        updated_at = datetime(2024, 1, 2, 13, 0, tzinfo=timezone.utc)
+        chain_items = [
+            {
+                "nft_origin": "origin-123",
+                "metadata": {
+                    "MAP": {
+                        "subTypeData": {
+                            "prefix": "CHAINPFX",
+                            "sharedKey": "chain-shared",
+                            "category": "event",
+                            "subCategory": "booth-a",
+                            "description": "Chain minted NFT",
+                            "imageUrl": "https://example.com/image.png",
+                            "name": "Chain Template Name",
+                        }
+                    }
+                },
+                "prefix": "IGNORED",
+                "name": "Fallback Name",
+                "nft_id": 99,
+                "current_nft_location": "chain-vault",
+                "created_at": "2024-01-01T12:00:00Z",
+                "updated_at": "2024-01-02T13:00:00Z",
+            }
+        ]
+
+        with self.Session() as session:
+            admin = Admin(paymail="admin-sync@example.com", password_hash="x")
+            session.add(admin)
+            session.flush()
+
+            user = User(
+                in_app_id="u-sync", paymail="wallet-sync", on_chain_id="chain-user"
+            )
+            session.add(user)
+            session.flush()
+
+            client = DummyChainClient(chain_items)
+
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", UserWarning)
+                user.sync_nfts_from_chain(session, client=client)
+
+            self.assertEqual(client.requested_usernames, ["chain-user"])
+
+            template = NFTTemplate.get_by_prefix(session, "CHAINPFX")
+            self.assertIsNotNone(template)
+            assert template is not None
+            self.assertEqual(template.category, "event")
+            self.assertEqual(template.subcategory, "booth-a")
+            self.assertEqual(template.description, "Chain minted NFT")
+            self.assertEqual(template.image_url, "https://example.com/image.png")
+            self.assertEqual(template.minted_count, 1)
+            self.assertEqual(template.created_by_admin_id, admin.id)
+
+            nft = session.scalar(select(NFT).where(NFT.origin == "origin-123"))
+            self.assertIsNotNone(nft)
+            assert nft is not None
+            self.assertEqual(nft.template_id, template.id)
+            self.assertEqual(nft.shared_key, "chain-shared")
+            self.assertEqual(nft.name, "Chain Template Name")
+            self.assertEqual(nft.category, "event")
+            self.assertEqual(nft.subcategory, "booth-a")
+            self.assertEqual(nft.description, "Chain minted NFT")
+            self.assertEqual(nft.image_url, "https://example.com/image.png")
+            self.assertEqual(nft.current_location, "chain-vault")
+            self.assertEqual(nft.id_on_chain, 99)
+            self.assertEqual(nft.origin, "origin-123")
+            self.assertEqual(
+                nft.created_at.replace(tzinfo=None), created_at.replace(tzinfo=None)
+            )
+            self.assertEqual(
+                nft.updated_at.replace(tzinfo=None), updated_at.replace(tzinfo=None)
+            )
+
+            ownership = session.scalar(
+                select(UserNFTOwnership).where(UserNFTOwnership.user_id == user.id)
+            )
+            self.assertIsNotNone(ownership)
+            assert ownership is not None
+            self.assertEqual(ownership.nft_id, nft.id)
+            self.assertEqual(ownership.serial_number, 0)
+            self.assertEqual(ownership.unique_nft_id, "CHAINPFX_chain-shared")
+            self.assertEqual(
+                ownership.acquired_at.replace(tzinfo=None),
+                created_at.replace(tzinfo=None),
+            )
+            self.assertIsNotNone(ownership.other_meta)
+            meta = json.loads(ownership.other_meta)
+            self.assertEqual(meta["shared_key"], "chain-shared")
+            self.assertEqual(meta["image_url"], "https://example.com/image.png")
+
+    def test_sync_nfts_from_chain_updates_existing_records(self):
+        original_created = datetime(2024, 1, 5, 9, 0, tzinfo=timezone.utc)
+        original_updated = datetime(2024, 1, 5, 10, 0, tzinfo=timezone.utc)
+        chain_created = datetime(2024, 1, 1, 9, 30, tzinfo=timezone.utc)
+        chain_updated = datetime(2024, 1, 7, 18, 45, tzinfo=timezone.utc)
+        chain_items = [
+            {
+                "nft_origin": "origin-xyz",
+                "metadata": {
+                    "MAP": {
+                        "subTypeData": {
+                            "prefix": "TPL",
+                            "shared_key": "new-shared",
+                            "category": "new-cat",
+                            "subCategory": "new-sub",
+                            "description": "Updated description",
+                            "imageUrl": "https://example.com/new.png",
+                            "name": "Updated NFT Name",
+                        }
+                    }
+                },
+                "name": "Fallback",
+                "nft_id": 5,
+                "current_nft_location": "new-location",
+                "created_at": "2024-01-01T09:30:00Z",
+                "updated_at": "2024-01-07T18:45:00Z",
+            }
+        ]
+
+        with self.Session() as session:
+            admin = Admin(paymail="admin-update@example.com", password_hash="x")
+            session.add(admin)
+            session.flush()
+
+            user = User(
+                in_app_id="u-sync-update",
+                paymail="wallet-update",
+                on_chain_id="chain-update",
+            )
+            session.add(user)
+            session.flush()
+
+            template = NFTTemplate(
+                prefix="TPL",
+                name="Template",
+                category="old-cat",
+                subcategory="old-sub",
+                description="Old description",
+                image_url="https://example.com/old.png",
+                created_by_admin_id=admin.id,
+                minted_count=1,
+                created_at=original_created,
+                updated_at=original_updated,
+            )
+            session.add(template)
+            session.flush()
+
+            nft = NFT(
+                template_id=template.id,
+                prefix="TPL",
+                shared_key="old-shared",
+                name="Old NFT Name",
+                category="old-cat",
+                subcategory="old-sub",
+                description="Old description",
+                image_url="https://example.com/old.png",
+                created_by_admin_id=admin.id,
+                id_on_chain=5,
+                origin="origin-xyz",
+                current_location="old-location",
+                created_at=original_created,
+                updated_at=original_updated,
+            )
+            session.add(nft)
+            session.flush()
+
+            ownership = UserNFTOwnership(
+                user_id=user.id,
+                nft_id=nft.id,
+                serial_number=0,
+                unique_nft_id="TPL_old-shared",
+                acquired_at=datetime(2024, 1, 10, 9, 0, tzinfo=timezone.utc),
+                other_meta=json.dumps({"old": "meta"}),
+            )
+            ownership.user = user
+            session.add(ownership)
+            session.flush()
+
+            client = DummyChainClient(chain_items)
+
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", UserWarning)
+                user.sync_nfts_from_chain(session, client=client)
+
+            self.assertEqual(client.requested_usernames, ["chain-update"])
+
+            refreshed_nft = session.get(NFT, nft.id)
+            assert refreshed_nft is not None
+            self.assertEqual(refreshed_nft.shared_key, "new-shared")
+            self.assertEqual(refreshed_nft.name, "Updated NFT Name")
+            self.assertEqual(refreshed_nft.category, "new-cat")
+            self.assertEqual(refreshed_nft.subcategory, "new-sub")
+            self.assertEqual(refreshed_nft.description, "Updated description")
+            self.assertEqual(refreshed_nft.image_url, "https://example.com/new.png")
+            self.assertEqual(refreshed_nft.current_location, "new-location")
+            self.assertEqual(
+                refreshed_nft.created_at.replace(tzinfo=None),
+                chain_created.replace(tzinfo=None),
+            )
+            self.assertEqual(
+                refreshed_nft.updated_at.replace(tzinfo=None),
+                chain_updated.replace(tzinfo=None),
+            )
+
+            refreshed_ownership = session.get(UserNFTOwnership, ownership.id)
+            assert refreshed_ownership is not None
+            self.assertEqual(refreshed_ownership.unique_nft_id, "TPL_new-shared")
+            self.assertEqual(
+                refreshed_ownership.acquired_at.replace(tzinfo=None),
+                chain_created.replace(tzinfo=None),
+            )
+            self.assertIsNotNone(refreshed_ownership.other_meta)
+            new_meta = json.loads(refreshed_ownership.other_meta)
+            self.assertEqual(new_meta["description"], "Updated description")
+            self.assertEqual(new_meta["subcategory"], "new-sub")
+
+            refreshed_template = session.get(NFTTemplate, template.id)
+            assert refreshed_template is not None
+            self.assertEqual(refreshed_template.minted_count, 1)
 
 
 if __name__ == "__main__":
