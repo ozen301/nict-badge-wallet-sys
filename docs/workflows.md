@@ -36,6 +36,28 @@ This is wrapped up in the `nictbw.workflows.create_and_issue_nft` function.
 4. Persist the NFT to the database and associate it with the recipient `User` using `NFT.issue_dbwise_to`.
 5. Return the minted NFT to the caller as needed.
 
+## NFT Synchronization from the Blockchain
+The `User.sync_nfts_from_chain` method reconciles the local database with the
+blockchain state for a specific user. Use this workflow when NFTs may have been
+minted or transferred on-chain without corresponding local records.
+
+1. Ensure the target `User` has an `on_chain_id`. The call will raise a
+   `ValueError` if the identifier is missing.
+2. Obtain a configured `ChainClient` so the system can call `ChainClient.get_user_nfts` for the user.
+3. For each NFT payload returned from the chain, the method:
+   - Extracts the embedded metadata (including `metadata.MAP.subTypeData`) and
+     maps common aliases (`sharedKey`, `imageUrl`, etc.) to the local schema.
+   - Ensures an `NFTTemplate` exists for the NFT prefix, creating a shell
+     template populated with the on-chain metadata when necessary.
+   - Creates or updates the associated `NFT` row, aligning descriptive fields,
+     timestamps, and on-chain identifiers.
+   - Creates or refreshes `UserNFTOwnership` rows so the user owns the NFT
+     locally, storing the metadata snapshot in `other_meta` and a stable
+     `unique_nft_id` derived from the prefix, shared key, or origin.
+4. After processing every payload the method reconciles
+   `NFTTemplate.minted_count` for all templates touched during the sync so the
+   local counts match the on-chain state.
+
 ## User Bingo Card Info Update
 This is wrapped up in the `nictbw.workflows.update_user_bingo_info` function, which essentially calls the `User.ensure_bingo_cards` and `User.ensure_bingo_cells` method.
 
