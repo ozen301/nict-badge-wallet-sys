@@ -29,6 +29,8 @@ nict-badge-wallet-sys/
 
 ### 1. Install the library (in editable mode)
 ```bash
+git clone https://github.com/ozen301/nict-badge-wallet-sys.git
+cd nict-badge-wallet-sys
 pip install -e .
 ```
 
@@ -60,12 +62,13 @@ Any URL supported by SQLAlchemy is valid here.
 ---
 
 ## Documentation and Examples
-See [docs/workflows.md](./docs/workflows.md) for common workflows. 
+See [docs/workflows.md](./docs/workflows.md) for common workflows. The workflows encapsulate typical sequences of operations using the models defined in this project.
 
-Check the Jupyter notebook [`code_examples.ipynb`](./docs/code_examples.ipynb) for code snippets, including:
-- Setting up the engine and models
+Check the Jupyter notebook [docs/code_examples.ipynb](./docs/code_examples.ipynb) for practical usage of these workflows. The notebook provides runnable examples including:
+- Setting up the database engine and models
 - Basic CRUD with SQLAlchemy 2.0
-- Using the models defined in this project to create users, NFTs, bingo cards, etc.
+- Using the models defined in this project to create users, NFTs, etc.
+- Common workflows such as user registration, NFT issuance, and NFT Synchronization from the blockchain.
 
 ---
 

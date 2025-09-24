@@ -37,7 +37,7 @@ This is wrapped up in the `nictbw.workflows.create_and_issue_nft` function.
 5. Return the minted NFT to the caller as needed.
 
 ## NFT Synchronization from the Blockchain
-The `User.sync_nfts_from_chain` method reconciles the local database with the
+This is wrapped up in the `User.sync_nfts_from_chain` method, which reconciles the local database with the
 blockchain state for a specific user. Use this workflow when NFTs may have been
 minted or transferred on-chain without corresponding local records.
 
@@ -78,7 +78,3 @@ This is wrapped up in the `User.bingo_cards_json` and `User.bingo_cards_json_str
 2. Return an array of cards, each with its associated cell entities info loaded.
 
 ---
-
-*Status note:* On-chain registration for users and admins is not yet available
-(as of 2025-09-17), so steps referring to these operations remain
-conceptual until the integration is complete.
