@@ -477,7 +477,6 @@ class User(Base):
             shared_key = shared_key[:255]
 
             category_raw = metadata.get("category") or item.get("category")
-            category_from_metadata = category_raw is not None
             category = (
                 str(category_raw) if category_raw is not None else "uncategorized"
             )
@@ -488,13 +487,11 @@ class User(Base):
                 or metadata.get("subCategory")
                 or item.get("subcategory")
             )
-            subcategory_from_metadata = subcategory_raw is not None
             if subcategory_raw is None:
                 subcategory_raw = f"{prefix}-default"
             subcategory = str(subcategory_raw)[:100]
 
             template_name_raw = metadata.get("name") or item.get("name")
-            template_name_from_metadata = template_name_raw is not None
             template_name = (
                 str(template_name_raw)[:100]
                 if template_name_raw is not None
@@ -502,7 +499,6 @@ class User(Base):
             )
 
             description_raw = metadata.get("description") or item.get("description")
-            description_from_metadata = description_raw is not None
             description = str(description_raw) if description_raw is not None else None
 
             image_url_raw = (
@@ -592,12 +588,11 @@ class User(Base):
                     nft.description = meta_description
                 if meta_image is not None and nft.image_url != meta_image:
                     nft.image_url = meta_image
-                if nft.created_at is None or created_at < nft.created_at:
-                    nft.created_at = created_at
+                # Always align created/updated timestamps to on-chain source
+                nft.created_at = created_at
                 nft.id_on_chain = item.get("nft_id", nft.id_on_chain)
                 nft.current_location = current_location
-                if nft.updated_at < updated_at:
-                    nft.updated_at = updated_at
+                nft.updated_at = updated_at
                 template_nft_counts[template.id] = current_count
 
             unique_id_parts = [prefix]
@@ -617,9 +612,7 @@ class User(Base):
                     ownership.other_meta = meta_json
                 if ownership.unique_nft_id != unique_nft_id:
                     ownership.unique_nft_id = unique_nft_id
-                if created_at and (
-                    ownership.acquired_at is None or ownership.acquired_at > created_at
-                ):
+                if created_at:
                     ownership.acquired_at = created_at
                 continue
 
