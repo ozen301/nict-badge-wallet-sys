@@ -21,6 +21,7 @@ class User(Base):
         self,
         in_app_id: str,
         paymail: Optional[str] = None,
+        login_mail: Optional[str] = None,
         on_chain_id: Optional[str] = None,
         nickname: Optional[str] = None,
         password_hash: Optional[str] = None,
@@ -36,6 +37,8 @@ class User(Base):
         paymail : str, optional
             User's paymail address. It can be left ``None`` until the blockchain
             registration workflow supplies the generated paymail.
+        login_mail : str, optional
+            User's login email address.
         on_chain_id : str, optional
             Corresponding blockchain ID.
         nickname : str, optional
@@ -54,6 +57,8 @@ class User(Base):
         self.password_hash = password_hash
         if paymail is not None:
             self.paymail = paymail
+        if login_mail is not None:
+            self.login_mail = login_mail
         if created_at is not None:
             self.created_at = created_at
         if updated_at is not None:
@@ -65,6 +70,9 @@ class User(Base):
     in_app_id: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
     paymail: Mapped[Optional[str]] = mapped_column(
         String(100), unique=True, nullable=False
+    )
+    login_mail: Mapped[Optional[str]] = mapped_column(
+        String(100), unique=True, nullable=True
     )
     on_chain_id: Mapped[Optional[str]] = mapped_column(
         String(50), unique=True, nullable=True
@@ -95,7 +103,8 @@ class User(Base):
     def __repr__(self) -> str:
         return (
             f"<User(id={self.id}, in_app_id='{self.in_app_id}', "
-            f"nickname='{self.nickname}', on_chain_id='{self.on_chain_id}', updated_at='{self.updated_at}')>"
+            f"nickname='{self.nickname}', on_chain_id='{self.on_chain_id}', "
+            f"login_mail='{self.login_mail}', updated_at='{self.updated_at}')>"
         )
 
     @classmethod
@@ -109,6 +118,12 @@ class User(Base):
         """Retrieve a user by paymail address."""
 
         return session.scalar(select(cls).where(cls.paymail == paymail))
+
+    @classmethod
+    def get_by_login_mail(cls, session: Session, login_mail: str) -> Optional["User"]:
+        """Retrieve a user by login_mail address."""
+
+        return session.scalar(select(cls).where(cls.login_mail == login_mail))
 
     @classmethod
     def get_by_on_chain_id(cls, session: Session, on_chain_id: str) -> Optional["User"]:

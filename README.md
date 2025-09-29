@@ -90,7 +90,7 @@ python -m unittest -v test_db_utils test_models
 ---
 
 ## TODO
-* Implement `NFTCondition`'s `location_range` and `other_conditions` verification logic.
+* Implement luckydraw logic.
 * Improve error handling for request-related functions.
 * Add Alembic.
 * Implement audit logging.

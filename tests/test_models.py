@@ -53,6 +53,36 @@ class DBTestCase(unittest.TestCase):
             assert found is not None
             self.assertEqual(found.paymail, "admin@example.com")
 
+    def test_user_get_by_login_mail(self):
+        with self.Session() as session:
+            user = User(
+                in_app_id="user-login",
+                paymail="wallet-login",
+                login_mail="user@example.com",
+            )
+            session.add(user)
+            session.commit()
+
+            found = User.get_by_login_mail(session, "user@example.com")
+            self.assertIsNotNone(found)
+            assert found is not None
+            self.assertEqual(found.login_mail, "user@example.com")
+
+    def test_user_login_mail_optional(self):
+        with self.Session() as session:
+            user_one = User(in_app_id="user-one", paymail="wallet-one")
+            user_two = User(
+                in_app_id="user-two",
+                paymail="wallet-two",
+                login_mail=None,
+            )
+            session.add_all([user_one, user_two])
+            session.commit()
+
+            refreshed = session.get(User, user_one.id)
+            assert refreshed is not None
+            self.assertIsNone(refreshed.login_mail)
+
     def test_nft_count_and_get_by_prefix(self):
         now = datetime.now(timezone.utc)
         with self.Session() as session:

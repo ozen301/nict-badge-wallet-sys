@@ -11,7 +11,7 @@ The reader may also refer to the code examples in the [code_examples.ipynb](./co
 This is wrapped up in the `nictbw.workflows.register_user` function.
 
 0. Instantiate a new `User` object with the information collected from
-   the mobile app (e.g. `in_app_id`, nickname). The paymail can be left unset. (This step is not included in the workflow function.)
+   the mobile app (e.g. `in_app_id`, nickname). The paymail can be left unset and an optional `login_mail` can be provided when available. (This step is not included in the workflow function.)
 1. Sign the user up via the blockchain API, supplying the blockchain credentials (username, password, email and optional profile/group information) by using `ChainClient.signup_user`. Captures the generated paymail in the response from the API.
 2. Persist the `User` record in the db, including its `paymail` and `on_chain_id` obtained from the step above.
 3. Return the registered `User` instance.
