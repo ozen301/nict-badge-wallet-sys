@@ -70,8 +70,7 @@ class PrizeDrawEngine:
         3. Run the scoring algorithm (when a winning number is provided) and
            translate the returned verdict into the :class:`PrizeDrawOutcome`
            enum expected by the database model.
-        4. Upsert the :class:`PrizeDrawResult` row, keeping existing entries
-           aligned with the model's uniqueness constraint.
+        4. Upsert the :class:`PrizeDrawResult` row.
 
         The method returns a :class:`PrizeDrawEvaluation` containing both the
         ORM result object and the computed values for further inspection.
