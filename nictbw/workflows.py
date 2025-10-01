@@ -1,7 +1,14 @@
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Any, Optional, Sequence
+from datetime import datetime
+
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from .models import PrizeDrawResult, PrizeDrawType, PrizeDrawWinningNumber
+from .models.nft import NFT
 from .models.user import User
+from .prize_draw.engine import PrizeDrawEngine
+from .prize_draw.scoring import AlgorithmRegistry
 
 if TYPE_CHECKING:
     from .models import Admin, NFT, NFTTemplate
@@ -157,3 +164,155 @@ def update_user_bingo_info(session: Session, user: User) -> None:
     user.ensure_bingo_cells(session)
 
     session.flush()
+
+
+def submit_winning_number(
+    session: Session,
+    draw_type: PrizeDrawType,
+    value: str,
+    *,
+    metadata: Optional[dict[str, Any] | str] = None,
+    effective_at: Optional["datetime"] = None,
+    expires_at: Optional["datetime"] = None,
+) -> PrizeDrawWinningNumber:
+    """Persist a winning number for ``draw_type`` and return the ORM entity.
+
+    The helper ensures that all required validations are performed in one place before
+    inserting the record.
+    """
+
+    # Ensure the draw type is persisted.
+    if draw_type.id is None:
+        raise ValueError(
+            "Draw type must be persisted before recording a winning number"
+        )
+
+    # Handle metadata serialization.
+    if metadata is None:
+        metadata_json = None
+    elif isinstance(metadata, str):
+        metadata_json = metadata
+    else:
+        import json
+
+        metadata_json = json.dumps(metadata, sort_keys=True)
+
+    # Create and persist the winning number.
+    winning_number = PrizeDrawWinningNumber(
+        draw_type_id=draw_type.id,
+        value=value,
+        metadata_json=metadata_json,
+        effective_at=effective_at,
+        expires_at=expires_at,
+    )
+    session.add(winning_number)
+    session.flush()
+    return winning_number
+
+
+def run_prize_draw(
+    session: Session,
+    nft: "NFT",
+    draw_type: PrizeDrawType,
+    winning_number: Optional[PrizeDrawWinningNumber] = None,
+    *,
+    threshold: Optional[float] = None,
+    algorithm_version: Optional[str] = None,
+    payload: Optional[dict[str, Any] | str] = None,
+    registry: Optional[AlgorithmRegistry] = None,
+) -> PrizeDrawResult:
+    """Evaluate ``nft`` once and return the stored :class:`PrizeDrawResult`.
+
+    This function essentially wraps :class:`PrizeDrawEngine`.
+    """
+
+    engine = PrizeDrawEngine(session, registry=registry)
+
+    evaluation = engine.evaluate(
+        nft=nft,
+        draw_type=draw_type,
+        winning_number=winning_number,
+        threshold=threshold,
+        algorithm_version=algorithm_version,
+        payload=payload,
+        registry=registry,
+    )
+    session.flush()
+    return evaluation.result
+
+
+def evaluate_draws(
+    session: Session,
+    draw_type: PrizeDrawType,
+    *,
+    winning_number: Optional[PrizeDrawWinningNumber] = None,
+    nft_ids: Optional[Sequence[int]] = None,
+    threshold: Optional[float] = None,
+    algorithm_version: Optional[str] = None,
+    payload: Optional[dict[str, Any] | str] = None,
+    registry: Optional[AlgorithmRegistry] = None,
+) -> list[PrizeDrawResult]:
+    """Evaluate multiple NFTs for ``draw_type`` and return their results.
+
+    The helper is suitable for both ad-hoc reruns (``nft_ids`` is provided) and
+    full-batch evaluations (``nft_ids`` omitted).  It always resolves a winning
+    number before calling into the engine so that downstream logic does not have
+    to duplicate the lookup behaviour.
+    """
+
+    if draw_type.id is None:
+        raise ValueError("Draw type must be persisted before evaluating draws")
+
+    resolved_winning_number = winning_number or _latest_winning_number(
+        session, draw_type
+    )
+    if resolved_winning_number is None:
+        raise ValueError("No winning number is available for the supplied draw type")
+
+    engine = PrizeDrawEngine(session, registry=registry)
+
+    stmt = select(NFT)
+    if nft_ids is not None:
+        if not nft_ids:
+            return []
+        # SQLAlchemy cannot bind empty ``IN`` clauses, therefore the explicit
+        # guard and early return above.  ``list`` is used to support iterables
+        # such as tuples or generators.
+        stmt = stmt.where(NFT.id.in_(list(nft_ids)))
+
+    nfts = list(session.scalars(stmt))
+    results: list[PrizeDrawResult] = []
+    for nft in nfts:
+        evaluation = engine.evaluate(
+            nft=nft,
+            draw_type=draw_type,
+            winning_number=resolved_winning_number,
+            threshold=threshold,
+            algorithm_version=algorithm_version,
+            payload=payload,
+            registry=registry,
+        )
+        results.append(evaluation.result)
+
+    session.flush()
+    return results
+
+
+def _latest_winning_number(
+    session: Session, draw_type: PrizeDrawType
+) -> Optional[PrizeDrawWinningNumber]:
+    """Return the most recently effective winning number for ``draw_type``."""
+
+    # Order by effective window first so that future-dated winning numbers are
+    # naturally considered "latest" once their window starts.  ``nullslast``
+    # keeps permanently active numbers at the end of the ordering for clarity.
+    stmt = (
+        select(PrizeDrawWinningNumber)
+        .where(PrizeDrawWinningNumber.draw_type_id == draw_type.id)
+        .order_by(
+            PrizeDrawWinningNumber.effective_at.desc().nullslast(),
+            PrizeDrawWinningNumber.created_at.desc(),
+            PrizeDrawWinningNumber.id.desc(),
+        )
+    )
+    return session.scalars(stmt).first()

@@ -101,8 +101,10 @@ DEFAULT_SCORING_REGISTRY.register(
     ScoringAlgorithm(
         key="hamming",
         scorer=_hamming_distance,
-        description="Character-wise Hamming distance (with zero padding for unequal lengths)."
-        "The lower the score, the more similar the two strings are.",
+        description=(
+            "Character-wise Hamming distance (with zero padding for unequal lengths). "
+            "The lower the score, the more similar the two strings are."
+        ),
     )
 )
 
