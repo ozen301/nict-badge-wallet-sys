@@ -1,0 +1,269 @@
+"""Database models for the prize draw subsystem."""
+
+from __future__ import annotations
+
+from datetime import datetime, timezone
+from enum import Enum
+from typing import TYPE_CHECKING, Optional
+
+from sqlalchemy import (
+    Integer,
+    String,
+    DateTime,
+    Text,
+    Float,
+    ForeignKey,
+    UniqueConstraint,
+    Index,
+    Enum as SAEnum,
+    func,
+    select,
+)
+from sqlalchemy.orm import Mapped, mapped_column, relationship, Session
+
+from .base import Base
+
+if TYPE_CHECKING:
+    from .user import User
+    from .nft import NFT
+    from .ownership import UserNFTOwnership
+
+
+class PrizeDrawOutcome(str, Enum):
+    """Possible outcomes when evaluating an NFT against a winning number."""
+
+    WIN = "win"
+    LOSE = "lose"
+    PENDING = "pending"
+
+
+class PrizeDrawType(Base):
+    """Defines a distinct configuration for evaluating prize draws."""
+
+    __tablename__ = "prize_draw_types"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    """Primary key."""
+
+    internal_name: Mapped[str] = mapped_column(String(100), nullable=False, unique=True)
+    """Machine friendly identifier used by application code."""
+
+    display_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    """Optional human readable label shown to admins."""
+
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    """Free form documentation about how this draw type behaves."""
+
+    algorithm_key: Mapped[str] = mapped_column(String(100), nullable=False)
+    """Identifier for the scoring algorithm to use when running draws."""
+
+    default_threshold: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    """Default distance/score threshold applied when a draw does not supply one."""
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        default=lambda: datetime.now(timezone.utc),
+    )
+    """Timestamp when the draw type was created."""
+
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        server_onupdate=func.now(),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
+    """Timestamp automatically bumped when the draw type is modified."""
+
+    winning_numbers: Mapped[list["PrizeDrawWinningNumber"]] = relationship(
+        back_populates="draw_type",
+        cascade="all, delete-orphan",
+    )
+    """Collection of winning numbers recorded for this draw type."""
+
+    results: Mapped[list["PrizeDrawResult"]] = relationship(
+        back_populates="draw_type",
+        cascade="all, delete-orphan",
+    )
+    """All evaluation results belonging to this draw type."""
+
+    def __repr__(self) -> str:  # pragma: no cover - repr is trivial
+        return (
+            "<PrizeDrawType(id={id}, internal_name={name}, algorithm_key={algo})>".format(
+                id=self.id,
+                name=self.internal_name,
+                algo=self.algorithm_key,
+            )
+        )
+
+    @classmethod
+    def get_by_internal_name(
+        cls, session: Session, internal_name: str
+    ) -> Optional["PrizeDrawType"]:
+        """Return the draw type matching ``internal_name`` if it exists."""
+
+        return session.scalar(select(cls).where(cls.internal_name == internal_name))
+
+
+class PrizeDrawWinningNumber(Base):
+    """Stores an externally supplied winning number for a draw type."""
+
+    __tablename__ = "prize_draw_winning_numbers"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    """Surrogate primary key."""
+
+    draw_type_id: Mapped[int] = mapped_column(
+        ForeignKey("prize_draw_types.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    """Foreign key referencing :class:`PrizeDrawType`."""
+
+    value: Mapped[str] = mapped_column(String(255), nullable=False)
+    """Winning number supplied by the external system."""
+
+    metadata_json: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    """Optional JSON encoded metadata (e.g. source info or algorithm hints)."""
+
+    effective_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    """When this winning number became active (if time bound)."""
+
+    expires_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    """When this winning number stops being considered (if time bound)."""
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        default=lambda: datetime.now(timezone.utc),
+    )
+    """Timestamp recording when the winning number was stored."""
+
+    draw_type: Mapped["PrizeDrawType"] = relationship(back_populates="winning_numbers")
+    """Relationship back to the owning draw type."""
+
+    results: Mapped[list["PrizeDrawResult"]] = relationship(back_populates="winning_number")
+    """All prize draw results evaluated using this winning number."""
+
+    def __repr__(self) -> str:  # pragma: no cover - repr is trivial
+        return (
+            "<PrizeDrawWinningNumber(id={id}, draw_type_id={dt}, value={value})>".format(
+                id=self.id,
+                dt=self.draw_type_id,
+                value=self.value,
+            )
+        )
+
+
+class PrizeDrawResult(Base):
+    """Immutable record of evaluating an NFT for a given draw."""
+
+    __tablename__ = "prize_draw_results"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    """Surrogate primary key."""
+
+    draw_type_id: Mapped[int] = mapped_column(
+        ForeignKey("prize_draw_types.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    """Draw type used for this evaluation."""
+
+    winning_number_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("prize_draw_winning_numbers.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    """Specific winning number applied to this evaluation, if recorded."""
+
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    """User who owned the NFT at evaluation time."""
+
+    nft_id: Mapped[int] = mapped_column(
+        ForeignKey("nfts.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    """NFT evaluated during the draw."""
+
+    ownership_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("user_nft_ownership.id", ondelete="SET NULL"), nullable=True
+    )
+    """Snapshot of the ownership record to preserve historical association."""
+
+    draw_number: Mapped[str] = mapped_column(String(255), nullable=False)
+    """Draw number derived from the NFT origin."""
+
+    distance_score: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    """Computed distance/score comparing the draw number to the winning number."""
+
+    threshold_used: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    """Threshold that was applied when computing the outcome."""
+
+    outcome: Mapped[PrizeDrawOutcome] = mapped_column(
+        SAEnum(PrizeDrawOutcome, name="prize_draw_outcome"),
+        nullable=False,
+        default=PrizeDrawOutcome.PENDING,
+    )
+    """Outcome derived from the evaluation."""
+
+    algorithm_version: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    """Optional version string for the algorithm used during evaluation."""
+
+    evaluated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        default=lambda: datetime.now(timezone.utc),
+    )
+    """Timestamp when the draw was evaluated."""
+
+    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    """Additional JSON/text metadata captured with the result."""
+
+    draw_type: Mapped["PrizeDrawType"] = relationship(back_populates="results")
+    """Relationship to the draw type."""
+
+    winning_number: Mapped[Optional["PrizeDrawWinningNumber"]] = relationship(
+        back_populates="results"
+    )
+    """Relationship to the winning number used, if any."""
+
+    user: Mapped["User"] = relationship()
+    """Relationship to the user evaluated."""
+
+    nft: Mapped["NFT"] = relationship()
+    """Relationship to the NFT evaluated."""
+
+    ownership: Mapped[Optional["UserNFTOwnership"]] = relationship()
+    """Relationship to the ownership snapshot for historical tracking."""
+
+    __table_args__ = (
+        UniqueConstraint(
+            "nft_id", "draw_type_id", "winning_number_id", name="uq_draw_result_unique"
+        ),
+        Index("ix_prize_draw_results_outcome", "outcome"),
+    )
+
+    def __repr__(self) -> str:  # pragma: no cover - repr is trivial
+        return (
+            "<PrizeDrawResult(id={id}, draw_type_id={dt}, nft_id={nft}, outcome={outcome})>".format(
+                id=self.id,
+                dt=self.draw_type_id,
+                nft=self.nft_id,
+                outcome=self.outcome,
+            )
+        )
+
+
+__all__ = [
+    "PrizeDrawOutcome",
+    "PrizeDrawType",
+    "PrizeDrawWinningNumber",
+    "PrizeDrawResult",
+]

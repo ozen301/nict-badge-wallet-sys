@@ -8,6 +8,12 @@ from .ownership import UserNFTOwnership  # noqa: F401
 from .bingo import BingoCard, BingoCell  # noqa: F401
 from .chain import BlockchainTransaction  # noqa: F401
 from .audit import AuditLog  # noqa: F401
+from .prize_draw import (  # noqa: F401
+    PrizeDrawOutcome,
+    PrizeDrawType,
+    PrizeDrawWinningNumber,
+    PrizeDrawResult,
+)
 
 __all__ = [
     "Base",
@@ -21,4 +27,8 @@ __all__ = [
     "BingoCell",
     "BlockchainTransaction",
     "AuditLog",
+    "PrizeDrawOutcome",
+    "PrizeDrawType",
+    "PrizeDrawWinningNumber",
+    "PrizeDrawResult",
 ]

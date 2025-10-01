@@ -7,6 +7,8 @@ from datetime import datetime, timezone
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
 
+from sqlalchemy.exc import IntegrityError
+
 from nictbw.models import (
     Base,
     User,
@@ -16,6 +18,10 @@ from nictbw.models import (
     UserNFTOwnership,
     BingoCard,
     BingoCell,
+    PrizeDrawType,
+    PrizeDrawWinningNumber,
+    PrizeDrawResult,
+    PrizeDrawOutcome,
 )
 
 
@@ -817,6 +823,86 @@ class DBTestCase(unittest.TestCase):
             refreshed_template = session.get(NFTTemplate, template.id)
             assert refreshed_template is not None
             self.assertEqual(refreshed_template.minted_count, 1)
+
+    def test_prize_draw_models_roundtrip(self):
+        now = datetime.now(timezone.utc)
+        with self.Session() as session:
+            admin = Admin(paymail="draw-admin@example.com", password_hash="x")
+            session.add(admin)
+            session.flush()
+
+            template = NFTTemplate(
+                prefix="DRW",
+                name="Draw Template",
+                category="event",
+                subcategory="game",
+                created_by_admin_id=admin.id,
+                minted_count=0,
+            )
+            user = User(in_app_id="draw-user", paymail="draw-wallet")
+            session.add_all([template, user])
+            session.flush()
+
+            nft = template.instantiate_nft(shared_key="sk")
+            nft.origin = "origin-seed"
+            session.add(nft)
+            session.flush()
+            nft.issue_dbwise_to(session, user)
+
+            draw_type = PrizeDrawType(
+                internal_name="immediate", algorithm_key="hamming", default_threshold=0.5
+            )
+            session.add(draw_type)
+            session.flush()
+
+            fetched_type = PrizeDrawType.get_by_internal_name(session, "immediate")
+            self.assertIsNotNone(fetched_type)
+            assert fetched_type is not None
+            self.assertEqual(fetched_type.algorithm_key, "hamming")
+
+            winning_number = PrizeDrawWinningNumber(
+                draw_type_id=draw_type.id,
+                value="101010",
+                metadata_json="{\"source\": \"admin\"}",
+                effective_at=now,
+            )
+            session.add(winning_number)
+            session.flush()
+
+            result = PrizeDrawResult(
+                draw_type_id=draw_type.id,
+                winning_number_id=winning_number.id,
+                user_id=user.id,
+                nft_id=nft.id,
+                ownership_id=user.ownerships[0].id,
+                draw_number="101000",
+                distance_score=2.0,
+                threshold_used=3.0,
+                outcome=PrizeDrawOutcome.LOSE,
+                algorithm_version="v1",
+            )
+            session.add(result)
+            session.commit()
+
+            retrieved = session.get(PrizeDrawResult, result.id)
+            assert retrieved is not None
+            self.assertEqual(retrieved.draw_type_id, draw_type.id)
+            self.assertEqual(retrieved.winning_number_id, winning_number.id)
+            self.assertEqual(retrieved.outcome, PrizeDrawOutcome.LOSE)
+            self.assertEqual(retrieved.draw_type.results[0].id, result.id)
+            self.assertEqual(retrieved.winning_number.results[0].id, result.id)
+
+            duplicate = PrizeDrawResult(
+                draw_type_id=draw_type.id,
+                winning_number_id=winning_number.id,
+                user_id=user.id,
+                nft_id=nft.id,
+                draw_number="101111",
+                outcome=PrizeDrawOutcome.WIN,
+            )
+            session.add(duplicate)
+            with self.assertRaises(IntegrityError):
+                session.commit()
 
 
 if __name__ == "__main__":
