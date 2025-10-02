@@ -296,9 +296,7 @@ class PrizeDrawResult(Base):
     """Relationship to the ownership snapshot for historical tracking."""
 
     __table_args__ = (
-        UniqueConstraint(
-            "nft_id", "draw_type_id", "winning_number_id", name="uq_draw_result_unique"
-        ),
+        UniqueConstraint("nft_id", "draw_type_id", name="uq_draw_result_unique"),
         Index("ix_prize_draw_results_outcome", "outcome"),
     )
 

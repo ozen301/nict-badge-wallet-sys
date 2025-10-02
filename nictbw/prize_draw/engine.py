@@ -64,8 +64,8 @@ class PrizeDrawEngine:
 
         If ``winning_number`` is ``None``, the evaluation will be recorded with a
         :attr:`PrizeDrawOutcome.PENDING` outcome, allowing callers to "pre-register"
-        the evaluation. 
-        
+        the evaluation.
+
         The evaluation process performs the following steps:
 
         1. Resolve the most recent :class:`UserNFTOwnership`
@@ -131,22 +131,21 @@ class PrizeDrawEngine:
         # Upsert the ``PrizeDrawResult`` row before mutating fields so that a
         # previously persisted record will be updated in-place instead of
         # creating a duplicate row.
+        now = datetime.now(timezone.utc)
         result = self._upsert_result(
             nft=nft,
             draw_type=draw_type,
-            ownership=ownership,
             winning_number=winning_number,
+            user_id=ownership.user_id,
+            ownership_id=ownership.id,
+            draw_number=draw_number,
+            distance_score=evaluation_score,
+            threshold_used=threshold_to_use,
+            outcome=outcome,
+            algorithm_version=algorithm_version,
+            evaluated_at=now,
+            notes=payload_notes,
         )
-        now = datetime.now(timezone.utc)
-        result.user_id = ownership.user_id
-        result.ownership_id = ownership.id
-        result.draw_number = draw_number
-        result.distance_score = evaluation_score
-        result.threshold_used = threshold_to_use
-        result.outcome = outcome
-        result.algorithm_version = algorithm_version
-        result.evaluated_at = now
-        result.notes = payload_notes
 
         # Persist the changes so that the caller can inspect the returned ORM
         # object with all attributes populated (especially useful in tests).
@@ -176,39 +175,61 @@ class PrizeDrawEngine:
         *,
         nft: NFT,
         draw_type: PrizeDrawType,
-        ownership: UserNFTOwnership,
         winning_number: Optional[PrizeDrawWinningNumber],
+        user_id: int,
+        ownership_id: int,
+        draw_number: str,
+        distance_score: Optional[float],
+        threshold_used: Optional[float],
+        outcome: PrizeDrawOutcome,
+        algorithm_version: Optional[str],
+        evaluated_at: datetime,
+        notes: Optional[str],
     ) -> PrizeDrawResult:
-        """Fetch or create the ``PrizeDrawResult`` row matching the inputs."""
+        """Fetch or create the ``PrizeDrawResult`` row and apply the latest fields."""
 
         # The prize draw results table enforces a uniqueness constraint on the
-        # ``(nft_id, draw_type_id, winning_number_id)`` tuple.  We emulate the
+        # ``(nft_id, draw_type_id)`` tuple.  We emulate the
         # same lookup here so that re-running a draw simply updates the existing
         # row rather than attempting to insert a duplicate.
         stmt = select(PrizeDrawResult).where(
             PrizeDrawResult.nft_id == nft.id,
             PrizeDrawResult.draw_type_id == draw_type.id,
         )
-        if winning_number is None:
-            stmt = stmt.where(PrizeDrawResult.winning_number_id.is_(None))
+
+        result = self._session.scalars(stmt).first()
+        if result is None:
+            result = PrizeDrawResult(
+                draw_type_id=draw_type.id,
+                winning_number_id=(
+                    winning_number.id if winning_number is not None else None
+                ),
+                user_id=user_id,
+                nft_id=nft.id,
+                ownership_id=ownership_id,
+                draw_number=draw_number,
+                distance_score=distance_score,
+                threshold_used=threshold_used,
+                outcome=outcome,
+                algorithm_version=algorithm_version,
+                evaluated_at=evaluated_at,
+                notes=notes,
+            )
+            self._session.add(result)
         else:
-            stmt = stmt.where(PrizeDrawResult.winning_number_id == winning_number.id)
+            result.winning_number_id = (
+                winning_number.id if winning_number is not None else None
+            )
+            result.user_id = user_id
+            result.ownership_id = ownership_id
+            result.draw_number = draw_number
+            result.distance_score = distance_score
+            result.threshold_used = threshold_used
+            result.outcome = outcome
+            result.algorithm_version = algorithm_version
+            result.evaluated_at = evaluated_at
+            result.notes = notes
 
-        existing = self._session.scalars(stmt).first()
-        if existing is not None:
-            return existing
-
-        result = PrizeDrawResult(
-            draw_type_id=draw_type.id,
-            winning_number_id=winning_number.id if winning_number is not None else None,
-            user_id=ownership.user_id,
-            nft_id=nft.id,
-            ownership_id=ownership.id,
-            draw_number="",
-            outcome=PrizeDrawOutcome.PENDING,
-        )
-        self._session.add(result)
-        self._session.flush()
         return result
 
 
