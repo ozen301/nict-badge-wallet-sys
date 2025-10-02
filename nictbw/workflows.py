@@ -274,8 +274,6 @@ def evaluate_draws(
     if resolved_winning_number is None:
         raise ValueError("No winning number is available for the supplied draw type")
 
-    engine = PrizeDrawEngine(session, registry=registry)
-
     stmt = select(NFT)
     if nft_ids is not None:
         if not nft_ids:
@@ -288,7 +286,8 @@ def evaluate_draws(
     nfts = list(session.scalars(stmt))
     results: list[PrizeDrawResult] = []
     for nft in nfts:
-        evaluation = engine.evaluate(
+        result = run_prize_draw(
+            session=session,
             nft=nft,
             draw_type=draw_type,
             winning_number=resolved_winning_number,
@@ -297,7 +296,7 @@ def evaluate_draws(
             payload=payload,
             registry=registry,
         )
-        results.append(evaluation.result)
+        results.append(result)
 
     session.flush()
     return results
