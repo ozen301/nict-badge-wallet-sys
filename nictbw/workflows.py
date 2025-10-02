@@ -222,10 +222,16 @@ def run_prize_draw(
 ) -> PrizeDrawResult:
     """Evaluate ``nft`` once, persist the result, and return the stored :class:`PrizeDrawResult`.
 
+    If ``winning_number`` is not provided, the latest effective winning number
+    for ``draw_type`` will be used. If no winning number is available, the evaluation
+    will be recorded with a `PrizeDrawOutcome.PENDING` outcome, allowing callers to
+    "pre-register" the evaluation.
+    
     This function essentially wraps :class:`PrizeDrawEngine`.
     """
 
     engine = PrizeDrawEngine(session, registry=registry)
+    winning_number = winning_number or _latest_winning_number(session, draw_type)
 
     evaluation = engine.evaluate(
         nft=nft,

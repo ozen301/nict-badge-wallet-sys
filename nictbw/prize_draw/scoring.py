@@ -30,6 +30,9 @@ class ScoringAlgorithm:
         winning_number: str,
         threshold: Optional[float] = None,
     ) -> ScoreEvaluation:
+        """Evaluate the score and whether it passes the threshold (if any).
+        This requires both a draw number and a winning number.
+        """
         score = float(self.scorer(draw_number, winning_number))
         passed = None if threshold is None else score <= threshold
         return ScoreEvaluation(
