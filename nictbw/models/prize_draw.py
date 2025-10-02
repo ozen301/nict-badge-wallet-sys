@@ -58,7 +58,7 @@ class PrizeDrawType(Base):
     """Identifier for the scoring algorithm to use when running draws."""
 
     default_threshold: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-    """Default distance/score threshold applied when a draw does not supply one."""
+    """Minimum similarity threshold applied when a draw does not supply one."""
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -251,8 +251,8 @@ class PrizeDrawResult(Base):
     draw_number: Mapped[str] = mapped_column(String(255), nullable=False)
     """Draw number derived from the NFT origin."""
 
-    distance_score: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-    """Computed distance/score comparing the draw number to the winning number."""
+    similarity_score: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    """Computed similarity score (0.0-1.0) comparing the draw number to the winning number."""
 
     threshold_used: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     """Threshold that was applied when computing the outcome."""
@@ -314,7 +314,7 @@ class PrizeDrawResult(Base):
         ownership: Optional["UserNFTOwnership"] = None,
         ownership_id: Optional[int] = None,
         draw_number: str,
-        distance_score: Optional[float] = None,
+        similarity_score: Optional[float] = None,
         threshold_used: Optional[float] = None,
         outcome: PrizeDrawOutcome = PrizeDrawOutcome.PENDING,
         algorithm_version: Optional[str] = None,
@@ -342,7 +342,7 @@ class PrizeDrawResult(Base):
         if ownership_id is not None:
             self.ownership_id = ownership_id
         self.draw_number = draw_number
-        self.distance_score = distance_score
+        self.similarity_score = similarity_score
         self.threshold_used = threshold_used
         self.outcome = outcome
         self.algorithm_version = algorithm_version
@@ -367,3 +367,5 @@ __all__ = [
     "PrizeDrawWinningNumber",
     "PrizeDrawResult",
 ]
+
+

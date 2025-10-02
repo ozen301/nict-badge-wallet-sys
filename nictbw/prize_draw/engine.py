@@ -2,7 +2,7 @@
 
 The engine focuses on three responsibilities:
 * derive the deterministic draw number for an NFT;
-* compute the score/outcome using the pluggable scoring registry; and
+* compute the similarity/outcome using the pluggable scoring registry; and
 * persist the resulting :class:`PrizeDrawResult` record.
 """
 
@@ -34,8 +34,7 @@ class PrizeDrawEvaluation:
     result: PrizeDrawResult
     draw_number: str
     threshold: Optional[float]
-    score: Optional[float]
-
+    similarity: Optional[float]
 
 class PrizeDrawEngine:
     """Engine that manages draw number derivation, scoring, and result persistence."""
@@ -97,7 +96,7 @@ class PrizeDrawEngine:
             threshold if threshold is not None else draw_type.default_threshold
         )
 
-        evaluation_score: Optional[float] = None
+        evaluation_similarity: Optional[float] = None
         outcome = PrizeDrawOutcome.PENDING
 
         # Only run the evaluation if a winning number is provided.  This
@@ -111,7 +110,7 @@ class PrizeDrawEngine:
                 winning_number.value,
                 threshold=threshold_to_use,
             )
-            evaluation_score = evaluation.score
+            evaluation_similarity = evaluation.score
             if evaluation.passed is True:
                 outcome = PrizeDrawOutcome.WIN
             elif evaluation.passed is False:
@@ -139,7 +138,7 @@ class PrizeDrawEngine:
             user_id=ownership.user_id,
             ownership_id=ownership.id,
             draw_number=draw_number,
-            distance_score=evaluation_score,
+            similarity_score=evaluation_similarity,
             threshold_used=threshold_to_use,
             outcome=outcome,
             algorithm_version=algorithm_version,
@@ -154,7 +153,7 @@ class PrizeDrawEngine:
             result=result,
             draw_number=draw_number,
             threshold=threshold_to_use,
-            score=evaluation_score,
+            similarity=evaluation_similarity,
         )
 
     def _resolve_latest_ownership(self, nft: NFT) -> Optional[UserNFTOwnership]:
@@ -179,7 +178,7 @@ class PrizeDrawEngine:
         user_id: int,
         ownership_id: int,
         draw_number: str,
-        distance_score: Optional[float],
+        similarity_score: Optional[float],
         threshold_used: Optional[float],
         outcome: PrizeDrawOutcome,
         algorithm_version: Optional[str],
@@ -208,7 +207,7 @@ class PrizeDrawEngine:
                 nft_id=nft.id,
                 ownership_id=ownership_id,
                 draw_number=draw_number,
-                distance_score=distance_score,
+                similarity_score=similarity_score,
                 threshold_used=threshold_used,
                 outcome=outcome,
                 algorithm_version=algorithm_version,
@@ -223,7 +222,7 @@ class PrizeDrawEngine:
             result.user_id = user_id
             result.ownership_id = ownership_id
             result.draw_number = draw_number
-            result.distance_score = distance_score
+            result.similarity_score = similarity_score
             result.threshold_used = threshold_used
             result.outcome = outcome
             result.algorithm_version = algorithm_version
@@ -273,3 +272,5 @@ __all__ = [
     "PrizeDrawEvaluation",
     "evaluate_batch",
 ]
+
+

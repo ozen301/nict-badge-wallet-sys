@@ -34,11 +34,11 @@ class ScoringRegistryTests(unittest.TestCase):
         available = DEFAULT_SCORING_REGISTRY.available_algorithms()
         self.assertIn("hamming", available)
 
-    def test_hamming_distance_with_threshold(self) -> None:
-        result = DEFAULT_SCORING_REGISTRY.evaluate("hamming", "1010", "1001", threshold=2)
+    def test_hamming_similarity_with_threshold(self) -> None:
+        result = DEFAULT_SCORING_REGISTRY.evaluate("hamming", "abcd", "abce", threshold=0.5)
         self.assertIsInstance(result, ScoreEvaluation)
         self.assertEqual(result.algorithm_key, "hamming")
-        self.assertEqual(result.score, 2.0)
+        self.assertAlmostEqual(result.score, 0.96875)
         self.assertTrue(result.passed)
 
     def test_custom_registry_registration(self) -> None:
@@ -50,11 +50,12 @@ class ScoringRegistryTests(unittest.TestCase):
             registry.register(DEFAULT_SCORING_REGISTRY.get("hamming"))
         clone = registry.clone()
         self.assertIn("hamming", clone.available_algorithms())
-        evaluation = clone.evaluate("hamming", "A", "B", threshold=2)
-        # ASCII A (0x41) vs B (0x42) differ by two bits.
-        self.assertEqual(evaluation.score, 2.0)
+        evaluation = clone.evaluate("hamming", "A", "B", threshold=0.5)
+        # ASCII A (0x41) vs B (0x42) differ by two bits leading to 0.75 similarity.
+        self.assertAlmostEqual(evaluation.score, 0.75)
         self.assertTrue(evaluation.passed)
 
 
 if __name__ == "__main__":
     unittest.main()
+

@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import unittest
 from datetime import datetime, timedelta, timezone
+from typing import cast
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -80,7 +81,10 @@ class PrizeDrawWorkflowTests(unittest.TestCase):
                 session, nft, draw_type, winning_number, threshold=1.0
             )
             self.assertEqual(first_result.outcome, PrizeDrawOutcome.LOSE)
-            self.assertEqual(first_result.distance_score, 3.0)
+            self.assertIsNotNone(first_result.similarity_score)
+            self.assertAlmostEqual(
+                cast(float, first_result.similarity_score), 0.875
+            )
             self.assertEqual(first_result.threshold_used, 1.0)
             result_id = first_result.id
 
@@ -89,17 +93,27 @@ class PrizeDrawWorkflowTests(unittest.TestCase):
                 nft,
                 draw_type,
                 winning_number,
-                threshold=5.0,
+                threshold=0.5,
                 payload={"rerun": True},
             )
             self.assertEqual(second_result.id, result_id)
             self.assertEqual(second_result.outcome, PrizeDrawOutcome.WIN)
-            self.assertEqual(second_result.threshold_used, 5.0)
-            self.assertEqual(second_result.distance_score, 3.0)
+            self.assertEqual(second_result.threshold_used, 0.5)
+            self.assertIsNotNone(second_result.similarity_score)
+            self.assertAlmostEqual(
+                cast(float, second_result.similarity_score), 0.875
+            )
             self.assertEqual(second_result.user_id, user.id)
             self.assertIsNotNone(second_result.ownership_id)
-            self.assertEqual(json.loads(second_result.notes)["rerun"], True)
-            self.assertIn("source", json.loads(winning_number.metadata_json))
+            self.assertIsNotNone(second_result.notes)
+            self.assertEqual(
+                json.loads(cast(str, second_result.notes))["rerun"], True
+            )
+            self.assertIsNotNone(winning_number.metadata_json)
+            self.assertIn(
+                "source",
+                json.loads(cast(str, winning_number.metadata_json)),
+            )
 
     def test_evaluate_draws_uses_latest_winning_number(self) -> None:
         with self.Session.begin() as session:
@@ -110,7 +124,7 @@ class PrizeDrawWorkflowTests(unittest.TestCase):
             draw_type = PrizeDrawType(
                 internal_name="batch",
                 algorithm_key="hamming",
-                default_threshold=10.0,
+                default_threshold=0.5,
             )
             session.add(draw_type)
             session.flush()
@@ -158,3 +172,6 @@ class PrizeDrawWorkflowTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+

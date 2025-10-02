@@ -1,6 +1,6 @@
 # NICT Badge & Wallet System
 
-This repository implements the **Badge & Wallet System** for the NICT project carried out by Tohoku University. It manages NFT-based badges, bingo cards, and blockchain transactions.
+This repository implements the **Badge & Wallet System** for the NICT project carried out by Tohoku University. It manages NFT-based badges, bingo cards, prize draw, and blockchain transactions.
 
 ## Project Structure
 
@@ -13,6 +13,7 @@ nict-badge-wallet-sys/
 │  ├─ blockchain/       # Blockchain API interaction
 │  ├─ db/               # DB engine, session, metadata, utilities
 │  ├─ models/           # SQLAlchemy ORM 2.0 models
+│  ├─ prize_draw/       # Prize draw logic
 ├─ scripts/             # utility scripts
 ├─ tests/               # unit tests
 ├─ .env.example         # environment variables example
@@ -46,7 +47,7 @@ python scripts/seed_dev.py  # optional, seed dev data
 This by default creates `dev.db` (SQLite) with all schema objects. The `init_db.py` script will print all created tables:
 
 ```
-Created tables: admins, audit_logs, bingo_cards, bingo_cells, blockchain_transactions, nft_conditions, nft_templates, nfts, user_nft_ownership, users
+Created tables: admins, audit_logs, bingo_cards, bingo_cells, blockchain_transactions, nft_conditions, nft_templates, nfts, prize_draw_results, prize_draw_types, prize_draw_winning_numbers, user_nft_ownership, users
 ```
 ---
 

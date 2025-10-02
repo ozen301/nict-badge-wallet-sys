@@ -876,7 +876,7 @@ class DBTestCase(unittest.TestCase):
                 nft_id=nft.id,
                 ownership_id=user.ownerships[0].id,
                 draw_number="101000",
-                distance_score=2.0,
+                similarity_score=0.66,
                 threshold_used=3.0,
                 outcome=PrizeDrawOutcome.LOSE,
                 algorithm_version="v1",
@@ -907,3 +907,4 @@ class DBTestCase(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
