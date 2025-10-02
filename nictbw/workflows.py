@@ -177,8 +177,7 @@ def submit_winning_number(
 ) -> PrizeDrawWinningNumber:
     """Persist a winning number for ``draw_type`` and return the ORM entity.
 
-    The helper ensures that all required validations are performed in one place before
-    inserting the record.
+    The `value` is a string that holds the winning number.
     """
 
     # Ensure the draw type is persisted.
@@ -221,7 +220,7 @@ def run_prize_draw(
     payload: Optional[dict[str, Any] | str] = None,
     registry: Optional[AlgorithmRegistry] = None,
 ) -> PrizeDrawResult:
-    """Evaluate ``nft`` once and return the stored :class:`PrizeDrawResult`.
+    """Evaluate ``nft`` once, persist the result, and return the stored :class:`PrizeDrawResult`.
 
     This function essentially wraps :class:`PrizeDrawEngine`.
     """

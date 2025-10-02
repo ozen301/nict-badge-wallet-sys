@@ -90,6 +90,33 @@ class PrizeDrawType(Base):
     )
     """All evaluation results belonging to this draw type."""
 
+    def __init__(
+        self,
+        *,
+        internal_name: str,
+        algorithm_key: str,
+        display_name: Optional[str] = None,
+        description: Optional[str] = None,
+        default_threshold: Optional[float] = None,
+        winning_numbers: Optional[list["PrizeDrawWinningNumber"]] = None,
+        results: Optional[list["PrizeDrawResult"]] = None,
+        created_at: Optional[datetime] = None,
+        updated_at: Optional[datetime] = None,
+    ) -> None:
+        self.internal_name = internal_name
+        self.algorithm_key = algorithm_key
+        self.display_name = display_name
+        self.description = description
+        self.default_threshold = default_threshold
+        if winning_numbers is not None:
+            self.winning_numbers = winning_numbers
+        if results is not None:
+            self.results = results
+        if created_at is not None:
+            self.created_at = created_at
+        if updated_at is not None:
+            self.updated_at = updated_at
+
     def __repr__(self) -> str:  # pragma: no cover - repr is trivial
         return (
             "<PrizeDrawType(id={id}, internal_name={name}, algorithm_key={algo})>".format(
@@ -150,6 +177,31 @@ class PrizeDrawWinningNumber(Base):
 
     results: Mapped[list["PrizeDrawResult"]] = relationship(back_populates="winning_number")
     """All prize draw results evaluated using this winning number."""
+
+    def __init__(
+        self,
+        *,
+        value: str,
+        draw_type: Optional["PrizeDrawType"] = None,
+        draw_type_id: Optional[int] = None,
+        metadata_json: Optional[str] = None,
+        effective_at: Optional[datetime] = None,
+        expires_at: Optional[datetime] = None,
+        created_at: Optional[datetime] = None,
+        results: Optional[list["PrizeDrawResult"]] = None,
+    ) -> None:
+        self.value = value
+        if draw_type is not None:
+            self.draw_type = draw_type
+        if draw_type_id is not None:
+            self.draw_type_id = draw_type_id
+        self.metadata_json = metadata_json
+        self.effective_at = effective_at
+        self.expires_at = expires_at
+        if created_at is not None:
+            self.created_at = created_at
+        if results is not None:
+            self.results = results
 
     def __repr__(self) -> str:  # pragma: no cover - repr is trivial
         return (
@@ -249,6 +301,56 @@ class PrizeDrawResult(Base):
         ),
         Index("ix_prize_draw_results_outcome", "outcome"),
     )
+
+    def __init__(
+        self,
+        *,
+        draw_type: Optional["PrizeDrawType"] = None,
+        draw_type_id: Optional[int] = None,
+        winning_number: Optional["PrizeDrawWinningNumber"] = None,
+        winning_number_id: Optional[int] = None,
+        user: Optional["User"] = None,
+        user_id: Optional[int] = None,
+        nft: Optional["NFT"] = None,
+        nft_id: Optional[int] = None,
+        ownership: Optional["UserNFTOwnership"] = None,
+        ownership_id: Optional[int] = None,
+        draw_number: str,
+        distance_score: Optional[float] = None,
+        threshold_used: Optional[float] = None,
+        outcome: PrizeDrawOutcome = PrizeDrawOutcome.PENDING,
+        algorithm_version: Optional[str] = None,
+        evaluated_at: Optional[datetime] = None,
+        notes: Optional[str] = None,
+    ) -> None:
+        if draw_type is not None:
+            self.draw_type = draw_type
+        if draw_type_id is not None:
+            self.draw_type_id = draw_type_id
+        if winning_number is not None:
+            self.winning_number = winning_number
+        if winning_number_id is not None:
+            self.winning_number_id = winning_number_id
+        if user is not None:
+            self.user = user
+        if user_id is not None:
+            self.user_id = user_id
+        if nft is not None:
+            self.nft = nft
+        if nft_id is not None:
+            self.nft_id = nft_id
+        if ownership is not None:
+            self.ownership = ownership
+        if ownership_id is not None:
+            self.ownership_id = ownership_id
+        self.draw_number = draw_number
+        self.distance_score = distance_score
+        self.threshold_used = threshold_used
+        self.outcome = outcome
+        self.algorithm_version = algorithm_version
+        if evaluated_at is not None:
+            self.evaluated_at = evaluated_at
+        self.notes = notes
 
     def __repr__(self) -> str:  # pragma: no cover - repr is trivial
         return (

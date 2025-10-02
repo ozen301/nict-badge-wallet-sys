@@ -62,6 +62,10 @@ class PrizeDrawEngine:
     ) -> PrizeDrawEvaluation:
         """Evaluate ``nft`` against ``winning_number`` and persist the result.
 
+        If ``winning_number`` is ``None``, the evaluation will be recorded with a
+        :attr:`PrizeDrawOutcome.PENDING` outcome, allowing callers to "pre-register"
+        the evaluation. 
+        
         The evaluation process performs the following steps:
 
         1. Resolve the most recent :class:`UserNFTOwnership`
