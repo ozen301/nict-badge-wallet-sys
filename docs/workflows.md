@@ -78,9 +78,9 @@ This is wrapped up in the `User.bingo_cards_json` and `User.bingo_cards_json_str
 2. Return an array of cards, each with its associated cell entities info loaded.
 
 ## Prize Draw Type Setup
-A `PrizeDrawType` is basically a configuration that defines how to evaluate NFTs for winning. For example, you might have at least two types of prize draws:
+A `PrizeDrawType` is essentially a configuration that defines how to evaluate NFTs for winning. For example, you might have at least two types of prize draws:
 1. The prize draw that is performed whenever a user gets a new NFT. This type typically uses the `"hamming"` algorithm with a low similarity threshold `threshold` (close to 0.0) to reward users for collecting NFTs.
-2. The prize draw that is performed when a winning number is drawn for a specific event. This type will typically choose the user with the closest matching NFT to the winning number, no matter how far it is. 
+2. The prize draw that is performed when a winning number is determined for a specific event. This type will typically choose the user with the closest matching NFT to the winning number, no matter how similar it is.
 
 Use this workflow to create or retrieve a `PrizeDrawType` configuration before storing
 winning numbers or evaluating NFTs.
