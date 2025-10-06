@@ -264,7 +264,7 @@ def run_prize_draw(
     return evaluation.result
 
 
-def evaluate_draws(
+def evaluate_prize_draw_batch(
     session: Session,
     draw_type: PrizeDrawType,
     *,

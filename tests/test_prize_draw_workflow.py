@@ -7,7 +7,11 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from nictbw.models import Admin, Base, NFTTemplate, PrizeDrawType, User
-from nictbw.workflows import evaluate_draws, run_prize_draw, submit_winning_number
+from nictbw.workflows import (
+    evaluate_prize_draw_batch,
+    run_prize_draw,
+    submit_winning_number,
+)
 
 
 class PrizeDrawWorkflowTests(unittest.TestCase):
@@ -90,7 +94,7 @@ class PrizeDrawWorkflowTests(unittest.TestCase):
             self.assertEqual(second_result.user_id, user.id)
             self.assertIsNotNone(second_result.ownership_id)
 
-    def test_evaluate_draws_uses_latest_winning_number(self) -> None:
+    def test_evaluate_prize_draw_batch_uses_latest_winning_number(self) -> None:
         with self.Session.begin() as session:
             user, template = self._seed_user_and_template(session)
             nft_one = self._mint_nft(session, template, user, origin="abc")
@@ -115,7 +119,7 @@ class PrizeDrawWorkflowTests(unittest.TestCase):
                 value="abz",
             )
 
-            results = evaluate_draws(
+            results = evaluate_prize_draw_batch(
                 session,
                 draw_type,
                 nfts=[nft_one, nft_two],
@@ -126,7 +130,7 @@ class PrizeDrawWorkflowTests(unittest.TestCase):
                 self.assertEqual(res.winning_number_id, latest.id)
                 self.assertIn(res.draw_number, {"abc", "abz"})
 
-    def test_evaluate_draws_empty_ids_returns_empty(self) -> None:
+    def test_evaluate_prize_draw_batch_empty_ids_returns_empty(self) -> None:
         with self.Session.begin() as session:
             user, template = self._seed_user_and_template(session)
             draw_type = PrizeDrawType(
@@ -139,7 +143,7 @@ class PrizeDrawWorkflowTests(unittest.TestCase):
 
             submit_winning_number(session, draw_type, value="abc")
 
-            results = evaluate_draws(session, draw_type, nfts=[])
+            results = evaluate_prize_draw_batch(session, draw_type, nfts=[])
             self.assertEqual(results, [])
 
 
