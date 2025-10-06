@@ -110,8 +110,7 @@ the `PrizeDrawEngine` service.
 
 1. Derive the deterministic draw number from the NFT origin.
 2. Run the scoring algorithm (when a winning number is provided) and
-   translate the returned verdict into the :class:`PrizeDrawOutcome`
-   enum expected by the database model.
+   save the result ("win", "lose", or "pending") expected by the database model.
 3. Upsert the :class:`PrizeDrawResult` row.
 4. Return the result wrapped in a `PrizeDrawEvaluation` object.
 

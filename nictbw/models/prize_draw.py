@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from enum import Enum
 from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy import (
@@ -15,7 +14,6 @@ from sqlalchemy import (
     ForeignKey,
     UniqueConstraint,
     Index,
-    Enum as SAEnum,
     func,
     select,
 )
@@ -27,14 +25,6 @@ if TYPE_CHECKING:
     from .user import User
     from .nft import NFT
     from .ownership import UserNFTOwnership
-
-
-class PrizeDrawOutcome(str, Enum):
-    """Possible outcomes when evaluating an NFT against a winning number."""
-
-    WIN = "win"
-    LOSE = "lose"
-    PENDING = "pending"
 
 
 class PrizeDrawType(Base):
@@ -118,12 +108,10 @@ class PrizeDrawType(Base):
             self.updated_at = updated_at
 
     def __repr__(self) -> str:  # pragma: no cover - repr is trivial
-        return (
-            "<PrizeDrawType(id={id}, internal_name={name}, algorithm_key={algo})>".format(
-                id=self.id,
-                name=self.internal_name,
-                algo=self.algorithm_key,
-            )
+        return "<PrizeDrawType(id={id}, internal_name={name}, algorithm_key={algo})>".format(
+            id=self.id,
+            name=self.internal_name,
+            algo=self.algorithm_key,
         )
 
     @classmethod
@@ -144,7 +132,9 @@ class PrizeDrawWinningNumber(Base):
     """Surrogate primary key."""
 
     draw_type_id: Mapped[int] = mapped_column(
-        ForeignKey("prize_draw_types.id", ondelete="CASCADE"), nullable=False, index=True
+        ForeignKey("prize_draw_types.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     """Foreign key referencing :class:`PrizeDrawType`."""
 
@@ -175,7 +165,9 @@ class PrizeDrawWinningNumber(Base):
     draw_type: Mapped["PrizeDrawType"] = relationship(back_populates="winning_numbers")
     """Relationship back to the owning draw type."""
 
-    results: Mapped[list["PrizeDrawResult"]] = relationship(back_populates="winning_number")
+    results: Mapped[list["PrizeDrawResult"]] = relationship(
+        back_populates="winning_number"
+    )
     """All prize draw results evaluated using this winning number."""
 
     def __init__(
@@ -204,12 +196,10 @@ class PrizeDrawWinningNumber(Base):
             self.results = results
 
     def __repr__(self) -> str:  # pragma: no cover - repr is trivial
-        return (
-            "<PrizeDrawWinningNumber(id={id}, draw_type_id={dt}, value={value})>".format(
-                id=self.id,
-                dt=self.draw_type_id,
-                value=self.value,
-            )
+        return "<PrizeDrawWinningNumber(id={id}, draw_type_id={dt}, value={value})>".format(
+            id=self.id,
+            dt=self.draw_type_id,
+            value=self.value,
         )
 
 
@@ -222,7 +212,9 @@ class PrizeDrawResult(Base):
     """Surrogate primary key."""
 
     draw_type_id: Mapped[int] = mapped_column(
-        ForeignKey("prize_draw_types.id", ondelete="CASCADE"), nullable=False, index=True
+        ForeignKey("prize_draw_types.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     """Draw type used for this evaluation."""
 
@@ -257,12 +249,8 @@ class PrizeDrawResult(Base):
     threshold_used: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     """Threshold that was applied when computing the outcome."""
 
-    outcome: Mapped[PrizeDrawOutcome] = mapped_column(
-        SAEnum(PrizeDrawOutcome, name="prize_draw_outcome"),
-        nullable=False,
-        default=PrizeDrawOutcome.PENDING,
-    )
-    """Outcome derived from the evaluation."""
+    outcome: Mapped[str] = mapped_column(String(50), nullable=False, default="pending")
+    """Outcome derived from the evaluation ("win", "lose", or "pending")."""
 
     evaluated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -310,7 +298,7 @@ class PrizeDrawResult(Base):
         draw_number: str,
         similarity_score: Optional[float] = None,
         threshold_used: Optional[float] = None,
-        outcome: PrizeDrawOutcome = PrizeDrawOutcome.PENDING,
+        outcome: str = "pending",
         evaluated_at: Optional[datetime] = None,
     ) -> None:
         if draw_type is not None:
@@ -341,21 +329,16 @@ class PrizeDrawResult(Base):
             self.evaluated_at = evaluated_at
 
     def __repr__(self) -> str:  # pragma: no cover - repr is trivial
-        return (
-            "<PrizeDrawResult(id={id}, draw_type_id={dt}, nft_id={nft}, outcome={outcome})>".format(
-                id=self.id,
-                dt=self.draw_type_id,
-                nft=self.nft_id,
-                outcome=self.outcome,
-            )
+        return "<PrizeDrawResult(id={id}, draw_type_id={dt}, nft_id={nft}, outcome={outcome})>".format(
+            id=self.id,
+            dt=self.draw_type_id,
+            nft=self.nft_id,
+            outcome=self.outcome,
         )
 
 
 __all__ = [
-    "PrizeDrawOutcome",
     "PrizeDrawType",
     "PrizeDrawWinningNumber",
     "PrizeDrawResult",
 ]
-
-

@@ -17,12 +17,7 @@ from sqlalchemy.orm import Session
 
 from .draw_number import derive_draw_number
 from .scoring import AlgorithmRegistry, DEFAULT_SCORING_REGISTRY
-from ..models import (
-    PrizeDrawOutcome,
-    PrizeDrawResult,
-    PrizeDrawType,
-    PrizeDrawWinningNumber,
-)
+from ..models import PrizeDrawResult, PrizeDrawType, PrizeDrawWinningNumber
 from ..models.nft import NFT
 from ..models.ownership import UserNFTOwnership
 
@@ -35,6 +30,7 @@ class PrizeDrawEvaluation:
     draw_number: str
     threshold: Optional[float]
     similarity: Optional[float]
+
 
 class PrizeDrawEngine:
     """Engine that manages draw number derivation, scoring, and result persistence."""
@@ -60,8 +56,7 @@ class PrizeDrawEngine:
         """Evaluate ``nft`` against ``winning_number`` and persist the result.
 
         If ``winning_number`` is ``None``, the evaluation will be recorded with a
-        :attr:`PrizeDrawOutcome.PENDING` outcome, allowing callers to "pre-register"
-        the evaluation.
+        ``"pending"`` outcome, allowing callers to "pre-register" the evaluation.
 
         The evaluation process performs the following steps:
 
@@ -69,8 +64,8 @@ class PrizeDrawEngine:
            record to capture which user owned the NFT at evaluation time.
         2. Derive the deterministic draw number from the NFT origin.
         3. Run the scoring algorithm (when a winning number is provided) and
-           translate the returned verdict into the :class:`PrizeDrawOutcome`
-           enum expected by the database model.
+           save the result ("win", "lose", or "pending") expected by the
+           database model.
         4. Upsert the :class:`PrizeDrawResult` row.
 
         The method returns a :class:`PrizeDrawEvaluation` containing both the
@@ -95,7 +90,7 @@ class PrizeDrawEngine:
         )
 
         evaluation_similarity: Optional[float] = None
-        outcome = PrizeDrawOutcome.PENDING
+        outcome = "pending"
 
         # Only run the evaluation if a winning number is provided.  This
         # allows callers to "pre-register" NFTs for a draw before the winning
@@ -110,9 +105,9 @@ class PrizeDrawEngine:
             )
             evaluation_similarity = evaluation.score
             if evaluation.passed is True:
-                outcome = PrizeDrawOutcome.WIN
+                outcome = "win"
             elif evaluation.passed is False:
-                outcome = PrizeDrawOutcome.LOSE
+                outcome = "lose"
 
         # Upsert the ``PrizeDrawResult`` row before mutating fields so that a
         # previously persisted record will be updated in-place instead of
@@ -165,7 +160,7 @@ class PrizeDrawEngine:
         draw_number: str,
         similarity_score: Optional[float],
         threshold_used: Optional[float],
-        outcome: PrizeDrawOutcome,
+        outcome: str,
         evaluated_at: datetime,
     ) -> PrizeDrawResult:
         """Fetch or create the ``PrizeDrawResult`` row and apply the latest fields."""
@@ -247,5 +242,3 @@ __all__ = [
     "PrizeDrawEvaluation",
     "evaluate_batch",
 ]
-
-

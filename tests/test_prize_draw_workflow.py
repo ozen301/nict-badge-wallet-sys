@@ -8,14 +8,7 @@ from typing import cast
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from nictbw.models import (
-    Admin,
-    Base,
-    NFTTemplate,
-    PrizeDrawOutcome,
-    PrizeDrawType,
-    User,
-)
+from nictbw.models import Admin, Base, NFTTemplate, PrizeDrawType, User
 from nictbw.workflows import evaluate_draws, run_prize_draw, submit_winning_number
 
 
@@ -80,11 +73,9 @@ class PrizeDrawWorkflowTests(unittest.TestCase):
             first_result = run_prize_draw(
                 session, nft, draw_type, winning_number, threshold=1.0
             )
-            self.assertEqual(first_result.outcome, PrizeDrawOutcome.LOSE)
+            self.assertEqual(first_result.outcome, "lose")
             self.assertIsNotNone(first_result.similarity_score)
-            self.assertAlmostEqual(
-                cast(float, first_result.similarity_score), 0.875
-            )
+            self.assertAlmostEqual(cast(float, first_result.similarity_score), 0.875)
             self.assertEqual(first_result.threshold_used, 1.0)
             result_id = first_result.id
 
@@ -96,12 +87,10 @@ class PrizeDrawWorkflowTests(unittest.TestCase):
                 threshold=0.5,
             )
             self.assertEqual(second_result.id, result_id)
-            self.assertEqual(second_result.outcome, PrizeDrawOutcome.WIN)
+            self.assertEqual(second_result.outcome, "win")
             self.assertEqual(second_result.threshold_used, 0.5)
             self.assertIsNotNone(second_result.similarity_score)
-            self.assertAlmostEqual(
-                cast(float, second_result.similarity_score), 0.875
-            )
+            self.assertAlmostEqual(cast(float, second_result.similarity_score), 0.875)
             self.assertEqual(second_result.user_id, user.id)
             self.assertIsNotNone(second_result.ownership_id)
             self.assertIsNotNone(winning_number.metadata_json)
@@ -167,6 +156,3 @@ class PrizeDrawWorkflowTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-
-
-
