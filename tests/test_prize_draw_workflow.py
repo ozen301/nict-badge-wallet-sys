@@ -129,7 +129,7 @@ class PrizeDrawWorkflowTests(unittest.TestCase):
             results = evaluate_draws(
                 session,
                 draw_type,
-                nft_ids=[nft_one.id, nft_two.id],
+                nfts=[nft_one, nft_two],
             )
 
             self.assertEqual(len(results), 2)
@@ -150,7 +150,7 @@ class PrizeDrawWorkflowTests(unittest.TestCase):
 
             submit_winning_number(session, draw_type, value="abc")
 
-            results = evaluate_draws(session, draw_type, nft_ids=[])
+            results = evaluate_draws(session, draw_type, nfts=[])
             self.assertEqual(results, [])
 
 

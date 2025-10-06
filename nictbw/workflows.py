@@ -292,7 +292,7 @@ def evaluate_draws(
     draw_type: PrizeDrawType,
     *,
     winning_number: Optional[PrizeDrawWinningNumber] = None,
-    nft_ids: Optional[Sequence[int]] = None,
+    nfts: Optional[Sequence[NFT]] = None,
     threshold: Optional[float] = None,
     registry: Optional[AlgorithmRegistry] = None,
 ) -> list[PrizeDrawResult]:
@@ -313,8 +313,8 @@ def evaluate_draws(
     winning_number : Optional[PrizeDrawWinningNumber], default: None
         Winning number applied to all NFTs. If omitted, the latest active
         winning number is resolved.
-    nft_ids : Optional[Sequence[int]], default: None
-        Optional subset of NFT identifiers to evaluate. When omitted, all NFTs
+    nfts : Optional[Sequence[NFT]], default: None
+        Optional subset of NFT instances to evaluate. When omitted, all NFTs
         in the database are processed.
     threshold : Optional[float], default: None
         Optional threshold override applied to each evaluation.
@@ -339,18 +339,15 @@ def evaluate_draws(
     if resolved_winning_number is None:
         raise ValueError("No winning number is available for the supplied draw type")
 
-    stmt = select(NFT)
-    if nft_ids is not None:
-        if not nft_ids:
+    if nfts is None:
+        nfts_to_evaluate = list(session.scalars(select(NFT)))
+    else:
+        nfts_to_evaluate = list(nfts)
+        if not nfts_to_evaluate:
             return []
-        # SQLAlchemy cannot bind empty ``IN`` clauses, therefore the explicit
-        # guard and early return above.  ``list`` is used to support iterables
-        # such as tuples or generators.
-        stmt = stmt.where(NFT.id.in_(list(nft_ids)))
 
-    nfts = list(session.scalars(stmt))
     results: list[PrizeDrawResult] = []
-    for nft in nfts:
+    for nft in nfts_to_evaluate:
         result = run_prize_draw(
             session=session,
             nft=nft,
