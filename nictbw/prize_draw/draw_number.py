@@ -4,7 +4,13 @@ from __future__ import annotations
 
 
 def _normalize_origin(origin: str) -> str:
-    """Normalize origin input before using it directly as the draw number."""
+    """Normalize a raw NFT `origin` value by trimming and lower-casing.
+
+    Parameters
+    ----------
+    origin : str
+        Raw origin value captured on the NFT.
+    """
 
     if origin is None:
         raise ValueError("origin must not be None")
@@ -17,7 +23,18 @@ def _normalize_origin(origin: str) -> str:
 
 
 def derive_draw_number(origin: str) -> str:
-    """Return the deterministic draw number for ``origin``."""
+    """Calculate the deterministic draw number for an NFT origin.
+
+    Parameters
+    ----------
+    origin : str
+        The NFT's `origin` string.
+
+    Returns
+    -------
+    str
+        Normalized draw number of the NFT.
+    """
 
     return _normalize_origin(origin)
 

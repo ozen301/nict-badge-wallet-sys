@@ -175,9 +175,27 @@ def submit_winning_number(
     effective_at: Optional["datetime"] = None,
     expires_at: Optional["datetime"] = None,
 ) -> PrizeDrawWinningNumber:
-    """Persist a winning number for ``draw_type`` and return the ORM entity.
+    """Persist a winning number for ``draw_type``.
 
-    The `value` is a string that holds the winning number.
+    Parameters
+    ----------
+    session : Session
+        Active SQLAlchemy session used for persistence.
+    draw_type : PrizeDrawType
+        Draw configuration that contains the winning number.
+    value : str
+        Literal winning number value recorded for auditing.
+    metadata : Optional[dict[str, Any] | str], default: None
+        Optional metadata stored as JSON for downstream automation.
+    effective_at : Optional[datetime], default: None
+        Timestamp indicating when the winning number becomes active.
+    expires_at : Optional[datetime], default: None
+        End of validity window for the winning number.
+
+    Returns
+    -------
+    PrizeDrawWinningNumber
+        Newly persisted ORM entity representing the winning number.
     """
 
     # Ensure the draw type is persisted.
@@ -218,7 +236,7 @@ def run_prize_draw(
     threshold: Optional[float] = None,
     registry: Optional[AlgorithmRegistry] = None,
 ) -> PrizeDrawResult:
-    """Evaluate ``nft`` once, persist the result, and return the stored :class:`PrizeDrawResult`.
+    """Evaluate a single NFT and persist the resulting ``PrizeDrawResult``.
 
     If ``winning_number`` is not provided, the latest effective winning number
     for ``draw_type`` will be used. If no winning number is available, the evaluation
@@ -226,6 +244,33 @@ def run_prize_draw(
     "pre-register" the evaluation.
 
     This function essentially wraps :class:`PrizeDrawEngine`.
+
+    Parameters
+    ----------
+    session : Session
+        Active session used for persistence and queries.
+    nft : NFT
+        The NFT instance to evaluate.
+    draw_type : PrizeDrawType
+        Draw configuration that determines algorithm and thresholds.
+    winning_number : Optional[PrizeDrawWinningNumber], default: None
+        Winning number to use. When omitted, the most recent active winning
+        number is used automatically.
+    threshold : Optional[float], default: None
+        Optional threshold override applied to the evaluation.
+    registry : Optional[AlgorithmRegistry], default: None
+        Optional scoring registry containing custom scoring algorithms
+        to be used instead of the engine default.
+
+    Returns
+    -------
+    PrizeDrawResult
+        Persisted row representing the latest evaluation outcome.
+
+    Raises
+    ------
+    ValueError
+        If the NFT or draw type prerequisites required by the engine are not met.
     """
 
     engine = PrizeDrawEngine(session, registry=registry)
@@ -257,6 +302,34 @@ def evaluate_draws(
     full-batch evaluations (``nft_ids`` omitted).  It always resolves a winning
     number before calling into the engine so that downstream logic does not have
     to duplicate the lookup behaviour.
+
+    Parameters
+    ----------
+    session : Session
+        Session used to query NFTs and persist results.
+    draw_type : PrizeDrawType
+        Draw configuration used for evaluation, which determines the algorithm
+        and default threshold.
+    winning_number : Optional[PrizeDrawWinningNumber], default: None
+        Winning number applied to all NFTs. If omitted, the latest active
+        winning number is resolved.
+    nft_ids : Optional[Sequence[int]], default: None
+        Optional subset of NFT identifiers to evaluate. When omitted, all NFTs
+        in the database are processed.
+    threshold : Optional[float], default: None
+        Optional threshold override applied to each evaluation.
+    registry : Optional[AlgorithmRegistry], default: None
+        Optional scoring registry override that contains custom scoring algorithms.
+
+    Returns
+    -------
+    list[PrizeDrawResult]
+        List of persisted results corresponding to the evaluated NFTs.
+
+    Raises
+    ------
+    ValueError
+        If the draw type is not persisted or no winning number can be found.
     """
 
     if draw_type.id is None:
@@ -297,7 +370,21 @@ def evaluate_draws(
 def _latest_winning_number(
     session: Session, draw_type: PrizeDrawType
 ) -> Optional[PrizeDrawWinningNumber]:
-    """Return the most recently effective winning number for ``draw_type``."""
+    """Return the most recently effective winning number for ``draw_type``.
+
+    Parameters
+    ----------
+    session : Session
+        Session used for database queries.
+    draw_type : PrizeDrawType
+        Draw configuration whose winning numbers should be considered.
+
+    Returns
+    -------
+    Optional[PrizeDrawWinningNumber]
+        Winning number with the most recent effective window, or ``None`` when
+        no winning numbers exist.
+    """
 
     # Order by effective window first so that future-dated winning numbers are
     # naturally considered "latest" once their window starts.  ``nullslast``

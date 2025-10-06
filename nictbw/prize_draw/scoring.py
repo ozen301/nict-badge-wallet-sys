@@ -8,7 +8,22 @@ from typing import Callable, Dict, Optional
 
 @dataclass(frozen=True)
 class ScoreEvaluation:
-    """Result of evaluating a scoring algorithm."""
+    """Result of evaluating a scoring algorithm.
+
+    Attributes
+    ----------
+    algorithm_key : str
+        Identifier of the algorithm used for evaluation. This matches
+        :attr:`ScoringAlgorithm.key`, which is also stored in
+        `AlgorithmRegistry._algorithms`.
+    score : float
+        Similarity score produced by the algorithm.
+    threshold : Optional[float]
+        Threshold against which ``score`` was compared, if any.
+    passed : Optional[bool]
+        ``True`` when the score passes the threshold, ``False`` when it fails,
+        and ``None`` when no threshold was supplied.
+    """
 
     algorithm_key: str
     score: float
@@ -18,7 +33,20 @@ class ScoreEvaluation:
 
 @dataclass(frozen=True)
 class ScoringAlgorithm:
-    """Definition of a scoring algorithm."""
+    """Definition of a scoring algorithm.
+
+    Attributes
+    ----------
+    key : str
+        Registry key used to identify the algorithm. This is used by
+        :class:`AlgorithmRegistry` to map to the algorithm definition.
+    scorer : Callable[[str, str], float]
+        Callable that takes the draw number string and winning number string as input
+        and returns a similarity score as a float. The score is typically in the range
+        [0.0, 1.0], but this is not enforced.
+    description : Optional[str]
+        Human-readable summary of the algorithm's behaviour.
+    """
 
     key: str
     scorer: Callable[[str, str], float]
@@ -30,8 +58,21 @@ class ScoringAlgorithm:
         winning_number: str,
         threshold: Optional[float] = None,
     ) -> ScoreEvaluation:
-        """Evaluate the similarity and whether it passes the threshold (if any).
-        This requires both a draw number and a winning number.
+        """Calculate the similarity score and returns the result.
+
+        Parameters
+        ----------
+        draw_number : str
+            Normalized draw number derived from the NFT.
+        winning_number : str
+            Reference value representing the winning draw.
+        threshold : Optional[float], default: None
+            Threshold applied to ``score`` for pass/fail classification.
+
+        Returns
+        -------
+        ScoreEvaluation
+            Dataclass describing the evaluation result.
         """
         score = float(self.scorer(draw_number, winning_number))
         passed = None if threshold is None else score >= threshold
@@ -50,11 +91,26 @@ class AlgorithmRegistry:
         self._algorithms: Dict[str, ScoringAlgorithm] = {}
 
     def register(self, algorithm: ScoringAlgorithm, *, replace: bool = False) -> None:
+        """Register a scoring algorithm under its key.
+
+        This stores the algorithm in the registry's internal mapping using
+        ``algorithm.key``, so that it can be retrieved later and used for
+        evaluation.
+
+        Parameters
+        ----------
+        algorithm : ScoringAlgorithm
+            Algorithm to add to the registry.
+        replace : bool, default: False
+            When ``True`` an existing registration with the same key is
+            overwritten. Otherwise a duplicate raises :class:`ValueError`.
+        """
         if not replace and algorithm.key in self._algorithms:
             raise ValueError(f"Algorithm '{algorithm.key}' is already registered")
         self._algorithms[algorithm.key] = algorithm
 
     def get(self, key: str) -> ScoringAlgorithm:
+        """Return the algorithm registered under ``key``."""
         try:
             return self._algorithms[key]
         except KeyError as exc:  # pragma: no cover - defensive
@@ -68,19 +124,57 @@ class AlgorithmRegistry:
         *,
         threshold: Optional[float] = None,
     ) -> ScoreEvaluation:
+        """Evaluate a draw using the algorithm referenced by ``key``.
+
+        Parameters
+        ----------
+        key : str
+            Identifier of the algorithm to execute.
+        draw_number : str
+            Draw number of the NFT.
+        winning_number : str
+            Winning number to compare against.
+        threshold : Optional[float], default: None
+            Threshold supplied to the algorithm.
+
+        Returns
+        -------
+        ScoreEvaluation
+            Evaluation result returned by the selected algorithm.
+        """
         algorithm = self.get(key)
         return algorithm.evaluate(draw_number, winning_number, threshold)
 
     def clone(self) -> "AlgorithmRegistry":
+        """Create a shallow copy of the registry.
+
+        Returns
+        -------
+        AlgorithmRegistry
+            New registry instance containing the same algorithm mappings.
+        """
         clone = AlgorithmRegistry()
         clone._algorithms = dict(self._algorithms)
         return clone
 
     def available_algorithms(self) -> Dict[str, ScoringAlgorithm]:
+        """Return a copy of the registered algorithms keyed by identifier."""
         return dict(self._algorithms)
 
 
 def _hamming_similarity(draw_number: str, winning_number: str) -> float:
+    """Compute normalized Hamming similarity for two ASCII strings.
+
+    This function converts both input strings to ASCII-encoded bytes and
+    compares them bitwise. If the inputs are of unequal length, the shorter
+    one is padded with zero bytes (``b'\x00'``) on the right to match the
+    length of the longer one.
+
+    Returns
+    -------
+    float
+        Similarity score in the inclusive range [0.0, 1.0].
+    """
     try:
         left: bytes = draw_number.encode("ascii")
         right: bytes = winning_number.encode("ascii")

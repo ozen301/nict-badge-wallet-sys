@@ -129,7 +129,7 @@ class PrizeDrawWinningNumber(Base):
     __tablename__ = "prize_draw_winning_numbers"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    """Surrogate primary key."""
+    """Primary key."""
 
     draw_type_id: Mapped[int] = mapped_column(
         ForeignKey("prize_draw_types.id", ondelete="CASCADE"),
