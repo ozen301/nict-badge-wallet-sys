@@ -1,22 +1,17 @@
 from __future__ import annotations
 
-import json
 import unittest
-from datetime import datetime, timedelta, timezone
 from typing import cast
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from nictbw.models import (
-    Admin,
-    Base,
-    NFTTemplate,
-    PrizeDrawOutcome,
-    PrizeDrawType,
-    User,
+from nictbw.models import Admin, Base, NFTTemplate, PrizeDrawType, User
+from nictbw.workflows import (
+    evaluate_prize_draw_batch,
+    run_prize_draw,
+    submit_winning_number,
 )
-from nictbw.workflows import evaluate_draws, run_prize_draw, submit_winning_number
 
 
 class PrizeDrawWorkflowTests(unittest.TestCase):
@@ -73,18 +68,14 @@ class PrizeDrawWorkflowTests(unittest.TestCase):
                 session,
                 draw_type,
                 value="abd",
-                metadata={"source": "game"},
-                effective_at=datetime.now(timezone.utc),
             )
 
             first_result = run_prize_draw(
                 session, nft, draw_type, winning_number, threshold=1.0
             )
-            self.assertEqual(first_result.outcome, PrizeDrawOutcome.LOSE)
+            self.assertEqual(first_result.outcome, "lose")
             self.assertIsNotNone(first_result.similarity_score)
-            self.assertAlmostEqual(
-                cast(float, first_result.similarity_score), 0.875
-            )
+            self.assertAlmostEqual(cast(float, first_result.similarity_score), 0.875)
             self.assertEqual(first_result.threshold_used, 1.0)
             result_id = first_result.id
 
@@ -94,28 +85,16 @@ class PrizeDrawWorkflowTests(unittest.TestCase):
                 draw_type,
                 winning_number,
                 threshold=0.5,
-                payload={"rerun": True},
             )
             self.assertEqual(second_result.id, result_id)
-            self.assertEqual(second_result.outcome, PrizeDrawOutcome.WIN)
+            self.assertEqual(second_result.outcome, "win")
             self.assertEqual(second_result.threshold_used, 0.5)
             self.assertIsNotNone(second_result.similarity_score)
-            self.assertAlmostEqual(
-                cast(float, second_result.similarity_score), 0.875
-            )
+            self.assertAlmostEqual(cast(float, second_result.similarity_score), 0.875)
             self.assertEqual(second_result.user_id, user.id)
             self.assertIsNotNone(second_result.ownership_id)
-            self.assertIsNotNone(second_result.notes)
-            self.assertEqual(
-                json.loads(cast(str, second_result.notes))["rerun"], True
-            )
-            self.assertIsNotNone(winning_number.metadata_json)
-            self.assertIn(
-                "source",
-                json.loads(cast(str, winning_number.metadata_json)),
-            )
 
-    def test_evaluate_draws_uses_latest_winning_number(self) -> None:
+    def test_evaluate_prize_draw_batch_uses_latest_winning_number(self) -> None:
         with self.Session.begin() as session:
             user, template = self._seed_user_and_template(session)
             nft_one = self._mint_nft(session, template, user, origin="abc")
@@ -133,19 +112,17 @@ class PrizeDrawWorkflowTests(unittest.TestCase):
                 session,
                 draw_type,
                 value="aaa",
-                effective_at=datetime.now(timezone.utc) - timedelta(days=1),
             )
             latest = submit_winning_number(
                 session,
                 draw_type,
                 value="abz",
-                effective_at=datetime.now(timezone.utc),
             )
 
-            results = evaluate_draws(
+            results = evaluate_prize_draw_batch(
                 session,
                 draw_type,
-                nft_ids=[nft_one.id, nft_two.id],
+                nfts=[nft_one, nft_two],
             )
 
             self.assertEqual(len(results), 2)
@@ -153,7 +130,7 @@ class PrizeDrawWorkflowTests(unittest.TestCase):
                 self.assertEqual(res.winning_number_id, latest.id)
                 self.assertIn(res.draw_number, {"abc", "abz"})
 
-    def test_evaluate_draws_empty_ids_returns_empty(self) -> None:
+    def test_evaluate_prize_draw_batch_empty_ids_returns_empty(self) -> None:
         with self.Session.begin() as session:
             user, template = self._seed_user_and_template(session)
             draw_type = PrizeDrawType(
@@ -166,12 +143,9 @@ class PrizeDrawWorkflowTests(unittest.TestCase):
 
             submit_winning_number(session, draw_type, value="abc")
 
-            results = evaluate_draws(session, draw_type, nft_ids=[])
+            results = evaluate_prize_draw_batch(session, draw_type, nfts=[])
             self.assertEqual(results, [])
 
 
 if __name__ == "__main__":
     unittest.main()
-
-
-

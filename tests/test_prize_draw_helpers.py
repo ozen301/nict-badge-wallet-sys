@@ -48,9 +48,7 @@ class ScoringRegistryTests(unittest.TestCase):
         registry.register(DEFAULT_SCORING_REGISTRY.get("hamming"))
         with self.assertRaises(ValueError):
             registry.register(DEFAULT_SCORING_REGISTRY.get("hamming"))
-        clone = registry.clone()
-        self.assertIn("hamming", clone.available_algorithms())
-        evaluation = clone.evaluate("hamming", "A", "B", threshold=0.5)
+        evaluation = registry.evaluate("hamming", "A", "B", threshold=0.5)
         # ASCII A (0x41) vs B (0x42) differ by two bits leading to 0.75 similarity.
         self.assertAlmostEqual(evaluation.score, 0.75)
         self.assertTrue(evaluation.passed)
