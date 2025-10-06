@@ -80,6 +80,22 @@ class PrizeDrawType(Base):
     )
     """All evaluation results belonging to this draw type."""
 
+    def latest_winning_number(
+        self, session: Session
+    ) -> Optional["PrizeDrawWinningNumber"]:
+        """Return the most recently effective winning number for this draw type."""
+
+        stmt = (
+            select(PrizeDrawWinningNumber)
+            .where(PrizeDrawWinningNumber.draw_type_id == self.id)
+            .order_by(
+                PrizeDrawWinningNumber.effective_at.desc().nullslast(),
+                PrizeDrawWinningNumber.created_at.desc(),
+                PrizeDrawWinningNumber.id.desc(),
+            )
+        )
+        return session.scalars(stmt).first()
+
     def __init__(
         self,
         *,

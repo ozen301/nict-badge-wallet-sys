@@ -274,7 +274,7 @@ def run_prize_draw(
     """
 
     engine = PrizeDrawEngine(session, registry=registry)
-    winning_number = winning_number or _latest_winning_number(session, draw_type)
+    winning_number = winning_number or draw_type.latest_winning_number(session)
 
     evaluation = engine.evaluate(
         nft=nft,
@@ -335,9 +335,7 @@ def evaluate_draws(
     if draw_type.id is None:
         raise ValueError("Draw type must be persisted before evaluating draws")
 
-    resolved_winning_number = winning_number or _latest_winning_number(
-        session, draw_type
-    )
+    resolved_winning_number = winning_number or draw_type.latest_winning_number(session)
     if resolved_winning_number is None:
         raise ValueError("No winning number is available for the supplied draw type")
 
@@ -365,37 +363,3 @@ def evaluate_draws(
 
     session.flush()
     return results
-
-
-def _latest_winning_number(
-    session: Session, draw_type: PrizeDrawType
-) -> Optional[PrizeDrawWinningNumber]:
-    """Return the most recently effective winning number for ``draw_type``.
-
-    Parameters
-    ----------
-    session : Session
-        Session used for database queries.
-    draw_type : PrizeDrawType
-        Draw configuration whose winning numbers should be considered.
-
-    Returns
-    -------
-    Optional[PrizeDrawWinningNumber]
-        Winning number with the most recent effective window, or ``None`` when
-        no winning numbers exist.
-    """
-
-    # Order by effective window first so that future-dated winning numbers are
-    # naturally considered "latest" once their window starts.  ``nullslast``
-    # keeps permanently active numbers at the end of the ordering for clarity.
-    stmt = (
-        select(PrizeDrawWinningNumber)
-        .where(PrizeDrawWinningNumber.draw_type_id == draw_type.id)
-        .order_by(
-            PrizeDrawWinningNumber.effective_at.desc().nullslast(),
-            PrizeDrawWinningNumber.created_at.desc(),
-            PrizeDrawWinningNumber.id.desc(),
-        )
-    )
-    return session.scalars(stmt).first()

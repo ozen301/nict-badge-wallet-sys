@@ -184,6 +184,56 @@ class PrizeDrawEngine:
             similarity=evaluation_similarity,
         )
 
+    def evaluate_batch(
+        self,
+        *,
+        nfts: Iterable[NFT],
+        draw_type: PrizeDrawType,
+        winning_number: Optional[PrizeDrawWinningNumber] = None,
+        threshold: Optional[float] = None,
+        registry: Optional[AlgorithmRegistry] = None,
+    ) -> list[PrizeDrawEvaluation]:
+        """Evaluate multiple NFTs with a shared configuration.
+
+        The helper delegates to :meth:`PrizeDrawEngine.evaluate` in a loop,
+        collecting the results into a list for the caller. This is primarily useful
+        for batch processing scenarios where multiple NFTs need to be evaluated
+        with the same configuration.
+
+        Parameters
+        ----------
+        nfts : Iterable[NFT]
+            Collection of NFTs to evaluate against the draw configuration.
+        draw_type : PrizeDrawType
+            Draw type applied to every evaluation, which determines the algorithm and
+            default threshold.
+        winning_number : Optional[PrizeDrawWinningNumber], default: None
+            Winning number shared across the evaluations, if available.
+        threshold : Optional[float], default: None
+            Threshold override applied to each evaluation. If not provided, the draw type's
+            default threshold will be used.
+        registry : Optional[AlgorithmRegistry], default: None
+            Optional registry override that contains custom scoring algorithms.
+
+        Returns
+        -------
+        list[PrizeDrawEvaluation]
+            List containing the evaluation metadata for each NFT processed.
+        """
+
+        evaluations: list[PrizeDrawEvaluation] = []
+        for nft in nfts:
+            evaluations.append(
+                self.evaluate(
+                    nft=nft,
+                    draw_type=draw_type,
+                    winning_number=winning_number,
+                    threshold=threshold,
+                    registry=registry,
+                )
+            )
+        return evaluations
+
     def _resolve_latest_ownership(self, nft: NFT) -> Optional[UserNFTOwnership]:
         """Return the newest ownership snapshot for ``nft`` if one exists."""
 
@@ -284,61 +334,7 @@ class PrizeDrawEngine:
         return result
 
 
-def evaluate_batch(
-    engine: PrizeDrawEngine,
-    *,
-    nfts: Iterable[NFT],
-    draw_type: PrizeDrawType,
-    winning_number: Optional[PrizeDrawWinningNumber] = None,
-    threshold: Optional[float] = None,
-    registry: Optional[AlgorithmRegistry] = None,
-) -> list[PrizeDrawEvaluation]:
-    """Evaluate multiple NFTs with a shared configuration.
-
-    The helper mostly delegates to :meth:`PrizeDrawEngine.evaluate` in a loop,
-    collecting the results into a list for the caller. This is primarily useful
-    for batch processing scenarios where multiple NFTs need to be evaluated
-    with the same configuration.
-
-    Parameters
-    ----------
-    engine : PrizeDrawEngine
-        Engine instance used to execute each evaluation.
-    nfts : Iterable[NFT]
-        Collection of NFTs to evaluate against the draw configuration.
-    draw_type : PrizeDrawType
-        Draw type applied to every evaluation, which determines the algorithm and
-        default threshold.
-    winning_number : Optional[PrizeDrawWinningNumber], default: None
-        Winning number shared across the evaluations, if available.
-    threshold : Optional[float], default: None
-        Threshold override applied to each evaluation. If not provided, the draw type's
-        default threshold will be used.
-    registry : Optional[AlgorithmRegistry], default: None
-        Optional registry override that contains custom scoring algorithms.
-
-    Returns
-    -------
-    list[PrizeDrawEvaluation]
-        List containing the evaluation metadata for each NFT processed.
-    """
-
-    evaluations: list[PrizeDrawEvaluation] = []
-    for nft in nfts:
-        evaluations.append(
-            engine.evaluate(
-                nft=nft,
-                draw_type=draw_type,
-                winning_number=winning_number,
-                threshold=threshold,
-                registry=registry,
-            )
-        )
-    return evaluations
-
-
 __all__ = [
     "PrizeDrawEngine",
     "PrizeDrawEvaluation",
-    "evaluate_batch",
 ]
