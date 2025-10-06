@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import json
 import unittest
-from datetime import datetime, timedelta, timezone
 from typing import cast
 
 from sqlalchemy import create_engine
@@ -66,8 +64,6 @@ class PrizeDrawWorkflowTests(unittest.TestCase):
                 session,
                 draw_type,
                 value="abd",
-                metadata={"source": "game"},
-                effective_at=datetime.now(timezone.utc),
             )
 
             first_result = run_prize_draw(
@@ -93,11 +89,6 @@ class PrizeDrawWorkflowTests(unittest.TestCase):
             self.assertAlmostEqual(cast(float, second_result.similarity_score), 0.875)
             self.assertEqual(second_result.user_id, user.id)
             self.assertIsNotNone(second_result.ownership_id)
-            self.assertIsNotNone(winning_number.metadata_json)
-            self.assertIn(
-                "source",
-                json.loads(cast(str, winning_number.metadata_json)),
-            )
 
     def test_evaluate_draws_uses_latest_winning_number(self) -> None:
         with self.Session.begin() as session:
@@ -117,13 +108,11 @@ class PrizeDrawWorkflowTests(unittest.TestCase):
                 session,
                 draw_type,
                 value="aaa",
-                effective_at=datetime.now(timezone.utc) - timedelta(days=1),
             )
             latest = submit_winning_number(
                 session,
                 draw_type,
                 value="abz",
-                effective_at=datetime.now(timezone.utc),
             )
 
             results = evaluate_draws(

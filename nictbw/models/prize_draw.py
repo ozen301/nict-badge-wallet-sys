@@ -83,13 +83,12 @@ class PrizeDrawType(Base):
     def latest_winning_number(
         self, session: Session
     ) -> Optional["PrizeDrawWinningNumber"]:
-        """Return the most recently effective winning number for this draw type."""
+        """Return the most recently stored winning number for this draw type."""
 
         stmt = (
             select(PrizeDrawWinningNumber)
             .where(PrizeDrawWinningNumber.draw_type_id == self.id)
             .order_by(
-                PrizeDrawWinningNumber.effective_at.desc().nullslast(),
                 PrizeDrawWinningNumber.created_at.desc(),
                 PrizeDrawWinningNumber.id.desc(),
             )
@@ -157,19 +156,6 @@ class PrizeDrawWinningNumber(Base):
     value: Mapped[str] = mapped_column(String(255), nullable=False)
     """Winning number supplied by the external system."""
 
-    metadata_json: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    """Optional JSON encoded metadata (e.g. source info or algorithm hints)."""
-
-    effective_at: Mapped[Optional[datetime]] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
-    """When this winning number became active (if time bound)."""
-
-    expires_at: Mapped[Optional[datetime]] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
-    """When this winning number stops being considered (if time bound)."""
-
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
@@ -192,9 +178,6 @@ class PrizeDrawWinningNumber(Base):
         value: str,
         draw_type: Optional["PrizeDrawType"] = None,
         draw_type_id: Optional[int] = None,
-        metadata_json: Optional[str] = None,
-        effective_at: Optional[datetime] = None,
-        expires_at: Optional[datetime] = None,
         created_at: Optional[datetime] = None,
         results: Optional[list["PrizeDrawResult"]] = None,
     ) -> None:
@@ -203,9 +186,6 @@ class PrizeDrawWinningNumber(Base):
             self.draw_type = draw_type
         if draw_type_id is not None:
             self.draw_type_id = draw_type_id
-        self.metadata_json = metadata_json
-        self.effective_at = effective_at
-        self.expires_at = expires_at
         if created_at is not None:
             self.created_at = created_at
         if results is not None:

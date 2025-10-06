@@ -874,8 +874,6 @@ class DBTestCase(unittest.TestCase):
             winning_number = PrizeDrawWinningNumber(
                 draw_type_id=draw_type.id,
                 value="101010",
-                metadata_json='{"source": "admin"}',
-                effective_at=now,
             )
             session.add(winning_number)
             session.flush()
