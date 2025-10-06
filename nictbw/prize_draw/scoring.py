@@ -145,18 +145,6 @@ class AlgorithmRegistry:
         algorithm = self.get(key)
         return algorithm.evaluate(draw_number, winning_number, threshold)
 
-    def clone(self) -> "AlgorithmRegistry":
-        """Create a shallow copy of the registry.
-
-        Returns
-        -------
-        AlgorithmRegistry
-            New registry instance containing the same algorithm mappings.
-        """
-        clone = AlgorithmRegistry()
-        clone._algorithms = dict(self._algorithms)
-        return clone
-
     def available_algorithms(self) -> Dict[str, ScoringAlgorithm]:
         """Return a copy of the registered algorithms keyed by identifier."""
         return dict(self._algorithms)
