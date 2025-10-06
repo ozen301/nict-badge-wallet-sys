@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Iterable, Optional
+from typing import Iterable, Optional
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -55,8 +55,6 @@ class PrizeDrawEngine:
         draw_type: PrizeDrawType,
         winning_number: Optional[PrizeDrawWinningNumber] = None,
         threshold: Optional[float] = None,
-        algorithm_version: Optional[str] = None,
-        payload: Optional[dict[str, Any] | str] = None,
         registry: Optional[AlgorithmRegistry] = None,
     ) -> PrizeDrawEvaluation:
         """Evaluate ``nft`` against ``winning_number`` and persist the result.
@@ -116,17 +114,6 @@ class PrizeDrawEngine:
             elif evaluation.passed is False:
                 outcome = PrizeDrawOutcome.LOSE
 
-        # Serialize the payload to a string for storage in the ``notes`` field, if provided.
-        payload_notes: Optional[str]
-        if payload is None:
-            payload_notes = None
-        elif isinstance(payload, str):
-            payload_notes = payload
-        else:
-            import json
-
-            payload_notes = json.dumps(payload, sort_keys=True)
-
         # Upsert the ``PrizeDrawResult`` row before mutating fields so that a
         # previously persisted record will be updated in-place instead of
         # creating a duplicate row.
@@ -141,9 +128,7 @@ class PrizeDrawEngine:
             similarity_score=evaluation_similarity,
             threshold_used=threshold_to_use,
             outcome=outcome,
-            algorithm_version=algorithm_version,
             evaluated_at=now,
-            notes=payload_notes,
         )
 
         # Persist the changes so that the caller can inspect the returned ORM
@@ -181,9 +166,7 @@ class PrizeDrawEngine:
         similarity_score: Optional[float],
         threshold_used: Optional[float],
         outcome: PrizeDrawOutcome,
-        algorithm_version: Optional[str],
         evaluated_at: datetime,
-        notes: Optional[str],
     ) -> PrizeDrawResult:
         """Fetch or create the ``PrizeDrawResult`` row and apply the latest fields."""
 
@@ -210,9 +193,7 @@ class PrizeDrawEngine:
                 similarity_score=similarity_score,
                 threshold_used=threshold_used,
                 outcome=outcome,
-                algorithm_version=algorithm_version,
                 evaluated_at=evaluated_at,
-                notes=notes,
             )
             self._session.add(result)
         else:
@@ -225,9 +206,7 @@ class PrizeDrawEngine:
             result.similarity_score = similarity_score
             result.threshold_used = threshold_used
             result.outcome = outcome
-            result.algorithm_version = algorithm_version
             result.evaluated_at = evaluated_at
-            result.notes = notes
 
         return result
 
@@ -239,8 +218,6 @@ def evaluate_batch(
     draw_type: PrizeDrawType,
     winning_number: Optional[PrizeDrawWinningNumber] = None,
     threshold: Optional[float] = None,
-    algorithm_version: Optional[str] = None,
-    payload: Optional[dict[str, Any] | str] = None,
     registry: Optional[AlgorithmRegistry] = None,
 ) -> list[PrizeDrawEvaluation]:
     """Convenience helper to evaluate multiple NFTs with a shared configuration.
@@ -259,8 +236,6 @@ def evaluate_batch(
                 draw_type=draw_type,
                 winning_number=winning_number,
                 threshold=threshold,
-                algorithm_version=algorithm_version,
-                payload=payload,
                 registry=registry,
             )
         )

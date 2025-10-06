@@ -879,7 +879,6 @@ class DBTestCase(unittest.TestCase):
                 similarity_score=0.66,
                 threshold_used=3.0,
                 outcome=PrizeDrawOutcome.LOSE,
-                algorithm_version="v1",
             )
             session.add(result)
             session.commit()

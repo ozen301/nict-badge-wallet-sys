@@ -216,8 +216,6 @@ def run_prize_draw(
     winning_number: Optional[PrizeDrawWinningNumber] = None,
     *,
     threshold: Optional[float] = None,
-    algorithm_version: Optional[str] = None,
-    payload: Optional[dict[str, Any] | str] = None,
     registry: Optional[AlgorithmRegistry] = None,
 ) -> PrizeDrawResult:
     """Evaluate ``nft`` once, persist the result, and return the stored :class:`PrizeDrawResult`.
@@ -238,8 +236,6 @@ def run_prize_draw(
         draw_type=draw_type,
         winning_number=winning_number,
         threshold=threshold,
-        algorithm_version=algorithm_version,
-        payload=payload,
         registry=registry,
     )
     session.flush()
@@ -253,8 +249,6 @@ def evaluate_draws(
     winning_number: Optional[PrizeDrawWinningNumber] = None,
     nft_ids: Optional[Sequence[int]] = None,
     threshold: Optional[float] = None,
-    algorithm_version: Optional[str] = None,
-    payload: Optional[dict[str, Any] | str] = None,
     registry: Optional[AlgorithmRegistry] = None,
 ) -> list[PrizeDrawResult]:
     """Evaluate multiple NFTs for ``draw_type`` and return their results.
@@ -292,8 +286,6 @@ def evaluate_draws(
             draw_type=draw_type,
             winning_number=resolved_winning_number,
             threshold=threshold,
-            algorithm_version=algorithm_version,
-            payload=payload,
             registry=registry,
         )
         results.append(result)

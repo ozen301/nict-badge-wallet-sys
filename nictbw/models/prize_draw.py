@@ -264,9 +264,6 @@ class PrizeDrawResult(Base):
     )
     """Outcome derived from the evaluation."""
 
-    algorithm_version: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
-    """Optional version string for the algorithm used during evaluation."""
-
     evaluated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
@@ -274,9 +271,6 @@ class PrizeDrawResult(Base):
         default=lambda: datetime.now(timezone.utc),
     )
     """Timestamp when the draw was evaluated."""
-
-    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    """Additional JSON/text metadata captured with the result."""
 
     draw_type: Mapped["PrizeDrawType"] = relationship(back_populates="results")
     """Relationship to the draw type."""
@@ -317,9 +311,7 @@ class PrizeDrawResult(Base):
         similarity_score: Optional[float] = None,
         threshold_used: Optional[float] = None,
         outcome: PrizeDrawOutcome = PrizeDrawOutcome.PENDING,
-        algorithm_version: Optional[str] = None,
         evaluated_at: Optional[datetime] = None,
-        notes: Optional[str] = None,
     ) -> None:
         if draw_type is not None:
             self.draw_type = draw_type
@@ -345,10 +337,8 @@ class PrizeDrawResult(Base):
         self.similarity_score = similarity_score
         self.threshold_used = threshold_used
         self.outcome = outcome
-        self.algorithm_version = algorithm_version
         if evaluated_at is not None:
             self.evaluated_at = evaluated_at
-        self.notes = notes
 
     def __repr__(self) -> str:  # pragma: no cover - repr is trivial
         return (

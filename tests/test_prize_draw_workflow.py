@@ -94,7 +94,6 @@ class PrizeDrawWorkflowTests(unittest.TestCase):
                 draw_type,
                 winning_number,
                 threshold=0.5,
-                payload={"rerun": True},
             )
             self.assertEqual(second_result.id, result_id)
             self.assertEqual(second_result.outcome, PrizeDrawOutcome.WIN)
@@ -105,10 +104,6 @@ class PrizeDrawWorkflowTests(unittest.TestCase):
             )
             self.assertEqual(second_result.user_id, user.id)
             self.assertIsNotNone(second_result.ownership_id)
-            self.assertIsNotNone(second_result.notes)
-            self.assertEqual(
-                json.loads(cast(str, second_result.notes))["rerun"], True
-            )
             self.assertIsNotNone(winning_number.metadata_json)
             self.assertIn(
                 "source",
