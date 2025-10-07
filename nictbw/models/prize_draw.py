@@ -325,10 +325,12 @@ class PrizeDrawResult(Base):
             self.evaluated_at = evaluated_at
 
     def __repr__(self) -> str:  # pragma: no cover - repr is trivial
-        return "<PrizeDrawResult(id={id}, draw_type_id={dt}, nft_id={nft}, outcome={outcome})>".format(
+        return "<PrizeDrawResult(id={id}, draw_type_id={dt}, nft_id={nft}, user_id={user_id}, similarity_score={similarity_score}, outcome={outcome})>".format(
             id=self.id,
             dt=self.draw_type_id,
             nft=self.nft_id,
+            user_id=self.user_id,
+            similarity_score=self.similarity_score,
             outcome=self.outcome,
         )
 

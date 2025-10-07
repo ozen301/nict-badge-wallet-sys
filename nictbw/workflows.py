@@ -288,7 +288,7 @@ def run_prize_draw_batch(
         Draw configuration used for evaluation, which determines the algorithm
         and default threshold.
     winning_number : Optional[PrizeDrawWinningNumber], default: None
-        Winning number applied to all NFTs. If omitted, the latest stored
+        Overriding winning number applied to all NFTs. If omitted, the latest stored
         winning number is resolved.
     nfts : Optional[Sequence[NFT]], default: None
         Optional subset of NFT instances to evaluate. When omitted, all NFTs
