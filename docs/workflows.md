@@ -117,5 +117,23 @@ the `PrizeDrawEngine` service.
 Re-running the workflow for the same `(nft, draw_type, winning_number)` combination will overwrite the previous
    result as designed.
 
+## Prize Draw Ranking
+When a draw type does not rely on thresholds (for example, when finding a "closest-number win"
+), you can rank the evaluated results and pick the top records.
+
+Use the `nictbw.workflows.select_top_prize_draw_results` helper to do so:
+
+1. Ensure both the `PrizeDrawType` and its `PrizeDrawWinningNumber` have been
+   persisted.
+2. Call `select_top_prize_draw_results(session, draw_type, winning_number, limit=n)`
+   to retrieve the top `n` entries ordered by `similarity_score` (highest first).
+   Pending outcomes remain eligible by default so that evaluations without
+   thresholds can still be ranked.
+3. Optionally set `include_pending=False` if you only want already-finalized
+   outcomes in the ranking.
+
+The helper returns a list of `PrizeDrawResult` objects that you can use to select
+winners or trigger downstream logic.
+
 ---
 

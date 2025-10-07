@@ -337,3 +337,73 @@ def evaluate_prize_draw_batch(
 
     session.flush()
     return results
+
+
+def select_top_prize_draw_results(
+    session: Session,
+    draw_type: PrizeDrawType,
+    winning_number: PrizeDrawWinningNumber,
+    *,
+    limit: int,
+    include_pending: bool = True,
+) -> list[PrizeDrawResult]:
+    """Return up to `limit` PrizeDrawResult rows for the given draw type and
+    winning number, ranked by similarity score (highest first).
+
+    The helper is designed for "closest-number wins" scenarios where the
+    highest similarity scores determine the winners. It filters results for the
+    supplied draw type and winning number, orders them by ``similarity_score`` in
+    descending order, and returns the top ``limit`` entries. Pending outcomes are
+    included by default so that draws evaluated without thresholds remain
+    eligible. Set ``include_pending`` to ``False`` to restrict the selection to
+    non-pending outcomes.
+
+    Parameters
+    ----------
+    session : Session
+        Active SQLAlchemy session used to issue the query.
+    draw_type : PrizeDrawType
+        Persisted draw type whose results should be ranked.
+    winning_number : PrizeDrawWinningNumber
+        Persisted winning number used during evaluation of the results.
+    limit : int
+        Maximum number of results to return. Must be greater than zero.
+    include_pending : bool, default: True
+        When ``True`` (default) pending outcomes are included in the ranking. Set
+        to ``False`` to exclude them.
+
+    Returns
+    -------
+    list[PrizeDrawResult]
+        Top ``limit`` results ordered from highest to lowest similarity score.
+
+    Raises
+    ------
+    ValueError
+        If the draw type or winning number have not been persisted, or if the
+        requested ``limit`` is not positive.
+    """
+
+    if draw_type.id is None:
+        raise ValueError("Draw type must be persisted before selecting results")
+    if winning_number.id is None:
+        raise ValueError("Winning number must be persisted before selecting results")
+    if limit <= 0:
+        raise ValueError("limit must be a positive integer")
+
+    stmt = select(PrizeDrawResult).where(
+        PrizeDrawResult.draw_type_id == draw_type.id,
+        PrizeDrawResult.winning_number_id == winning_number.id,
+        PrizeDrawResult.similarity_score.isnot(None),
+    )
+
+    if not include_pending:
+        stmt = stmt.where(PrizeDrawResult.outcome != "pending")
+
+    stmt = stmt.order_by(
+        PrizeDrawResult.similarity_score.desc().nulls_last(),
+        PrizeDrawResult.evaluated_at.asc(),
+        PrizeDrawResult.id.asc(),
+    ).limit(limit)
+
+    return list(session.scalars(stmt).all())

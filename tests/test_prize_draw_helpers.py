@@ -53,7 +53,6 @@ class ScoringRegistryTests(unittest.TestCase):
         self.assertAlmostEqual(evaluation.score, 0.75)
         self.assertTrue(evaluation.passed)
 
-
 if __name__ == "__main__":
     unittest.main()
 

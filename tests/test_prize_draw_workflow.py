@@ -10,6 +10,7 @@ from nictbw.models import Admin, Base, NFTTemplate, PrizeDrawType, User
 from nictbw.workflows import (
     evaluate_prize_draw_batch,
     run_prize_draw,
+    select_top_prize_draw_results,
     submit_winning_number,
 )
 
@@ -145,6 +146,63 @@ class PrizeDrawWorkflowTests(unittest.TestCase):
 
             results = evaluate_prize_draw_batch(session, draw_type, nfts=[])
             self.assertEqual(results, [])
+
+    def test_select_top_prize_draw_results_orders_by_similarity(self) -> None:
+        with self.Session.begin() as session:
+            user, template = self._seed_user_and_template(session)
+            draw_type = PrizeDrawType(
+                internal_name="closest", algorithm_key="hamming", default_threshold=None
+            )
+            session.add(draw_type)
+            session.flush()
+
+            winning_number = submit_winning_number(
+                session,
+                draw_type,
+                value="abd",
+            )
+
+            origins = ["abd", "abe", "abz"]
+            for origin in origins:
+                nft = self._mint_nft(session, template, user, origin=origin)
+                result = run_prize_draw(
+                    session,
+                    nft,
+                    draw_type,
+                    winning_number,
+                )
+                self.assertIsNone(result.threshold_used)
+                self.assertEqual(result.outcome, "pending")
+                self.assertIsNotNone(result.similarity_score)
+
+            with self.assertRaises(ValueError):
+                select_top_prize_draw_results(
+                    session, draw_type, winning_number, limit=0
+                )
+
+            top_two = select_top_prize_draw_results(
+                session,
+                draw_type,
+                winning_number,
+                limit=2,
+            )
+
+            self.assertEqual(len(top_two), 2)
+            self.assertEqual(top_two[0].draw_number, "abd")
+            self.assertEqual(top_two[1].draw_number, "abe")
+            for entry in top_two:
+                self.assertEqual(entry.outcome, "pending")
+                self.assertIsNone(entry.threshold_used)
+                self.assertIsNotNone(entry.similarity_score)
+
+            non_pending = select_top_prize_draw_results(
+                session,
+                draw_type,
+                winning_number,
+                limit=3,
+                include_pending=False,
+            )
+            self.assertEqual(non_pending, [])
 
 
 if __name__ == "__main__":

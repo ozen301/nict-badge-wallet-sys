@@ -202,8 +202,6 @@ DEFAULT_SCORING_REGISTRY.register(
         ),
     )
 )
-
-
 __all__ = [
     "AlgorithmRegistry",
     "DEFAULT_SCORING_REGISTRY",
