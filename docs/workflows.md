@@ -79,8 +79,8 @@ This is wrapped up in the `User.bingo_cards_json` and `User.bingo_cards_json_str
 
 ## Prize Draw Type Setup
 A `PrizeDrawType` is essentially a configuration that defines how to evaluate NFTs for winning. For example, you might have at least two types of prize draws:
-1. The prize draw that is performed whenever a user gets a new NFT. This type typically uses the `"hamming"` algorithm with a low similarity threshold `threshold` (close to 0.0) to reward users for collecting NFTs.
-2. The prize draw that is performed when a winning number is determined for a specific event. This type will typically choose the user with the closest matching NFT to the winning number, no matter how similar it is.
+1. The prize draw that is performed whenever a user gets a new NFT. This type typically uses the `"hamming"` algorithm with a low similarity threshold (close to 0.0) to reward users for collecting NFTs.
+2. The prize draw that chooses the user with the closest matching NFT as the winner, no matter how similar it is. This is typically performed when a special event occurs and the organizer wants to pick a winner from all NFT holders.
 
 Use this workflow to create or retrieve a `PrizeDrawType` configuration before storing
 winning numbers or evaluating NFTs.
@@ -105,13 +105,13 @@ This is wrapped up in the `nictbw.workflows.submit_winning_number` helper.
    caller can reuse its identifier.
 
 ## Prize Draw Evaluation
-This is wrapped up in the `nictbw.workflows.run_prize_draw` helper, which delegates to
+This is wrapped up in the `nictbw.workflows.run_prize_draw` and `nictbw.workflows.run_prize_draw_batch` helpers, which delegate to
 the `PrizeDrawEngine` service.
 
 1. Derive the deterministic draw number from the NFT origin.
 2. Run the scoring algorithm (when a winning number is provided) and
-   save the result ("win", "lose", or "pending") expected by the database model.
-3. Upsert the :class:`PrizeDrawResult` row.
+   save the result (in "win", "lose", or "pending" string format) expected by the database model.
+3. Upsert the `PrizeDrawResult` row.
 4. Return the result wrapped in a `PrizeDrawEvaluation` object.
 
 Re-running the workflow for the same `(nft, draw_type, winning_number)` combination will overwrite the previous
