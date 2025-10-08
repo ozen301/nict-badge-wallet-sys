@@ -14,6 +14,7 @@ nict-badge-wallet-sys/
 │  ├─ db/               # DB engine, session, metadata, utilities
 │  ├─ models/           # SQLAlchemy ORM 2.0 models
 │  ├─ prize_draw/       # Prize draw logic
+│  ├─ workflows.py      # Common workflows encapsulation
 ├─ scripts/             # utility scripts
 ├─ tests/               # unit tests
 ├─ .env.example         # environment variables example
@@ -69,7 +70,7 @@ Check the Jupyter notebook [docs/code_examples.ipynb](./docs/code_examples.ipynb
 - Setting up the database engine and models
 - Basic CRUD with SQLAlchemy 2.0
 - Using the models defined in this project to create users, NFTs, etc.
-- Common workflows such as user registration, NFT issuance, and NFT Synchronization from the blockchain.
+- Common workflows such as user registration, NFT issuance, prize draw operations, etc.
 
 ---
 
@@ -91,8 +92,6 @@ python -m unittest -v test_db_utils test_models
 ---
 
 ## TODO
-* Implement luckydraw logic.
-* Improve error handling for request-related functions.
+* Add coupons model and logic.
 * Add Alembic.
-* Implement audit logging.
 ---
