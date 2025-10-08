@@ -13,7 +13,7 @@ from sqlalchemy import (
     select,
 )
 from .base import Base
-from nictbw.db.utils import dt_iso
+from ..db.utils import dt_iso
 
 if TYPE_CHECKING:
     from .user import User

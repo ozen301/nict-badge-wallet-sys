@@ -12,7 +12,7 @@ from .prize_draw.scoring import AlgorithmRegistry
 
 if TYPE_CHECKING:
     from .models import Admin, NFT, NFTTemplate
-    from nictbw.blockchain.api import ChainClient
+    from .blockchain.api import ChainClient
 
 
 def register_user(
@@ -72,7 +72,7 @@ def register_user(
         raise ValueError("A blockchain username is required to register the user.")
 
     if client is None:
-        from nictbw.blockchain.api import ChainClient
+        from .blockchain.api import ChainClient
 
         client = ChainClient()
 

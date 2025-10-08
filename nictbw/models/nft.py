@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Optional
-from nictbw.db.utils import dt_iso
+from ..db.utils import dt_iso
 from sqlalchemy.orm import Session, Mapped, mapped_column, relationship
 from sqlalchemy import (
     Integer,
@@ -21,7 +21,7 @@ if TYPE_CHECKING:
     from .ownership import UserNFTOwnership
     from .bingo import BingoCell
     from .chain import BlockchainTransaction
-    from nictbw.blockchain.api import ChainClient
+    from ..blockchain.api import ChainClient
     from .user import User
 
 
@@ -589,7 +589,7 @@ class NFT(Base):
         - Increments the template's ``minted_count``.
         """
         # Local import to avoid circular imports at module load time
-        from nictbw.models.ownership import UserNFTOwnership
+        from .ownership import UserNFTOwnership
 
         # Enforce max supply before issuing
         template = self.template or session.get(NFTTemplate, self.template_id)
@@ -665,8 +665,8 @@ class NFT(Base):
         ``NFT.issue_dbwise_to`` separately.
         """
         import json
-        from nictbw.models.chain import BlockchainTransaction
-        from nictbw.blockchain.api import ChainClient
+        from .chain import BlockchainTransaction
+        from ..blockchain.api import ChainClient
 
         client = client or ChainClient()
 
