@@ -1,6 +1,6 @@
 # NICT Badge & Wallet System
 
-This repository implements the **Badge & Wallet System** for the NICT project carried out by Tohoku University. It manages NFT-based badges, bingo cards, and blockchain transactions.
+This repository implements the **Badge & Wallet System** for the NICT project carried out by Tohoku University. It manages NFT-based badges, bingo cards, prize draw, and blockchain transactions.
 
 ## Project Structure
 
@@ -13,6 +13,8 @@ nict-badge-wallet-sys/
 │  ├─ blockchain/       # Blockchain API interaction
 │  ├─ db/               # DB engine, session, metadata, utilities
 │  ├─ models/           # SQLAlchemy ORM 2.0 models
+│  ├─ prize_draw/       # Prize draw logic
+│  ├─ workflows.py      # Common workflows encapsulation
 ├─ scripts/             # utility scripts
 ├─ tests/               # unit tests
 ├─ .env.example         # environment variables example
@@ -46,7 +48,7 @@ python scripts/seed_dev.py  # optional, seed dev data
 This by default creates `dev.db` (SQLite) with all schema objects. The `init_db.py` script will print all created tables:
 
 ```
-Created tables: admins, audit_logs, bingo_cards, bingo_cells, blockchain_transactions, nft_conditions, nft_templates, nfts, user_nft_ownership, users
+Created tables: admins, audit_logs, bingo_cards, bingo_cells, blockchain_transactions, nft_conditions, nft_templates, nfts, prize_draw_results, prize_draw_types, prize_draw_winning_numbers, user_nft_ownership, users
 ```
 ---
 
@@ -68,7 +70,7 @@ Check the Jupyter notebook [docs/code_examples.ipynb](./docs/code_examples.ipynb
 - Setting up the database engine and models
 - Basic CRUD with SQLAlchemy 2.0
 - Using the models defined in this project to create users, NFTs, etc.
-- Common workflows such as user registration, NFT issuance, and NFT Synchronization from the blockchain.
+- Common workflows such as user registration, NFT issuance, prize draw operations, etc.
 
 ---
 
@@ -90,8 +92,6 @@ python -m unittest -v test_db_utils test_models
 ---
 
 ## TODO
-* Implement luckydraw logic.
-* Improve error handling for request-related functions.
+* Add coupons model and logic.
 * Add Alembic.
-* Implement audit logging.
 ---

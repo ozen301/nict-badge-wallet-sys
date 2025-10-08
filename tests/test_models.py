@@ -3,9 +3,17 @@ import random
 import unittest
 import warnings
 from datetime import datetime, timezone
+from typing import TYPE_CHECKING, cast
 
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
+
+from sqlalchemy.exc import IntegrityError
+
+if TYPE_CHECKING:
+    from nictbw.blockchain.api import ChainClient
+else:
+    ChainClient = object
 
 from nictbw.models import (
     Base,
@@ -16,6 +24,9 @@ from nictbw.models import (
     UserNFTOwnership,
     BingoCard,
     BingoCell,
+    PrizeDrawType,
+    PrizeDrawWinningNumber,
+    PrizeDrawResult,
 )
 
 
@@ -587,7 +598,7 @@ class DBTestCase(unittest.TestCase):
             session.add(user)
             session.flush()
 
-            client = DummyChainClient([])
+            client = cast(ChainClient, DummyChainClient([]))
 
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore", UserWarning)
@@ -633,13 +644,14 @@ class DBTestCase(unittest.TestCase):
             session.add(user)
             session.flush()
 
-            client = DummyChainClient(chain_items)
+            client_stub = DummyChainClient(chain_items)
+            client = cast(ChainClient, client_stub)
 
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore", UserWarning)
                 user.sync_nfts_from_chain(session, client=client)
 
-            self.assertEqual(client.requested_usernames, ["chain-user"])
+            self.assertEqual(client_stub.requested_usernames, ["chain-user"])
 
             template = NFTTemplate.get_by_prefix(session, "CHAINPFX")
             self.assertIsNotNone(template)
@@ -684,6 +696,7 @@ class DBTestCase(unittest.TestCase):
                 created_at.replace(tzinfo=None),
             )
             self.assertIsNotNone(ownership.other_meta)
+            assert ownership.other_meta is not None
             meta = json.loads(ownership.other_meta)
             self.assertEqual(meta["shared_key"], "chain-shared")
             self.assertEqual(meta["image_url"], "https://example.com/image.png")
@@ -776,13 +789,14 @@ class DBTestCase(unittest.TestCase):
             session.add(ownership)
             session.flush()
 
-            client = DummyChainClient(chain_items)
+            client_stub = DummyChainClient(chain_items)
+            client = cast(ChainClient, client_stub)
 
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore", UserWarning)
                 user.sync_nfts_from_chain(session, client=client)
 
-            self.assertEqual(client.requested_usernames, ["chain-update"])
+            self.assertEqual(client_stub.requested_usernames, ["chain-update"])
 
             refreshed_nft = session.get(NFT, nft.id)
             assert refreshed_nft is not None
@@ -810,6 +824,7 @@ class DBTestCase(unittest.TestCase):
                 chain_created.replace(tzinfo=None),
             )
             self.assertIsNotNone(refreshed_ownership.other_meta)
+            assert refreshed_ownership.other_meta is not None
             new_meta = json.loads(refreshed_ownership.other_meta)
             self.assertEqual(new_meta["description"], "Updated description")
             self.assertEqual(new_meta["subcategory"], "new-sub")
@@ -817,6 +832,89 @@ class DBTestCase(unittest.TestCase):
             refreshed_template = session.get(NFTTemplate, template.id)
             assert refreshed_template is not None
             self.assertEqual(refreshed_template.minted_count, 1)
+
+    def test_prize_draw_models_roundtrip(self):
+        now = datetime.now(timezone.utc)
+        with self.Session() as session:
+            admin = Admin(paymail="draw-admin@example.com", password_hash="x")
+            session.add(admin)
+            session.flush()
+
+            template = NFTTemplate(
+                prefix="DRW",
+                name="Draw Template",
+                category="event",
+                subcategory="game",
+                created_by_admin_id=admin.id,
+                minted_count=0,
+            )
+            user = User(in_app_id="draw-user", paymail="draw-wallet")
+            session.add_all([template, user])
+            session.flush()
+
+            nft = template.instantiate_nft(shared_key="sk")
+            nft.origin = "origin-seed"
+            session.add(nft)
+            session.flush()
+            nft.issue_dbwise_to(session, user)
+
+            draw_type = PrizeDrawType(
+                internal_name="immediate",
+                algorithm_key="hamming",
+                default_threshold=0.5,
+            )
+            session.add(draw_type)
+            session.flush()
+
+            fetched_type = PrizeDrawType.get_by_internal_name(session, "immediate")
+            self.assertIsNotNone(fetched_type)
+            assert fetched_type is not None
+            self.assertEqual(fetched_type.algorithm_key, "hamming")
+
+            winning_number = PrizeDrawWinningNumber(
+                draw_type_id=draw_type.id,
+                value="101010",
+            )
+            session.add(winning_number)
+            session.flush()
+
+            result = PrizeDrawResult(
+                draw_type_id=draw_type.id,
+                winning_number_id=winning_number.id,
+                user_id=user.id,
+                nft_id=nft.id,
+                ownership_id=user.ownerships[0].id,
+                draw_number="101000",
+                similarity_score=0.66,
+                threshold_used=3.0,
+                outcome="lose",
+            )
+            session.add(result)
+            session.commit()
+
+            retrieved = session.get(PrizeDrawResult, result.id)
+            assert retrieved is not None
+            self.assertEqual(retrieved.draw_type_id, draw_type.id)
+            self.assertEqual(retrieved.winning_number_id, winning_number.id)
+            self.assertEqual(retrieved.outcome, "lose")
+            self.assertIsNotNone(retrieved.draw_type)
+            assert retrieved.draw_type is not None
+            self.assertEqual(retrieved.draw_type.results[0].id, result.id)
+            self.assertIsNotNone(retrieved.winning_number)
+            assert retrieved.winning_number is not None
+            self.assertEqual(retrieved.winning_number.results[0].id, result.id)
+
+            duplicate = PrizeDrawResult(
+                draw_type_id=draw_type.id,
+                winning_number_id=winning_number.id,
+                user_id=user.id,
+                nft_id=nft.id,
+                draw_number="101111",
+                outcome="win",
+            )
+            session.add(duplicate)
+            with self.assertRaises(IntegrityError):
+                session.commit()
 
 
 if __name__ == "__main__":

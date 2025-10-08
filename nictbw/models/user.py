@@ -9,7 +9,7 @@ from .ownership import UserNFTOwnership
 from .base import Base
 
 if TYPE_CHECKING:
-    from nictbw.blockchain.api import ChainClient
+    from ..blockchain.api import ChainClient
     from .bingo import BingoCard
     from .chain import BlockchainTransaction
 
@@ -347,9 +347,10 @@ class User(Base):
         if self.on_chain_id is None:
             raise ValueError("User does not have an on-chain ID set.")
 
-        from nictbw.blockchain.api import ChainClient
+        if client is None:
+            from ..blockchain.api import ChainClient
 
-        client = client or ChainClient()
+            client = ChainClient()
 
         # Retrieve the latest state of the user's NFTs from the blockchain.
         chain_items = client.get_user_nfts(self.on_chain_id) or []

@@ -77,4 +77,63 @@ This is wrapped up in the `User.bingo_cards_json` and `User.bingo_cards_json_str
 1. Query for all `BingoCard` entities requested by the user. We can utilize the relationship and use `[card for card in user.bingo_cards]`.
 2. Return an array of cards, each with its associated cell entities info loaded.
 
+## Prize Draw Type Setup
+A `PrizeDrawType` is essentially a configuration that defines how to evaluate NFTs for winning. For example, you might have at least two types of prize draws:
+1. The prize draw that is performed whenever a user gets a new NFT. This type typically uses the `"hamming"` algorithm with a low similarity threshold (close to 0.0) to reward users for collecting NFTs.
+2. The prize draw that chooses the user with the closest matching NFT as the winner, no matter how similar it is. This is typically performed when a special event occurs and the organizer wants to pick a winner from all NFT holders.
+
+Use this workflow to create or retrieve a `PrizeDrawType` configuration before storing
+winning numbers or evaluating NFTs.
+
+- Retrieve:
+  1. Query for an existing draw type with `PrizeDrawType.get_by_internal_name(session, internal_name)`.
+
+- Create:  
+   1. Instantiate a new `PrizeDrawType` with the desired `internal_name`,
+      `algorithm_key` (e.g. `"hamming"`), optional `display_name`/`description`, and
+      an appropriate `default_threshold` that defines the minimum similarity required for a win.
+   2. Add the draw type to the session and flush.
+
+## Prize Draw Winning Number Submission
+This is wrapped up in the `nictbw.workflows.submit_winning_number` helper.
+
+1. Retrieve the persisted `PrizeDrawType` that should own the winning number to be submitted.
+2. Call `submit_winning_number(session, draw_type, value, metadata=..., effective_at=..., expires_at=...)`
+   supplying the external winning value and any optional metadata windowing information.
+3. The helper serializes the metadata (if provided), persists the
+   `PrizeDrawWinningNumber`, flushes the session, and returns the `PrizeDrawWinningNumber` entity so the
+   caller can reuse its identifier.
+
+## Prize Draw Evaluation
+This is wrapped up in the `nictbw.workflows.run_prize_draw` and `nictbw.workflows.run_prize_draw_batch` helpers, which delegate to
+the `PrizeDrawEngine` service.
+
+1. Derive the deterministic draw number from the NFT origin.
+2. Run the scoring algorithm (when a winning number is provided) and
+   save the result (in "win", "lose", or "pending" string format) expected by the database model.
+3. Upsert the `PrizeDrawResult` row.
+4. Return the result wrapped in a `PrizeDrawEvaluation` object.
+
+Re-running the workflow for the same `(nft, draw_type, winning_number)` combination will overwrite the previous
+   result as designed.
+
+## Prize Draw Ranking
+When a draw type does not rely on thresholds (for example, when finding a "closest-number win"
+), you can rank the evaluated results and pick the top records.
+
+Use the `nictbw.workflows.select_top_prize_draw_results` helper to do so:
+
+1. Ensure both the `PrizeDrawType` and its `PrizeDrawWinningNumber` have been
+   persisted.
+2. Call `select_top_prize_draw_results(session, draw_type, winning_number, limit=n)`
+   to retrieve the top `n` entries ordered by `similarity_score` (highest first).
+   Pending outcomes remain eligible by default so that evaluations without
+   thresholds can still be ranked.
+3. Optionally set `include_pending=False` if you only want already-finalized
+   outcomes in the ranking.
+
+The helper returns a list of `PrizeDrawResult` objects that you can use to select
+winners or trigger downstream logic.
+
 ---
+

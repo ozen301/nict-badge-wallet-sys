@@ -1,11 +1,18 @@
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Optional, Sequence
+from datetime import datetime
+
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from .models import PrizeDrawResult, PrizeDrawType, PrizeDrawWinningNumber
+from .models.nft import NFT
 from .models.user import User
+from .prize_draw.engine import PrizeDrawEngine
+from .prize_draw.scoring import AlgorithmRegistry
 
 if TYPE_CHECKING:
     from .models import Admin, NFT, NFTTemplate
-    from nictbw.blockchain.api import ChainClient
+    from .blockchain.api import ChainClient
 
 
 def register_user(
@@ -65,7 +72,7 @@ def register_user(
         raise ValueError("A blockchain username is required to register the user.")
 
     if client is None:
-        from nictbw.blockchain.api import ChainClient
+        from .blockchain.api import ChainClient
 
         client = ChainClient()
 
@@ -157,3 +164,246 @@ def update_user_bingo_info(session: Session, user: User) -> None:
     user.ensure_bingo_cells(session)
 
     session.flush()
+
+
+def submit_winning_number(
+    session: Session,
+    draw_type: PrizeDrawType,
+    value: str,
+) -> PrizeDrawWinningNumber:
+    """Persist a winning number for ``draw_type``.
+
+    Parameters
+    ----------
+    session : Session
+        Active SQLAlchemy session used for persistence.
+    draw_type : PrizeDrawType
+        Draw configuration that contains the winning number.
+    value : str
+        Literal winning number value recorded for auditing.
+
+    Returns
+    -------
+    PrizeDrawWinningNumber
+        Newly persisted ORM entity representing the winning number.
+    """
+
+    # Ensure the draw type is persisted.
+    if draw_type.id is None:
+        raise ValueError(
+            "Draw type must be persisted before recording a winning number"
+        )
+
+    # Create and persist the winning number.
+    winning_number = PrizeDrawWinningNumber(
+        draw_type_id=draw_type.id,
+        value=value,
+    )
+    session.add(winning_number)
+    session.flush()
+    return winning_number
+
+
+def run_prize_draw(
+    session: Session,
+    nft: "NFT",
+    draw_type: PrizeDrawType,
+    winning_number: Optional[PrizeDrawWinningNumber] = None,
+    *,
+    threshold: Optional[float] = None,
+    registry: Optional[AlgorithmRegistry] = None,
+) -> PrizeDrawResult:
+    """Evaluate a single NFT and persist the resulting ``PrizeDrawResult``.
+
+    If ``winning_number`` is not provided, the latest winning number
+    for ``draw_type`` will be used. If no winning number is available, the evaluation
+    will be recorded with a "pending" outcome, allowing callers to
+    "pre-register" the evaluation.
+
+    This function essentially wraps :class:`PrizeDrawEngine`.
+
+    Parameters
+    ----------
+    session : Session
+        Active session used for persistence and queries.
+    nft : NFT
+        The NFT instance to evaluate.
+    draw_type : PrizeDrawType
+        Draw configuration that determines algorithm and thresholds.
+    winning_number : Optional[PrizeDrawWinningNumber], default: None
+        Winning number to use. When omitted, the most recently stored winning
+        number is used automatically.
+    threshold : Optional[float], default: None
+        Optional threshold override applied to the evaluation.
+    registry : Optional[AlgorithmRegistry], default: None
+        Optional scoring registry containing custom scoring algorithms
+        to be used instead of the engine default.
+
+    Returns
+    -------
+    PrizeDrawResult
+        Persisted row representing the latest evaluation outcome.
+
+    Raises
+    ------
+    ValueError
+        If the NFT or draw type prerequisites required by the engine are not met.
+    """
+
+    engine = PrizeDrawEngine(session, registry=registry)
+    winning_number = winning_number or draw_type.latest_winning_number(session)
+
+    evaluation = engine.evaluate(
+        nft=nft,
+        draw_type=draw_type,
+        winning_number=winning_number,
+        threshold=threshold,
+        registry=registry,
+    )
+    session.flush()
+    return evaluation.result
+
+
+def run_prize_draw_batch(
+    session: Session,
+    draw_type: PrizeDrawType,
+    *,
+    winning_number: Optional[PrizeDrawWinningNumber] = None,
+    nfts: Optional[Sequence[NFT]] = None,
+    threshold: Optional[float] = None,
+    registry: Optional[AlgorithmRegistry] = None,
+) -> list[PrizeDrawResult]:
+    """Evaluate multiple NFTs for ``draw_type`` and return their results.
+
+    The helper is suitable for both ad-hoc reruns (``nfts`` is provided) and
+    full-batch evaluations (``nfts`` omitted).  It always resolves a winning
+    number before calling into the engine so that downstream logic does not have
+    to duplicate the lookup behaviour.
+
+    Parameters
+    ----------
+    session : Session
+        Session used to query NFTs and persist results.
+    draw_type : PrizeDrawType
+        Draw configuration used for evaluation, which determines the algorithm
+        and default threshold.
+    winning_number : Optional[PrizeDrawWinningNumber], default: None
+        Overriding winning number applied to all NFTs. If omitted, the latest stored
+        winning number is resolved.
+    nfts : Optional[Sequence[NFT]], default: None
+        Optional subset of NFT instances to evaluate. When omitted, all NFTs
+        in the database are processed.
+    threshold : Optional[float], default: None
+        Optional threshold override applied to each evaluation.
+    registry : Optional[AlgorithmRegistry], default: None
+        Optional scoring registry override that contains custom scoring algorithms.
+
+    Returns
+    -------
+    list[PrizeDrawResult]
+        List of persisted results corresponding to the evaluated NFTs.
+
+    Raises
+    ------
+    ValueError
+        If the draw type is not persisted or no winning number can be found.
+    """
+
+    if draw_type.id is None:
+        raise ValueError("Draw type must be persisted before evaluating draws")
+
+    resolved_winning_number = winning_number or draw_type.latest_winning_number(session)
+    if resolved_winning_number is None:
+        raise ValueError("No winning number is available for the supplied draw type")
+
+    if nfts is None:
+        nfts_to_evaluate = list(session.scalars(select(NFT)))
+    else:
+        nfts_to_evaluate = list(nfts)
+        if not nfts_to_evaluate:
+            return []
+
+    results: list[PrizeDrawResult] = []
+    for nft in nfts_to_evaluate:
+        result = run_prize_draw(
+            session=session,
+            nft=nft,
+            draw_type=draw_type,
+            winning_number=resolved_winning_number,
+            threshold=threshold,
+            registry=registry,
+        )
+        results.append(result)
+
+    session.flush()
+    return results
+
+
+def select_top_prize_draw_results(
+    session: Session,
+    draw_type: PrizeDrawType,
+    winning_number: PrizeDrawWinningNumber,
+    *,
+    limit: int,
+    include_pending: bool = True,
+) -> list[PrizeDrawResult]:
+    """Return up to `limit` PrizeDrawResult rows for the given draw type and
+    winning number, ranked by similarity score (highest first).
+
+    The helper is designed for "closest-number wins" scenarios where the
+    highest similarity scores determine the winners. It filters results for the
+    supplied draw type and winning number, orders them by ``similarity_score`` in
+    descending order, and returns the top ``limit`` entries. Pending outcomes are
+    included by default so that draws evaluated without thresholds remain
+    eligible. Set ``include_pending`` to ``False`` to restrict the selection to
+    non-pending outcomes.
+
+    Parameters
+    ----------
+    session : Session
+        Active SQLAlchemy session used to issue the query.
+    draw_type : PrizeDrawType
+        Persisted draw type whose results should be ranked.
+    winning_number : PrizeDrawWinningNumber
+        Persisted winning number used during evaluation of the results.
+    limit : int
+        Maximum number of results to return. Must be greater than zero.
+    include_pending : bool, default: True
+        When ``True`` (default) pending outcomes are included in the ranking. Set
+        to ``False`` to exclude them.
+
+    Returns
+    -------
+    list[PrizeDrawResult]
+        Top ``limit`` results ordered from highest to lowest similarity score.
+
+    Raises
+    ------
+    ValueError
+        If the draw type or winning number have not been persisted, or if the
+        requested ``limit`` is not positive.
+    """
+
+    if draw_type.id is None:
+        raise ValueError("Draw type must be persisted before selecting results")
+    if winning_number.id is None:
+        raise ValueError("Winning number must be persisted before selecting results")
+    if limit <= 0:
+        raise ValueError("limit must be a positive integer")
+
+    stmt = select(PrizeDrawResult).where(
+        PrizeDrawResult.draw_type_id == draw_type.id,
+        PrizeDrawResult.winning_number_id == winning_number.id,
+        PrizeDrawResult.similarity_score.isnot(None),
+    )
+
+    if not include_pending:
+        stmt = stmt.where(PrizeDrawResult.outcome != "pending")
+
+    stmt = stmt.order_by(
+        PrizeDrawResult.similarity_score.desc().nulls_last(),
+        PrizeDrawResult.evaluated_at.asc(),
+        PrizeDrawResult.id.asc(),
+    ).limit(limit)
+
+    return list(session.scalars(stmt).all())
