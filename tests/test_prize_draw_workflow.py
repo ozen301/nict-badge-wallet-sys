@@ -183,7 +183,6 @@ class PrizeDrawWorkflowTests(unittest.TestCase):
             top_two = select_top_prize_draw_results(
                 session,
                 draw_type,
-                winning_number,
                 limit=2,
             )
 
@@ -198,11 +197,23 @@ class PrizeDrawWorkflowTests(unittest.TestCase):
             non_pending = select_top_prize_draw_results(
                 session,
                 draw_type,
-                winning_number,
                 limit=3,
                 include_pending=False,
             )
             self.assertEqual(non_pending, [])
+
+    def test_select_top_prize_draw_results_requires_winning_number(self) -> None:
+        with self.Session.begin() as session:
+            draw_type = PrizeDrawType(
+                internal_name="no-winning-number",
+                algorithm_key="hamming",
+                default_threshold=0.75,
+            )
+            session.add(draw_type)
+            session.flush()
+
+            with self.assertRaises(ValueError):
+                select_top_prize_draw_results(session, draw_type, limit=1)
 
 
 if __name__ == "__main__":

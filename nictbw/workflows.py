@@ -342,7 +342,7 @@ def run_prize_draw_batch(
 def select_top_prize_draw_results(
     session: Session,
     draw_type: PrizeDrawType,
-    winning_number: PrizeDrawWinningNumber,
+    winning_number: Optional[PrizeDrawWinningNumber] = None,
     *,
     limit: int,
     include_pending: bool = True,
@@ -364,8 +364,9 @@ def select_top_prize_draw_results(
         Active SQLAlchemy session used to issue the query.
     draw_type : PrizeDrawType
         Persisted draw type whose results should be ranked.
-    winning_number : PrizeDrawWinningNumber
-        Persisted winning number used during evaluation of the results.
+    winning_number : Optional[PrizeDrawWinningNumber], default: None
+        Winning number used to scope the results. When omitted, the latest
+        persisted winning number for ``draw_type`` is resolved automatically.
     limit : int
         Maximum number of results to return. Must be greater than zero.
     include_pending : bool, default: True
@@ -380,20 +381,26 @@ def select_top_prize_draw_results(
     Raises
     ------
     ValueError
-        If the draw type or winning number have not been persisted, or if the
-        requested ``limit`` is not positive.
+    If the draw type or winning number have not been persisted, if no
+    winning number can be resolved, or if the requested ``limit`` is not
+    positive.
     """
 
     if draw_type.id is None:
         raise ValueError("Draw type must be persisted before selecting results")
-    if winning_number.id is None:
-        raise ValueError("Winning number must be persisted before selecting results")
     if limit <= 0:
         raise ValueError("limit must be a positive integer")
 
+    resolved_winning_number = winning_number or draw_type.latest_winning_number(session)
+
+    if resolved_winning_number is None:
+        raise ValueError("No winning number is available for the supplied draw type")
+    if resolved_winning_number.id is None:
+        raise ValueError("Winning number must be persisted before selecting results")
+
     stmt = select(PrizeDrawResult).where(
         PrizeDrawResult.draw_type_id == draw_type.id,
-        PrizeDrawResult.winning_number_id == winning_number.id,
+        PrizeDrawResult.winning_number_id == resolved_winning_number.id,
         PrizeDrawResult.similarity_score.isnot(None),
     )
 
