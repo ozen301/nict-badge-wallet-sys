@@ -17,6 +17,7 @@ if TYPE_CHECKING:
     from .user import User
     from .nft import NFT
     from .bingo import BingoCell
+    from .coupon import CouponInstance
 
 
 class UserNFTOwnership(Base):
@@ -76,6 +77,10 @@ class UserNFTOwnership(Base):
     nft: Mapped["NFT"] = relationship(back_populates="ownerships")
     matched_cells: Mapped[list["BingoCell"]] = relationship(
         back_populates="matched_ownership"
+    )
+    coupon_instances: Mapped[list["CouponInstance"]] = relationship(
+        "CouponInstance",
+        back_populates="ownership",
     )
 
     __table_args__ = (

@@ -8,6 +8,7 @@ from .ownership import UserNFTOwnership  # noqa: F401
 from .bingo import BingoCard, BingoCell  # noqa: F401
 from .chain import BlockchainTransaction  # noqa: F401
 from .audit import AuditLog  # noqa: F401
+from .coupon import CouponTemplate, NFTCouponBinding, CouponInstance  # noqa: F401
 from .prize_draw import (  # noqa: F401
     PrizeDrawType,
     PrizeDrawWinningNumber,
@@ -26,6 +27,9 @@ __all__ = [
     "BingoCell",
     "BlockchainTransaction",
     "AuditLog",
+    "CouponTemplate",
+    "NFTCouponBinding",
+    "CouponInstance",
     "PrizeDrawType",
     "PrizeDrawWinningNumber",
     "PrizeDrawResult",
