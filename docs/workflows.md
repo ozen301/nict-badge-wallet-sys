@@ -52,8 +52,9 @@ minted or transferred on-chain without corresponding local records.
    - Creates or updates the associated `NFT` row, aligning descriptive fields,
      timestamps, and on-chain identifiers.
    - Creates or refreshes `UserNFTOwnership` rows so the user owns the NFT
-     locally, storing the metadata snapshot in `other_meta` and a stable
-     `unique_nft_id` derived from the prefix, shared key, or origin.
+     locally, storing the metadata snapshot in `other_meta` and assigning a
+     unique identifier formatted as `<prefix>-<base62(12)>` (regenerated until
+     no collision exists).
 4. After processing every payload the method reconciles
    `NFTTemplate.minted_count` for all templates touched during the sync so the
    local counts match the on-chain state.
@@ -136,4 +137,3 @@ The helper returns a list of `PrizeDrawResult` objects that you can use to selec
 winners or trigger downstream logic.
 
 ---
-
