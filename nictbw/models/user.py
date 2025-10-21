@@ -7,6 +7,7 @@ from sqlalchemy import Integer, String, DateTime, func, select
 from .nft import NFT, NFTTemplate
 from .ownership import UserNFTOwnership
 from .base import Base
+from .utils import generate_unique_nft_id
 
 if TYPE_CHECKING:
     from ..blockchain.api import ChainClient
@@ -599,14 +600,6 @@ class User(Base):
                 nft.updated_at = updated_at
                 template_nft_counts[template.id] = current_count
 
-            unique_id_parts = [prefix]
-            if shared_key:
-                unique_id_parts.append(shared_key)
-            elif item.get("nft_id") is not None:
-                unique_id_parts.append(str(item["nft_id"]))
-            else:
-                unique_id_parts.append(origin)
-            unique_nft_id = "_".join(unique_id_parts)[:255]
             meta_json = json.dumps(metadata, ensure_ascii=False) if metadata else None
 
             ownership = existing_nft_origins.get(origin)
@@ -614,12 +607,20 @@ class User(Base):
                 # Refresh stored metadata to match what is currently on chain.
                 if ownership.other_meta != meta_json:
                     ownership.other_meta = meta_json
-                if ownership.unique_nft_id != unique_nft_id:
-                    ownership.unique_nft_id = unique_nft_id
+                provided_unique_id = item.get("unique_nft_id")
+                if provided_unique_id:
+                    truncated = str(provided_unique_id)[:255]
+                    if ownership.unique_nft_id != truncated:
+                        ownership.unique_nft_id = truncated
                 if created_at:
                     ownership.acquired_at = created_at
                 continue
 
+            provided_unique_id = item.get("unique_nft_id")
+            if provided_unique_id:
+                unique_nft_id = str(provided_unique_id)[:255]
+            else:
+                unique_nft_id = generate_unique_nft_id(prefix, session=session)
             serial = max(template_nft_counts.get(template.id, current_count) - 1, 0)
             # The NFT is new to the local database; create a corresponding
             # ownership entry for this user.

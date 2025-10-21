@@ -16,6 +16,7 @@ from sqlalchemy import (
     inspect,
 )
 from .base import Base
+from .utils import generate_unique_nft_id
 
 if TYPE_CHECKING:
     from .ownership import UserNFTOwnership
@@ -607,11 +608,12 @@ class NFT(Base):
             session.flush()
 
         serial = template.minted_count if needs_increment else template.minted_count - 1
+        new_unique_id = generate_unique_nft_id(template.prefix, session=session)
         new_ownership = UserNFTOwnership(
             user_id=user.id,
             nft_id=self.id,
             serial_number=serial,
-            unique_nft_id=f"{template.prefix}_{self.shared_key}",
+            unique_nft_id=new_unique_id,
             acquired_at=self.created_at,
         )
         session.add(new_ownership)
@@ -666,6 +668,7 @@ class NFT(Base):
         """
         import json
         from .chain import BlockchainTransaction
+        from .ownership import UserNFTOwnership
         from ..blockchain.api import ChainClient
 
         client = client or ChainClient()
@@ -726,10 +729,20 @@ class NFT(Base):
         # Record blockchain transaction (status 'sent')
         now = datetime.now(timezone.utc)
 
+        ownership_unique_id = session.scalar(
+            select(UserNFTOwnership.unique_nft_id)
+            .where(UserNFTOwnership.nft_id == self.id)
+            .order_by(UserNFTOwnership.id.desc())
+        )
+        if ownership_unique_id:
+            tx_unique_nft_id = ownership_unique_id
+        else:
+            tx_unique_nft_id = generate_unique_nft_id(template.prefix, session=session)
+
         tx = BlockchainTransaction(
             user_paymail=recipient_paymail if recipient_paymail else None,
             nft_id=self.id,
-            unique_nft_id=f"{template.prefix}_{self.shared_key}",
+            unique_nft_id=tx_unique_nft_id,
             type="mint",
             status="sent",
             tx_hash=tx_hash,

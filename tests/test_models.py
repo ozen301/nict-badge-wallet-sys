@@ -9,6 +9,7 @@ from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
 
 from sqlalchemy.exc import IntegrityError
+from unittest.mock import patch
 
 if TYPE_CHECKING:
     from nictbw.blockchain.api import ChainClient
@@ -167,7 +168,11 @@ class DBTestCase(unittest.TestCase):
 
             # Act
             nft = template.instantiate_nft(shared_key="key")
-            nft.issue_dbwise_to(session, user)
+            with patch(
+                "nictbw.models.nft.generate_unique_nft_id",
+                return_value="ABC-1234567890ab",
+            ):
+                nft.issue_dbwise_to(session, user)
             session.commit()
 
             # Verify minted_count incremented
@@ -178,8 +183,60 @@ class DBTestCase(unittest.TestCase):
             self.assertEqual(ownership.user_id, user.id)
             self.assertEqual(ownership.nft_id, nft.id)
             self.assertEqual(ownership.serial_number, 0)
-            self.assertEqual(ownership.unique_nft_id, "ABC_key")
+            self.assertEqual(ownership.unique_nft_id, "ABC-1234567890ab")
             self.assertEqual(ownership.acquired_at, nft.created_at)
+
+    def test_generate_unique_id_retries_on_collision(self):
+        now = datetime.now(timezone.utc)
+        with self.Session() as session:
+            admin = Admin(paymail="collision@admin.com", password_hash="x")
+            session.add(admin)
+            session.flush()
+
+            user = User(in_app_id="collision-user", paymail="collision-wallet")
+            template = NFTTemplate(
+                prefix="COL",
+                name="Collision Template",
+                category="cat",
+                subcategory="sub",
+                minted_count=1,
+                created_by_admin_id=admin.id,
+                created_at=now,
+                updated_at=now,
+            )
+            session.add_all([user, template])
+            session.flush()
+
+            nft = NFT(
+                template_id=template.id,
+                prefix="COL",
+                shared_key="existing",
+                created_by_admin_id=admin.id,
+                created_at=now,
+                updated_at=now,
+            )
+            session.add(nft)
+            session.flush()
+
+            ownership = UserNFTOwnership(
+                user_id=user.id,
+                nft_id=nft.id,
+                serial_number=0,
+                unique_nft_id="COL-AAAAAAAAAAAA",
+                acquired_at=now,
+            )
+            session.add(ownership)
+            session.flush()
+
+            from nictbw.models.utils import generate_unique_nft_id
+
+            with patch(
+                "nictbw.models.utils.secrets.choice",
+                side_effect=list("A" * 12 + "B" * 12),
+            ):
+                generated = generate_unique_nft_id("COL", session=session)
+
+            self.assertEqual(generated, "COL-BBBBBBBBBBBB")
 
     def test_template_max_supply_enforced(self):
         now = datetime.now(timezone.utc)
@@ -543,7 +600,7 @@ class DBTestCase(unittest.TestCase):
                 user_id=user.id,
                 nft_id=nft_un.id,
                 serial_number=0,
-                unique_nft_id=f"{tpl_unlock.prefix}_{nft_un.shared_key}",
+                unique_nft_id=f"{tpl_unlock.prefix}-A1B2C3D4E5F6",
                 acquired_at=now,
             )
             session.add(ownership)
@@ -647,9 +704,13 @@ class DBTestCase(unittest.TestCase):
             client_stub = DummyChainClient(chain_items)
             client = cast(ChainClient, client_stub)
 
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore", UserWarning)
-                user.sync_nfts_from_chain(session, client=client)
+            with patch(
+                "nictbw.models.user.generate_unique_nft_id",
+                return_value="CHAINPFX-AAAAAAAAAAAA",
+            ):
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore", UserWarning)
+                    user.sync_nfts_from_chain(session, client=client)
 
             self.assertEqual(client_stub.requested_usernames, ["chain-user"])
 
@@ -690,7 +751,7 @@ class DBTestCase(unittest.TestCase):
             assert ownership is not None
             self.assertEqual(ownership.nft_id, nft.id)
             self.assertEqual(ownership.serial_number, 0)
-            self.assertEqual(ownership.unique_nft_id, "CHAINPFX_chain-shared")
+            self.assertEqual(ownership.unique_nft_id, "CHAINPFX-AAAAAAAAAAAA")
             self.assertEqual(
                 ownership.acquired_at.replace(tzinfo=None),
                 created_at.replace(tzinfo=None),
@@ -727,6 +788,7 @@ class DBTestCase(unittest.TestCase):
                 "current_nft_location": "new-location",
                 "created_at": "2024-01-01T09:30:00Z",
                 "updated_at": "2024-01-07T18:45:00Z",
+                "unique_nft_id": "TPL-BBBBBBBBBBBB",
             }
         ]
 
@@ -781,7 +843,7 @@ class DBTestCase(unittest.TestCase):
                 user_id=user.id,
                 nft_id=nft.id,
                 serial_number=0,
-                unique_nft_id="TPL_old-shared",
+                unique_nft_id="TPL-AAAAAAAAAAAA",
                 acquired_at=datetime(2024, 1, 10, 9, 0, tzinfo=timezone.utc),
                 other_meta=json.dumps({"old": "meta"}),
             )
@@ -818,7 +880,7 @@ class DBTestCase(unittest.TestCase):
 
             refreshed_ownership = session.get(UserNFTOwnership, ownership.id)
             assert refreshed_ownership is not None
-            self.assertEqual(refreshed_ownership.unique_nft_id, "TPL_new-shared")
+            self.assertEqual(refreshed_ownership.unique_nft_id, "TPL-BBBBBBBBBBBB")
             self.assertEqual(
                 refreshed_ownership.acquired_at.replace(tzinfo=None),
                 chain_created.replace(tzinfo=None),
