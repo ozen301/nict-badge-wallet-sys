@@ -37,5 +37,6 @@ This value is compared with a **winning number** to determine outcomes — insta
 - **PrizeDrawType** – defines algorithm and thresholds.  
 - **PrizeDrawWinningNumber** – stores winning numbers.  
 - **PrizeDrawResult** – links NFT, user, and draw outcome.
+- Coupon rewards are issued via **CouponTemplate → CouponInstance** models, allowing NFTs to mint limited-supply store offers.
 
 ---

@@ -24,6 +24,7 @@ if TYPE_CHECKING:
     from .chain import BlockchainTransaction
     from ..blockchain.api import ChainClient
     from .user import User
+    from .coupon import NFTCouponBinding, CouponInstance
 
 
 class NFTCondition(Base):
@@ -513,6 +514,15 @@ class NFT(Base):
         foreign_keys=[condition_id]
     )
     ownerships: Mapped[list["UserNFTOwnership"]] = relationship(back_populates="nft")
+    coupon_bindings: Mapped[list["NFTCouponBinding"]] = relationship(
+        "NFTCouponBinding",
+        back_populates="nft",
+        cascade="all, delete-orphan",
+    )
+    coupon_instances: Mapped[list["CouponInstance"]] = relationship(
+        "CouponInstance",
+        back_populates="nft",
+    )
     target_cell: Mapped[Optional["BingoCell"]] = relationship(
         back_populates="nft", uselist=False
     )

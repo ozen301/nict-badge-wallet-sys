@@ -13,6 +13,7 @@ if TYPE_CHECKING:
     from ..blockchain.api import ChainClient
     from .bingo import BingoCard
     from .chain import BlockchainTransaction
+    from .coupon import CouponInstance
 
 
 class User(Base):
@@ -99,6 +100,10 @@ class User(Base):
         primaryjoin="User.paymail==BlockchainTransaction.user_paymail",
         back_populates="user",
         viewonly=False,
+    )
+    coupons: Mapped[list["CouponInstance"]] = relationship(
+        "CouponInstance",
+        back_populates="user",
     )
 
     def __repr__(self) -> str:

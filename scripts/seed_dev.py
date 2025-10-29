@@ -8,6 +8,9 @@ from nictbw.models import (
     User,
     NFTCondition,
     NFTTemplate,
+    CouponTemplate,
+    NFTCouponBinding,
+    CouponInstance,
 )
 
 
@@ -211,6 +214,28 @@ def main() -> None:
         )
         session.flush()
 
+        # Coupon templates
+        coupon_tpl1 = CouponTemplate(
+            prefix="coupon-ramen",
+            name="10% Off Ramen",
+            description="Redeem for a 10% discount at Ichiban Ramen.",
+            expiry_days=30,
+            store_name="Ichiban Ramen",
+            max_supply=500,
+            created_at=now,
+        )
+        coupon_tpl2 = CouponTemplate(
+            prefix="coupon-dessert",
+            name="Free Dessert",
+            description="Enjoy a complimentary dessert with any entrée.",
+            expiry_days=14,
+            store_name="Sweet Court",
+            max_supply=200,
+            created_at=now,
+        )
+        session.add_all([coupon_tpl1, coupon_tpl2])
+        session.flush()
+
         # Issue NFTs to user1
         nft1 = tpl1.instantiate_nft(shared_key="shared-key-1")
         nft1.issue_dbwise_to(session, user1)
@@ -219,6 +244,51 @@ def main() -> None:
         session.flush()
 
         user1.ensure_bingo_cards(session)
+        session.flush()
+
+        # Coupon bindings
+        binding1 = NFTCouponBinding(
+            nft=nft1,
+            template=coupon_tpl1,
+            quantity_per_claim=1,
+            created_at=now,
+        )
+        binding2 = NFTCouponBinding(
+            nft=nft2,
+            template=coupon_tpl2,
+            quantity_per_claim=2,
+            created_at=now,
+        )
+        session.add_all([binding1, binding2])
+        session.flush()
+
+        # Coupon instances
+        ownership1 = user1.ownerships[0]
+        coupon_instance1 = CouponInstance(
+            template=coupon_tpl1,
+            nft=nft1,
+            user=user1,
+            ownership=ownership1,
+            serial_number=1,
+            coupon_code=f"{coupon_tpl1.prefix}-000001",
+            expiry=now + timedelta(days=coupon_tpl1.expiry_days or 30),
+            store_name=coupon_tpl1.store_name,
+            assigned_at=now,
+        )
+        coupon_tpl1.next_serial = 2
+
+        coupon_instance2 = CouponInstance(
+            template=coupon_tpl2,
+            user=user2,
+            serial_number=1,
+            coupon_code=f"{coupon_tpl2.prefix}-000001",
+            expiry=now + timedelta(days=coupon_tpl2.expiry_days or 14),
+            store_name=coupon_tpl2.store_name,
+            assigned_at=now,
+        )
+        coupon_tpl2.next_serial = 2
+
+        session.add_all([coupon_instance1, coupon_instance2])
         session.flush()
 
     print("Development database seeded.")

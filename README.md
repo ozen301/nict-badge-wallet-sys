@@ -48,7 +48,7 @@ python scripts/seed_dev.py  # optional, seed dev data
 This by default creates `dev.db` (SQLite) with all schema objects. The `init_db.py` script will print all created tables:
 
 ```
-Created tables: admins, audit_logs, bingo_cards, bingo_cells, blockchain_transactions, nft_conditions, nft_templates, nfts, prize_draw_results, prize_draw_types, prize_draw_winning_numbers, user_nft_ownership, users
+Created tables: admins, audit_logs, bingo_cards, bingo_cells, blockchain_transactions, coupon_instances, coupon_templates, nft_conditions, nft_coupon_bindings, nft_templates, nfts, prize_draw_results, prize_draw_types, prize_draw_winning_numbers, user_nft_ownership, users
 ```
 ---
 
@@ -92,6 +92,5 @@ python -m unittest -v test_db_utils test_models
 ---
 
 ## TODO
-* Add coupons model and logic.
 * Add Alembic.
 ---
