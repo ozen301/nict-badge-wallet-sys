@@ -291,7 +291,8 @@ def run_prize_draw_batch(
         Overriding winning number applied to all NFTs. If omitted, the latest stored
         winning number is resolved.
     nfts : Optional[Sequence[NFT]], default: None
-        Optional subset of NFT instances to evaluate. When omitted, all NFTs
+        Optional subset of NFT instances to evaluate. When omitted, all eligible
+        NFTs (i.e. those that are related to a completed bingo card) stored
         in the database are processed.
     threshold : Optional[float], default: None
         Optional threshold override applied to each evaluation.
@@ -317,7 +318,26 @@ def run_prize_draw_batch(
         raise ValueError("No winning number is available for the supplied draw type")
 
     if nfts is None:
-        nfts_to_evaluate = list(session.scalars(select(NFT)))
+        from .models.bingo import BingoCard, BingoCell
+
+        def _get_all_eligible_nfts(session: Session) -> set[NFT]:
+            """Return all NFTs linked to completed bingo cards."""
+            all_bingo_cards = session.scalars(select(BingoCard)).all()
+            eligible_nfts: set[NFT] = set()
+            for card in all_bingo_cards:
+                completed_lines = card.completed_lines
+                if not completed_lines:
+                    continue
+                cells_by_idx = {cell.idx: cell for cell in card.cells}
+                for line in completed_lines:
+                    for idx in line:
+                        cell = cells_by_idx.get(idx)
+                        if cell is not None and cell.nft is not None:
+                            eligible_nfts.add(cell.nft)
+            return eligible_nfts
+
+        nfts_to_evaluate = _get_all_eligible_nfts(session)
+
     else:
         nfts_to_evaluate = list(nfts)
         if not nfts_to_evaluate:

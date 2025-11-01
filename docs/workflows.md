@@ -112,11 +112,15 @@ the `PrizeDrawEngine` service.
 1. Derive the deterministic draw number from the NFT origin.
 2. Run the scoring algorithm (when a winning number is provided) and
    save the result (in "win", "lose", or "pending" string format) expected by the database model.
-3. Upsert the `PrizeDrawResult` row.
+3. Upsert the `PrizeDrawResult` row, including the 10-digit summaries of the hashed
+   draw number and winning number for user-facing comparison.
 4. Return the result wrapped in a `PrizeDrawEvaluation` object.
 
 Re-running the workflow for the same `(nft, draw_type, winning_number)` combination will overwrite the previous
    result as designed.
+
+When `run_prize_draw_batch` is called without explicitly passing `nfts`, it automatically
+collects NFTs that participate in a completed bingo line and evaluates only those candidates.
 
 ## Prize Draw Ranking
 When a draw type does not rely on thresholds (for example, when finding a "closest-number win"

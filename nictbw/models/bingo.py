@@ -54,7 +54,7 @@ class BingoCard(Base):
 
     user: Mapped["User"] = relationship(back_populates="bingo_cards")
     cells: Mapped[list["BingoCell"]] = relationship(
-        back_populates="card", cascade="all, delete-orphan"
+        back_populates="card", cascade="all, delete-orphan", order_by="BingoCell.idx"
     )
 
     __table_args__ = (
