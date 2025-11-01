@@ -242,6 +242,14 @@ class PrizeDrawResult(Base):
     similarity_score: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     """Computed similarity score (0.0-1.0) comparing the draw number to the winning number."""
 
+    draw_top_digits: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
+    """Top 10 significant digits (string) of the hashed draw number for user display."""
+
+    winning_top_digits: Mapped[Optional[str]] = mapped_column(
+        String(10), nullable=True
+    )
+    """Top 10 significant digits (string) of the hashed winning number for user display."""
+
     threshold_used: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     """Threshold that was applied when computing the outcome."""
 
@@ -293,6 +301,8 @@ class PrizeDrawResult(Base):
         ownership_id: Optional[int] = None,
         draw_number: str,
         similarity_score: Optional[float] = None,
+        draw_top_digits: Optional[str] = None,
+        winning_top_digits: Optional[str] = None,
         threshold_used: Optional[float] = None,
         outcome: str = "pending",
         evaluated_at: Optional[datetime] = None,
@@ -319,6 +329,8 @@ class PrizeDrawResult(Base):
             self.ownership_id = ownership_id
         self.draw_number = draw_number
         self.similarity_score = similarity_score
+        self.draw_top_digits = draw_top_digits
+        self.winning_top_digits = winning_top_digits
         self.threshold_used = threshold_used
         self.outcome = outcome
         if evaluated_at is not None:

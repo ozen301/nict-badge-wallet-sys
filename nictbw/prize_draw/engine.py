@@ -138,6 +138,8 @@ class PrizeDrawEngine:
         )
 
         evaluation_similarity: Optional[float] = None
+        evaluation_draw_digits: Optional[str] = None
+        evaluation_winning_digits: Optional[str] = None
         outcome = "pending"
 
         # Only run the evaluation if a winning number is provided.  This
@@ -152,6 +154,8 @@ class PrizeDrawEngine:
                 threshold=threshold_to_use,
             )
             evaluation_similarity = evaluation.score
+            evaluation_draw_digits = evaluation.draw_top_digits
+            evaluation_winning_digits = evaluation.winning_top_digits
             if evaluation.passed is True:
                 outcome = "win"
             elif evaluation.passed is False:
@@ -169,6 +173,8 @@ class PrizeDrawEngine:
             ownership_id=ownership.id,
             draw_number=draw_number,
             similarity_score=evaluation_similarity,
+            draw_top_digits=evaluation_draw_digits,
+            winning_top_digits=evaluation_winning_digits,
             threshold_used=threshold_to_use,
             outcome=outcome,
             evaluated_at=now,
@@ -257,6 +263,8 @@ class PrizeDrawEngine:
         ownership_id: int,
         draw_number: str,
         similarity_score: Optional[float],
+        draw_top_digits: Optional[str],
+        winning_top_digits: Optional[str],
         threshold_used: Optional[float],
         outcome: str,
         evaluated_at: datetime,
@@ -280,6 +288,10 @@ class PrizeDrawEngine:
             Normalized draw number computed for the NFT.
         similarity_score : Optional[float]
             Result of the scoring algorithm, if available.
+        draw_top_digits : Optional[str]
+            Ten-digit summary of the hashed draw number, when evaluated.
+        winning_top_digits : Optional[str]
+            Ten-digit summary of the hashed winning number, when evaluated.
         threshold_used : Optional[float]
             Threshold applied when determining win/lose outcomes.
         outcome : str
@@ -314,6 +326,8 @@ class PrizeDrawEngine:
                 ownership_id=ownership_id,
                 draw_number=draw_number,
                 similarity_score=similarity_score,
+                draw_top_digits=draw_top_digits,
+                winning_top_digits=winning_top_digits,
                 threshold_used=threshold_used,
                 outcome=outcome,
                 evaluated_at=evaluated_at,
@@ -327,6 +341,8 @@ class PrizeDrawEngine:
             result.ownership_id = ownership_id
             result.draw_number = draw_number
             result.similarity_score = similarity_score
+            result.draw_top_digits = draw_top_digits
+            result.winning_top_digits = winning_top_digits
             result.threshold_used = threshold_used
             result.outcome = outcome
             result.evaluated_at = evaluated_at

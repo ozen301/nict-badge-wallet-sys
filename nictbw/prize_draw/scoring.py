@@ -3,7 +3,17 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import hashlib
 from typing import Callable, Dict, Optional
+
+
+@dataclass(frozen=True)
+class ScoreComputation:
+    """Raw results returned by a scoring routine."""
+
+    score: float
+    draw_top_digits: str
+    winning_top_digits: str
 
 
 @dataclass(frozen=True)
@@ -23,12 +33,18 @@ class ScoreEvaluation:
     passed : Optional[bool]
         ``True`` when the score passes the threshold, ``False`` when it fails,
         and ``None`` when no threshold was supplied.
+    draw_top_digits : Optional[str]
+        Ten-digit representation of the hashed draw number if available.
+    winning_top_digits : Optional[str]
+        Ten-digit representation of the hashed winning number if available.
     """
 
     algorithm_key: str
     score: float
     threshold: Optional[float]
     passed: Optional[bool]
+    draw_top_digits: Optional[str]
+    winning_top_digits: Optional[str]
 
 
 @dataclass(frozen=True)
@@ -40,16 +56,15 @@ class ScoringAlgorithm:
     key : str
         Registry key used to identify the algorithm. This is used by
         :class:`AlgorithmRegistry` to map to the algorithm definition.
-    scorer : Callable[[str, str], float]
+    scorer : Callable[[str, str], ScoreComputation]
         Callable that takes the draw number string and winning number string as input
-        and returns a similarity score as a float. The score is typically in the range
-        [0.0, 1.0], but this is not enforced.
+        and returns the similarity score and derived display digits.
     description : Optional[str]
         Human-readable summary of the algorithm's behaviour.
     """
 
     key: str
-    scorer: Callable[[str, str], float]
+    scorer: Callable[[str, str], ScoreComputation]
     description: Optional[str] = None
 
     def evaluate(
@@ -74,13 +89,16 @@ class ScoringAlgorithm:
         ScoreEvaluation
             Dataclass describing the evaluation result.
         """
-        score = float(self.scorer(draw_number, winning_number))
+        computation = self.scorer(draw_number, winning_number)
+        score = float(computation.score)
         passed = None if threshold is None else score >= threshold
         return ScoreEvaluation(
             algorithm_key=self.key,
             score=score,
             threshold=threshold,
             passed=passed,
+            draw_top_digits=computation.draw_top_digits,
+            winning_top_digits=computation.winning_top_digits,
         )
 
 
@@ -150,61 +168,78 @@ class AlgorithmRegistry:
         return dict(self._algorithms)
 
 
-def _hamming_similarity(draw_number: str, winning_number: str) -> float:
-    """Compute normalized Hamming similarity for two ASCII strings.
-
-    This function converts both input strings to ASCII-encoded bytes and
-    compares them bitwise. If the inputs are of unequal length, the shorter
-    one is padded with zero bytes (``b'\x00'``) on the right to match the
-    length of the longer one.
-
-    Returns
-    -------
-    float
-        Similarity score in the inclusive range [0.0, 1.0].
-    """
+def _sha256_hexdigest(value: str) -> str:
+    """Return the SHA-256 hex digest of ``value`` encoded as ASCII."""
     try:
-        left: bytes = draw_number.encode("ascii")
-        right: bytes = winning_number.encode("ascii")
+        payload = value.encode("ascii")
     except UnicodeEncodeError as exc:
         raise ValueError(
             "draw and winning numbers must contain only ASCII characters"
         ) from exc
+    return hashlib.sha256(payload).hexdigest()
 
-    if not left and not right:
-        return 1.0
 
-    max_len = max(len(left), len(right))
-    padded_left = left.ljust(max_len, b"\x00")
-    padded_right = right.ljust(max_len, b"\x00")
-    xor_result = int.from_bytes(padded_left, "big") ^ int.from_bytes(
-        padded_right, "big"
-    )
-    distance_bits = xor_result.bit_count()
-    total_bits = max_len * 8
-    similarity = 1.0 - (distance_bits / total_bits)
+def _extract_top_digits(value: int, *, digits: int = 10) -> str:
+    """Return the leftmost ``digits`` after scaling down by 10**67."""
+    scaled = value // 10**67
+    text = str(scaled)
+    if len(text) > digits:
+        text = text[:digits]
+    return text.zfill(digits)
+
+
+def _sha256_hex_similarity(draw_number: str, winning_number: str) -> ScoreComputation:
+    """Score similarity by SHA-256 hashing and measuring hex proximity."""
+    hashed_left = _sha256_hexdigest(draw_number)
+    hashed_right = _sha256_hexdigest(winning_number)
+
+    if len(hashed_left) != len(hashed_right):
+        raise ValueError("hashed draw and winning numbers must be the same length")
+
+    left_int = int(hashed_left, 16)
+    right_int = int(hashed_right, 16)
+    diff = abs(left_int - right_int)
+
+    max_value = (1 << (len(hashed_left) * 4)) - 1
+    if max_value <= 0:
+        draw_top_digits = _extract_top_digits(left_int)
+        winning_top_digits = _extract_top_digits(right_int)
+        return ScoreComputation(
+            score=1.0,
+            draw_top_digits=draw_top_digits,
+            winning_top_digits=winning_top_digits,
+        )
+
+    similarity = (0.6 - (diff / max_value)) * 1.5
     if similarity < 0.0:
-        return 0.0
+        similarity = 0.0
     if similarity > 1.0:
-        return 1.0
-    return float(similarity)
+        similarity = 1.0
+    draw_top_digits = _extract_top_digits(left_int)
+    winning_top_digits = _extract_top_digits(right_int)
+    return ScoreComputation(
+        score=float(similarity),
+        draw_top_digits=draw_top_digits,
+        winning_top_digits=winning_top_digits,
+    )
 
 
 DEFAULT_SCORING_REGISTRY = AlgorithmRegistry()
 DEFAULT_SCORING_REGISTRY.register(
     ScoringAlgorithm(
-        key="hamming",
-        scorer=_hamming_similarity,
+        key="sha256_hex_proximity",
+        scorer=_sha256_hex_similarity,
         description=(
-            "Normalized character-wise similarity using bit-level comparisons "
-            "with zero padding for unequal lengths. Scores range from 0.0 (no "
-            "overlap) to 1.0 (perfect match)."
+            "SHA-256 hash inputs, interpret the hex digests as 256-bit integers, and "
+            "return a 0.0–1.0 similarity score based on the normalized inverse "
+            "absolute difference."
         ),
     )
 )
 __all__ = [
     "AlgorithmRegistry",
     "DEFAULT_SCORING_REGISTRY",
+    "ScoreComputation",
     "ScoreEvaluation",
     "ScoringAlgorithm",
 ]

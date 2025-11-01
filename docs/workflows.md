@@ -80,7 +80,7 @@ This is wrapped up in the `User.bingo_cards_json` and `User.bingo_cards_json_str
 
 ## Prize Draw Type Setup
 A `PrizeDrawType` is essentially a configuration that defines how to evaluate NFTs for winning. For example, you might have at least two types of prize draws:
-1. The prize draw that is performed whenever a user gets a new NFT. This type typically uses the `"hamming"` algorithm with a low similarity threshold (close to 0.0) to reward users for collecting NFTs.
+1. The prize draw that is performed whenever a user gets a new NFT. This type typically uses the `"sha256_hex_proximity"` algorithm with a low similarity threshold (close to 0.0) to reward users for collecting NFTs.
 2. The prize draw that chooses the user with the closest matching NFT as the winner, no matter how similar it is. This is typically performed when a special event occurs and the organizer wants to pick a winner from all NFT holders.
 
 Use this workflow to create or retrieve a `PrizeDrawType` configuration before storing
@@ -91,8 +91,8 @@ winning numbers or evaluating NFTs.
 
 - Create:  
    1. Instantiate a new `PrizeDrawType` with the desired `internal_name`,
-      `algorithm_key` (e.g. `"hamming"`), optional `display_name`/`description`, and
-      an appropriate `default_threshold` that defines the minimum similarity required for a win.
+      `algorithm_key` (e.g. `"sha256_hex_proximity"`), optional `display_name`/`description`, and
+      an appropriate `default_threshold` that defines the minimum similarity required for a win (0.0–1.0, higher is stricter).
    2. Add the draw type to the session and flush.
 
 ## Prize Draw Winning Number Submission

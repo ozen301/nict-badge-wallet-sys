@@ -59,8 +59,8 @@ class PrizeDrawWorkflowTests(unittest.TestCase):
 
             draw_type = PrizeDrawType(
                 internal_name="instant",
-                algorithm_key="hamming",
-                default_threshold=1.0,
+                algorithm_key="sha256_hex_proximity",
+                default_threshold=0.8,
             )
             session.add(draw_type)
             session.flush()
@@ -71,13 +71,19 @@ class PrizeDrawWorkflowTests(unittest.TestCase):
                 value="abd",
             )
 
+            lose_threshold = 0.8
             first_result = run_prize_draw(
-                session, nft, draw_type, winning_number, threshold=1.0
+                session, nft, draw_type, winning_number, threshold=lose_threshold
             )
             self.assertEqual(first_result.outcome, "lose")
             self.assertIsNotNone(first_result.similarity_score)
-            self.assertAlmostEqual(cast(float, first_result.similarity_score), 0.875)
-            self.assertEqual(first_result.threshold_used, 1.0)
+            self.assertAlmostEqual(
+                cast(float, first_result.similarity_score),
+                0.7752364105046057,
+            )
+            self.assertEqual(first_result.draw_top_digits, "8434236848")
+            self.assertEqual(first_result.winning_top_digits, "7471127736")
+            self.assertEqual(first_result.threshold_used, lose_threshold)
             result_id = first_result.id
 
             second_result = run_prize_draw(
@@ -85,13 +91,18 @@ class PrizeDrawWorkflowTests(unittest.TestCase):
                 nft,
                 draw_type,
                 winning_number,
-                threshold=0.5,
+                threshold=0.7,
             )
             self.assertEqual(second_result.id, result_id)
             self.assertEqual(second_result.outcome, "win")
-            self.assertEqual(second_result.threshold_used, 0.5)
+            self.assertEqual(second_result.threshold_used, 0.7)
             self.assertIsNotNone(second_result.similarity_score)
-            self.assertAlmostEqual(cast(float, second_result.similarity_score), 0.875)
+            self.assertAlmostEqual(
+                cast(float, second_result.similarity_score),
+                0.7752364105046057,
+            )
+            self.assertEqual(second_result.draw_top_digits, "8434236848")
+            self.assertEqual(second_result.winning_top_digits, "7471127736")
             self.assertEqual(second_result.user_id, user.id)
             self.assertIsNotNone(second_result.ownership_id)
 
@@ -103,7 +114,7 @@ class PrizeDrawWorkflowTests(unittest.TestCase):
 
             draw_type = PrizeDrawType(
                 internal_name="batch",
-                algorithm_key="hamming",
+                algorithm_key="sha256_hex_proximity",
                 default_threshold=0.5,
             )
             session.add(draw_type)
@@ -136,7 +147,7 @@ class PrizeDrawWorkflowTests(unittest.TestCase):
             user, template = self._seed_user_and_template(session)
             draw_type = PrizeDrawType(
                 internal_name="empty",
-                algorithm_key="hamming",
+                algorithm_key="sha256_hex_proximity",
                 default_threshold=1.0,
             )
             session.add(draw_type)
@@ -151,7 +162,9 @@ class PrizeDrawWorkflowTests(unittest.TestCase):
         with self.Session.begin() as session:
             user, template = self._seed_user_and_template(session)
             draw_type = PrizeDrawType(
-                internal_name="closest", algorithm_key="hamming", default_threshold=None
+                internal_name="closest",
+                algorithm_key="sha256_hex_proximity",
+                default_threshold=None,
             )
             session.add(draw_type)
             session.flush()
@@ -188,7 +201,7 @@ class PrizeDrawWorkflowTests(unittest.TestCase):
 
             self.assertEqual(len(top_two), 2)
             self.assertEqual(top_two[0].draw_number, "abd")
-            self.assertEqual(top_two[1].draw_number, "abe")
+            self.assertEqual(top_two[1].draw_number, "abz")
             for entry in top_two:
                 self.assertEqual(entry.outcome, "pending")
                 self.assertIsNone(entry.threshold_used)
@@ -206,7 +219,7 @@ class PrizeDrawWorkflowTests(unittest.TestCase):
         with self.Session.begin() as session:
             draw_type = PrizeDrawType(
                 internal_name="no-winning-number",
-                algorithm_key="hamming",
+                algorithm_key="sha256_hex_proximity",
                 default_threshold=0.75,
             )
             session.add(draw_type)

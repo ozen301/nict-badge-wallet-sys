@@ -922,7 +922,7 @@ class DBTestCase(unittest.TestCase):
 
             draw_type = PrizeDrawType(
                 internal_name="immediate",
-                algorithm_key="hamming",
+                algorithm_key="sha256_hex_proximity",
                 default_threshold=0.5,
             )
             session.add(draw_type)
@@ -931,7 +931,7 @@ class DBTestCase(unittest.TestCase):
             fetched_type = PrizeDrawType.get_by_internal_name(session, "immediate")
             self.assertIsNotNone(fetched_type)
             assert fetched_type is not None
-            self.assertEqual(fetched_type.algorithm_key, "hamming")
+            self.assertEqual(fetched_type.algorithm_key, "sha256_hex_proximity")
 
             winning_number = PrizeDrawWinningNumber(
                 draw_type_id=draw_type.id,
