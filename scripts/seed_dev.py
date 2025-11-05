@@ -21,10 +21,13 @@ def main() -> None:
     # Drop and recreate all tables. SQLite struggles with cyclic foreign-key
     # dependencies during DROP, so temporarily disable foreign key checks to
     # ensure a clean reset of the schema.
-    with engine.connect() as conn:
-        conn.exec_driver_sql("PRAGMA foreign_keys=OFF")
-        Base.metadata.drop_all(bind=conn)
-        conn.exec_driver_sql("PRAGMA foreign_keys=ON")
+    if engine.dialect.name == "sqlite":
+        with engine.connect() as conn:
+            conn.exec_driver_sql("PRAGMA foreign_keys=OFF")
+            Base.metadata.drop_all(bind=conn)
+            conn.exec_driver_sql("PRAGMA foreign_keys=ON")
+    else:
+        Base.metadata.drop_all(bind=engine)
 
     Base.metadata.create_all(engine)
     Session = sessionmaker(bind=engine)
