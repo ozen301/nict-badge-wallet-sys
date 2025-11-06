@@ -25,6 +25,8 @@ from nictbw.models import (
     UserNFTOwnership,
     BingoCard,
     BingoCell,
+    CouponTemplate,
+    CouponInstance,
     PrizeDrawType,
     PrizeDrawWinningNumber,
     PrizeDrawResult,
@@ -185,6 +187,37 @@ class DBTestCase(unittest.TestCase):
             self.assertEqual(ownership.serial_number, 0)
             self.assertEqual(ownership.unique_nft_id, "ABC-1234567890ab")
             self.assertEqual(ownership.acquired_at, nft.created_at)
+
+    def test_coupon_template_redeemed_count_and_max_redeem(self):
+        with self.Session() as session:
+            template = CouponTemplate(
+                prefix="CPN1",
+                name="Spring Discount",
+                max_supply=5,
+                max_redeem=3,
+            )
+            session.add(template)
+            session.flush()
+
+            coupon1 = CouponInstance(
+                template=template,
+                serial_number=1,
+                coupon_code="CPN1-1",
+            )
+            coupon1.mark_redeemed()
+            coupon2 = CouponInstance(
+                template=template,
+                serial_number=2,
+                coupon_code="CPN1-2",
+            )
+            session.add_all([coupon1, coupon2])
+            session.commit()
+
+            reloaded = session.get(CouponTemplate, template.id)
+            assert reloaded is not None
+            self.assertEqual(reloaded.max_redeem, 3)
+            self.assertEqual(reloaded.redeemed_count, 1)
+            self.assertEqual(reloaded.remaining_redeem, 2)
 
     def test_generate_unique_id_retries_on_collision(self):
         now = datetime.now(timezone.utc)

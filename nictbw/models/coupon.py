@@ -1,8 +1,17 @@
 from datetime import datetime, timezone
 from typing import Optional, TYPE_CHECKING
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, select
-from sqlalchemy.orm import Mapped, Session, mapped_column, relationship
+from sqlalchemy import (
+    Boolean,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    func,
+    select,
+)
+from sqlalchemy.orm import Mapped, Session, mapped_column, object_session, relationship
 
 from ..db.utils import dt_iso
 from .base import Base
@@ -26,6 +35,7 @@ class CouponTemplate(Base):
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     next_serial: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     max_supply: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    max_redeem: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     expiry_days: Mapped[Optional[int]] = mapped_column(
         Integer, nullable=True
@@ -53,7 +63,8 @@ class CouponTemplate(Base):
         return (
             "<CouponTemplate("
             f"id={self.id}, prefix='{self.prefix}', active={self.active}, "
-            f"next_serial={self.next_serial}, max_supply={self.max_supply}"
+            f"next_serial={self.next_serial}, max_supply={self.max_supply}, "
+            f"max_redeem={self.max_redeem}"
             ")>"
         )
 
@@ -77,6 +88,33 @@ class CouponTemplate(Base):
         if self.max_supply is None:
             return None
         return max(self.max_supply - (self.next_serial - 1), 0)
+
+    @property
+    def redeemed_count(self) -> int:
+        """Total number of already redeemed coupons under this template."""
+
+        session = object_session(self)
+        if session is None:
+            return sum(1 for instance in self.instances if instance.redeemed)
+
+        stmt = (
+            select(func.count())
+            .select_from(CouponInstance)
+            .where(
+                CouponInstance.template_id == self.id,
+                CouponInstance.redeemed.is_(True),
+            )
+        )
+        result = session.scalar(stmt)
+        return int(result or 0)
+
+    @property
+    def remaining_redeem(self) -> Optional[int]:
+        """Remaining redemptions allowed before hitting ``max_redeem``."""
+
+        if self.max_redeem is None:
+            return None
+        return max(self.max_redeem - self.redeemed_count, 0)
 
 
 class NFTCouponBinding(Base):
