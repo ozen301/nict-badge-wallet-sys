@@ -1,5 +1,5 @@
-from typing import TYPE_CHECKING, Optional, Sequence
-from datetime import datetime
+from typing import TYPE_CHECKING, Iterable, Optional, Sequence
+from datetime import datetime, timezone
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -264,6 +264,111 @@ def run_prize_draw(
     return evaluation.result
 
 
+def _unique_nfts_preserve_insertion(nfts: Iterable["NFT"]) -> list["NFT"]:
+    """Return unique NFTs while preserving the first-seen order."""
+
+    unique: list[NFT] = []
+    seen: set[int] = set()
+    for nft in nfts:
+        if nft.id is None:
+            raise ValueError("NFT must be persisted before running a prize draw")
+        if nft.id in seen:
+            continue
+        seen.add(nft.id)
+        unique.append(nft)
+    return unique
+
+
+def _nfts_in_completed_bingo_lines(session: Session) -> list["NFT"]:
+    """Return NFTs that belong to any completed bingo line."""
+
+    from .models.bingo import BingoCard
+
+    cards = session.scalars(select(BingoCard)).all()
+    eligible: list[NFT] = []
+    for card in cards:
+        completed_lines = card.completed_lines
+        if not completed_lines:
+            continue
+
+        cells_by_idx = {cell.idx: cell for cell in card.cells}
+        for line in completed_lines:
+            for idx in line:
+                cell = cells_by_idx.get(idx)
+                if cell is not None and cell.nft is not None:
+                    eligible.append(cell.nft)
+
+    return _unique_nfts_preserve_insertion(eligible)
+
+
+def _nfts_for_template_with_ownership(
+    session: Session,
+    template_id: int,
+) -> list["NFT"]:
+    """Return NFTs minted from ``template_id`` that have an ownership record."""
+
+    from .models.ownership import UserNFTOwnership
+
+    stmt = (
+        select(NFT)
+        .join(UserNFTOwnership, UserNFTOwnership.nft_id == NFT.id)
+        .where(NFT.template_id == template_id)
+        .order_by(NFT.id.asc())
+    )
+    return _unique_nfts_preserve_insertion(session.scalars(stmt).all())
+
+
+def _rank_prize_draw_results_with_ties(
+    results: Sequence[PrizeDrawResult],
+    *,
+    limit: Optional[int] = None,
+) -> list[PrizeDrawResult]:
+    """Return results ranked by similarity, including any ties at the cutoff."""
+
+    if limit is not None and limit < 0:
+        raise ValueError("limit must be non-negative when provided")
+
+    normalized: list[PrizeDrawResult] = []
+    for res in results:
+        if res.similarity_score is None:
+            raise ValueError(
+                "Cannot rank prize draw results without similarity scores. "
+                "Ensure a winning number is supplied before ranking."
+            )
+        normalized.append(res)
+
+    sorted_results = sorted(
+        normalized,
+        key=lambda res: (
+            -float(res.similarity_score or 0.0),
+            res.evaluated_at or datetime.min.replace(tzinfo=timezone.utc),
+            res.id or 0,
+        ),
+    )
+
+    if limit is None:
+        return sorted_results
+    if limit == 0:
+        return []
+
+    winners: list[PrizeDrawResult] = []
+    cutoff_score: Optional[float] = None
+    for res in sorted_results:
+        score = res.similarity_score
+        if score is None:
+            continue
+        if not winners or len(winners) < limit:
+            winners.append(res)
+            cutoff_score = score
+            continue
+        if cutoff_score is not None and score == cutoff_score:
+            winners.append(res)
+            continue
+        break
+
+    return winners
+
+
 def run_prize_draw_batch(
     session: Session,
     draw_type: PrizeDrawType,
@@ -318,25 +423,7 @@ def run_prize_draw_batch(
         raise ValueError("No winning number is available for the supplied draw type")
 
     if nfts is None:
-        from .models.bingo import BingoCard, BingoCell
-
-        def _get_all_eligible_nfts(session: Session) -> set[NFT]:
-            """Return all NFTs linked to completed bingo cards."""
-            all_bingo_cards = session.scalars(select(BingoCard)).all()
-            eligible_nfts: set[NFT] = set()
-            for card in all_bingo_cards:
-                completed_lines = card.completed_lines
-                if not completed_lines:
-                    continue
-                cells_by_idx = {cell.idx: cell for cell in card.cells}
-                for line in completed_lines:
-                    for idx in line:
-                        cell = cells_by_idx.get(idx)
-                        if cell is not None and cell.nft is not None:
-                            eligible_nfts.add(cell.nft)
-            return eligible_nfts
-
-        nfts_to_evaluate = _get_all_eligible_nfts(session)
+        nfts_to_evaluate = _nfts_in_completed_bingo_lines(session)
 
     else:
         nfts_to_evaluate = list(nfts)
@@ -357,6 +444,73 @@ def run_prize_draw_batch(
 
     session.flush()
     return results
+
+
+def run_bingo_prize_draw(
+    session: Session,
+    draw_type: PrizeDrawType,
+    *,
+    winning_number: Optional[PrizeDrawWinningNumber] = None,
+    threshold: Optional[float] = None,
+    registry: Optional[AlgorithmRegistry] = None,
+    limit: Optional[int] = None,
+) -> list[PrizeDrawResult]:
+    """Run a draw across NFTs that belong to completed bingo lines.
+
+    NFTs are gathered dynamically at draw time from any completed lines on bingo
+    cards. Results are ranked by similarity, and any entries tied at the cutoff
+    score are returned together.
+    """
+
+    eligible_nfts = _nfts_in_completed_bingo_lines(session)
+    if not eligible_nfts:
+        return []
+
+    results = run_prize_draw_batch(
+        session,
+        draw_type,
+        winning_number=winning_number,
+        nfts=eligible_nfts,
+        threshold=threshold,
+        registry=registry,
+    )
+    return _rank_prize_draw_results_with_ties(results, limit=limit)
+
+
+def run_final_attendance_prize_draw(
+    session: Session,
+    draw_type: PrizeDrawType,
+    *,
+    attendance_template_id: Optional[int] = None,
+    winning_number: Optional[PrizeDrawWinningNumber] = None,
+    threshold: Optional[float] = None,
+    registry: Optional[AlgorithmRegistry] = None,
+    limit: Optional[int] = None,
+) -> list[PrizeDrawResult]:
+    """Run a draw that targets only the final-day attendance stamp NFTs.
+
+    ``attendance_template_id`` must be supplied to resolve the attendance
+    template. Only NFTs minted from that template (and with at least one
+    ownership record) participate in the draw.
+    Winners are ranked by similarity with ties included at the cutoff.
+    """
+
+    if attendance_template_id is None:
+        raise ValueError("attendance_template_id is required")
+
+    eligible_nfts = _nfts_for_template_with_ownership(session, attendance_template_id)
+    if not eligible_nfts:
+        return []
+
+    results = run_prize_draw_batch(
+        session,
+        draw_type,
+        winning_number=winning_number,
+        nfts=eligible_nfts,
+        threshold=threshold,
+        registry=registry,
+    )
+    return _rank_prize_draw_results_with_ties(results, limit=limit)
 
 
 def select_top_prize_draw_results(

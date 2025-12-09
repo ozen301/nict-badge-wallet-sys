@@ -11,7 +11,7 @@ Badges enable **bingo gameplay** and a **prize draw** mechanism.
 | Component                                   | Function                                                             |
 | ------------------------------------------- | -------------------------------------------------------------------- |
 | **API Gateway**                             | Handles routing, authentication, and rate limiting.                  |
-| **Badge & Wallet System (This Repository)** | SQLAlchemy backend managing users, wallets, badges, and prize draws. |
+| **Badge & Wallet System (This Repository)** | SQLAlchemy backend managing users, wallets, bingo state, and prize-draw selection/winner computation. Coupons are handled by the API. |
 | **Badge App**                               | Mobile/web interface for displaying badges and rewards.              |
 | **Blockchain (YenPoint)**                   | External service minting NFTs on Bitcoin SV.                         |
 
@@ -37,6 +37,12 @@ This value is compared with a **winning number** to determine outcomes — insta
 - **PrizeDrawType** – defines algorithm and thresholds.  
 - **PrizeDrawWinningNumber** – stores winning numbers.  
 - **PrizeDrawResult** – links NFT, user, and draw outcome.
-- Coupon rewards are issued via **CouponTemplate → CouponInstance** models, allowing NFTs to mint limited-supply store offers.
+- Coupons are now API-managed; this repository returns winning NFT/user pairs only.
+
+### Draw Execution (current)
+- Bingo draws: entries are NFTs that sit on any completed bingo line; each NFT is one entry.
+- Final-day draw: entries are only the final-day attendance-stamp NFTs (independent of bingo lines).
+- Ranking uses the existing per-NFT draw-number algorithm; ties at the cutoff all win.
+- The API orchestrates draw scheduling/events and handles coupon issuance/carry-over. This repo exposes workflows to select entries and compute winners.
 
 ---

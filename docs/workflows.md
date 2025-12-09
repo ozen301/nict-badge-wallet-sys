@@ -5,6 +5,8 @@ project.
 
 Although most complicated workflows are wrapped up in single functions, it is necessary to recognize the individual steps involved for clarity and future reference. This document serves as a guide to those workflows.
 
+**Note:** coupon issuance is now managed by the API layer. This repository focuses on selecting eligible NFTs and computing winners.
+
 The reader may also refer to the code examples in the [code_examples.ipynb](./code_examples.ipynb) notebook for practical usage of these workflows.
 
 ## User Registration
@@ -119,8 +121,19 @@ the `PrizeDrawEngine` service.
 Re-running the workflow for the same `(nft, draw_type, winning_number)` combination will overwrite the previous
    result as designed.
 
-When `run_prize_draw_batch` is called without explicitly passing `nfts`, it automatically
-collects NFTs that participate in a completed bingo line and evaluates only those candidates.
+When `run_prize_draw_batch` is called without explicitly passing `nfts`, it automatically collects NFTs that sit on completed bingo lines and evaluates only those candidates.
+
+### Bingo Prize Draw (Completed Bingo `Lines)
+Use `nictbw.workflows.run_bingo_prize_draw` to evaluate only NFTs that are part of completed bingo lines. The helper:
+1. Selects eligible NFTs on completed lines at draw time.
+2. Evaluates them via `run_prize_draw_batch`.
+3. Ranks by similarity and returns winners, including any ties at the cutoff when `limit` is set.
+
+### Final-Day Attendance Prize Draw
+Use `nictbw.workflows.run_final_attendance_prize_draw` to evaluate only the final-day attendance stamp NFTs. The helper:
+1. Requires `attendance_template_id` (the final-day attendance template).
+2. Selects NFTs minted from that template that have ownership.
+3. Evaluates and ranks them, returning ties at the cutoff when `limit` is set.
 
 ## Prize Draw Ranking
 When a draw type does not rely on thresholds (for example, when finding a "closest-number win"
