@@ -123,7 +123,7 @@ Re-running the workflow for the same `(nft, draw_type, winning_number)` combinat
 
 When `run_prize_draw_batch` is called without explicitly passing `nfts`, it automatically collects NFTs that sit on completed bingo lines and evaluates only those candidates.
 
-### Bingo Prize Draw (Completed Bingo `Lines)
+### Bingo Prize Draw (Completed Bingo Lines)
 Use `nictbw.workflows.run_bingo_prize_draw` to evaluate only NFTs that are part of completed bingo lines. The helper:
 1. Selects eligible NFTs on completed lines at draw time.
 2. Evaluates them via `run_prize_draw_batch`.
