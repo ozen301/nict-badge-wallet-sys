@@ -1,308 +1,134 @@
+from __future__ import annotations
+
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Optional
-from ..db.utils import dt_iso
-from sqlalchemy.orm import Session, Mapped, mapped_column, relationship
+from typing import Optional, TYPE_CHECKING
+
 from sqlalchemy import (
+    BigInteger,
+    Boolean,
+    DateTime,
+    Float,
     Integer,
     String,
-    DateTime,
     Text,
-    Boolean,
     ForeignKey,
-    CheckConstraint,
     UniqueConstraint,
-    select,
     func,
+    select,
     inspect,
 )
+from sqlalchemy.orm import Mapped, Session, mapped_column, relationship
+
+from ..db.utils import dt_iso
 from .base import Base
+from .id_type import ID_TYPE
 from .utils import generate_unique_nft_id
 
 if TYPE_CHECKING:
     from .ownership import UserNFTOwnership
-    from .bingo import BingoCell
-    from .chain import BlockchainTransaction
-    from ..blockchain.api import ChainClient
     from .user import User
-    from .coupon import NFTCouponBinding, CouponInstance
 
 
 class NFTCondition(Base):
-    """Constraints that govern when an NFT can be used or issued."""
-
-    def __init__(
-        self,
-        internal_name: Optional[str] = None,
-        start_time: Optional[datetime] = None,
-        end_time: Optional[datetime] = None,
-        location_range: Optional[str] = None,
-        required_nft_id: Optional[int] = None,
-        prohibited_nft_id: Optional[int] = None,
-        other_conditions: Optional[str] = None,
-        created_at: Optional[datetime] = None,
-        updated_at: Optional[datetime] = None,
-    ):
-        """Create a new :class:`NFTCondition`.
-
-        Parameters
-        ----------
-        internal_name : str, optional
-            Internal, DB-only identifier used for referencing a condition. Not
-            displayed in the app. Must be unique if provided.
-        start_time : datetime, optional
-            Earliest time when the NFT is valid.
-        end_time : datetime, optional
-            Time after which the NFT becomes invalid.
-        location_range : str, optional
-            Geographical constraints encoded as a JSON string.
-        required_nft_id : int, optional
-            ID of an NFT that must be possessed.
-        prohibited_nft_id : int, optional
-            ID of an NFT that must *not* be possessed.
-        other_conditions : str, optional
-            JSON string describing additional conditions.
-        created_at : datetime, optional
-            Explicit creation timestamp.
-        updated_at : datetime, optional
-            Explicit last update timestamp.
-        """
-
-        self.internal_name = internal_name
-        self.start_time = start_time
-        self.end_time = end_time
-        self.location_range = location_range
-        self.required_nft_id = required_nft_id
-        self.prohibited_nft_id = prohibited_nft_id
-        self.other_conditions = other_conditions
-        if created_at is not None:
-            self.created_at = created_at
-        if updated_at is not None:
-            self.updated_at = updated_at
+    """Constraints that govern when an NFT can be issued or claimed."""
 
     __tablename__ = "nft_conditions"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    internal_name: Mapped[Optional[str]] = mapped_column(
-        String(100), nullable=True, unique=True, index=True
-    )
-    start_time: Mapped[Optional[datetime]] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
-    end_time: Mapped[Optional[datetime]] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
-    location_range: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    required_nft_id: Mapped[Optional[int]] = mapped_column(
-        ForeignKey("nfts.id", ondelete="SET NULL", use_alter=True), nullable=True
-    )
-    prohibited_nft_id: Mapped[Optional[int]] = mapped_column(
-        ForeignKey("nfts.id", ondelete="SET NULL", use_alter=True), nullable=True
-    )
+    id: Mapped[int] = mapped_column(ID_TYPE, primary_key=True, index=True, autoincrement=True)
+    start_time: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    end_time: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    latitude: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    longitude: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    radius: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    required_nft_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
+    prohibited_nft_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
     other_conditions: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        nullable=False,
-        server_default=func.now(),
-        default=lambda: datetime.now(timezone.utc),
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
-        nullable=False,
-        server_default=func.now(),
-        server_onupdate=func.now(),
         default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc),
     )
 
-    def __repr__(self) -> str:
-        return (
-            f"<NFTCondition(id={self.id}, start_time={self.start_time}, "
-            f"end_time={self.end_time}, location_range='{self.location_range}', "
-            f"updated_at={self.updated_at})>"
-        )
 
-    # --- utility methods ---
-    @classmethod
-    def get_by_internal_name(
-        cls, session: Session, internal_name: str
-    ) -> Optional["NFTCondition"]:
-        """Retrieve a condition by its unique internal name."""
+class NFT(Base):
+    """NFT definition model (acts as the template in current API schema)."""
 
-        stmt = select(cls).where(cls.internal_name == internal_name)
-        return session.scalar(stmt)
+    __tablename__ = "nfts"
 
-
-class NFTTemplate(Base):
-    """Blueprint from which individual NFTs are instantiated."""
-
-    def __init__(
-        self,
-        prefix: str,
-        name: str,
-        category: str,
-        subcategory: str,
-        created_by_admin_id: int,
-        default_condition: Optional["int | NFTCondition"] = None,
-        description: Optional[str] = None,
-        image_url: Optional[str] = None,
-        max_supply: Optional[int] = None,
-        minted_count: int = 0,
-        status: str = "active",
-        triggers_bingo_card: bool = False,
-        created_at: Optional[datetime] = None,
-        updated_at: Optional[datetime] = None,
-    ):
-        """Create a new :class:`NFTTemplate`.
-
-        Parameters
-        ----------
-        prefix : str
-            Unique prefix of the NFT template.
-        name : str
-            Display name of the template.
-        category : str
-            Broad category classification, e.g. "game", "restaurant", "event", etc.
-        subcategory : str
-            More specific classification, such as the name of a restaurant or event.
-        created_by_admin_id : int
-            Admin responsible for creating the template.
-        default_condition : int | NFTCondition, optional
-            Default usage condition associated with NFTs from this template. May be
-            provided as an object or its primary key.
-        description : str, optional
-            Human-readable description.
-        image_url : str, optional
-            URL to the template's image.
-        max_supply : int, optional
-            Maximum number of NFTs that can be minted from this template.
-        minted_count : int, optional
-            Number of NFTs already minted. Defaults to ``0``.
-        status : str, optional
-            Template status (e.g., ``"active"``). Defaults to ``"active"``.
-        triggers_bingo_card : bool, optional
-            Whether obtaining an NFT from this template should issue a bingo card.
-            Defaults to ``False``.
-        created_at : datetime, optional
-            Explicit creation timestamp.
-        updated_at : datetime, optional
-            Explicit last update timestamp.
-        """
-
-        def _to_id(c: "int | NFTCondition") -> int:
-            return c if isinstance(c, int) else c.id
-
-        if default_condition is not None:
-            self.default_condition_id = _to_id(default_condition)
-
-        self.prefix = prefix
-        self.name = name
-        self.category = category
-        self.subcategory = subcategory
-        self.created_by_admin_id = created_by_admin_id
-        self.description = description
-        self.image_url = image_url
-        self.max_supply = max_supply
-        self.minted_count = minted_count
-        self.status = status
-        self.triggers_bingo_card = triggers_bingo_card
-        self.created_at = created_at or datetime.now(timezone.utc)
-        self.updated_at = updated_at or datetime.now(timezone.utc)
-
-    __tablename__ = "nft_templates"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    prefix: Mapped[str] = mapped_column(
-        String(100), nullable=False, unique=True, index=True
+    id: Mapped[int] = mapped_column(ID_TYPE, primary_key=True, index=True, autoincrement=True)
+    template_id: Mapped[Optional[int]] = mapped_column(
+        ID_TYPE, ForeignKey("nft_templates.id"), nullable=True
     )
+    prefix: Mapped[str] = mapped_column(String(100), nullable=False)
+    shared_key: Mapped[str] = mapped_column(String(255), nullable=False)
     name: Mapped[str] = mapped_column(String(100), nullable=False)
-    category: Mapped[str] = mapped_column(String(50), nullable=False)
-    subcategory: Mapped[str] = mapped_column(String(100), nullable=False)
-    default_condition_id: Mapped[Optional[int]] = mapped_column(
-        ForeignKey("nft_conditions.id", ondelete="SET NULL", use_alter=True),
-        nullable=True,
-    )
+    nft_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    category: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    subcategory: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    promotional_text: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    store_url: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
     image_url: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-    max_supply: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    minted_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    status: Mapped[str] = mapped_column(String(50), nullable=False, default="active")
-    triggers_bingo_card: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, default=False
+    local_image_path: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    qr_image_url: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    condition_id: Mapped[Optional[int]] = mapped_column(
+        ID_TYPE, ForeignKey("nft_conditions.id"), nullable=True
     )
+    max_supply: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    minted_count: Mapped[int] = mapped_column(Integer, default=0)
+    status: Mapped[str] = mapped_column(String(50), default="active")
+    triggers_bingo_card: Mapped[bool] = mapped_column(Boolean, default=False)
+    distributes_coupons: Mapped[bool] = mapped_column(Boolean, default=True)
+    is_dummy: Mapped[bool] = mapped_column(Boolean, default=False)
+    can_be_center: Mapped[bool] = mapped_column(Boolean, default=True)
+    store_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    latitude: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    longitude: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     created_by_admin_id: Mapped[int] = mapped_column(
-        ForeignKey("admins.id"), nullable=False
+        ID_TYPE, ForeignKey("admins.id"), nullable=False
     )
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        nullable=False,
-        server_default=func.now(),
-        default=lambda: datetime.now(timezone.utc),
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
-        nullable=False,
-        server_default=func.now(),
-        server_onupdate=func.now(),
         default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc),
-    )
-
-    # relationships
-    default_condition: Mapped[Optional[NFTCondition]] = relationship(
-        foreign_keys=[default_condition_id]
-    )
-    nfts: Mapped[list["NFT"]] = relationship(back_populates="template")
-    target_cells: Mapped[list["BingoCell"]] = relationship(
-        back_populates="target_template"
     )
 
     __table_args__ = (
-        CheckConstraint(
-            "status IN ('active','inactive','archived')", name="status_enum"
-        ),
-        UniqueConstraint("category", "subcategory", name="uq_category_subcategory"),
+        UniqueConstraint("prefix", name="nfts_prefix_key"),
     )
 
-    def __repr__(self) -> str:
-        return (
-            f"<NFTTemplate(id={self.id}, prefix='{self.prefix}', category='{self.category}', "
-            f"subcategory='{self.subcategory}', minted_count={self.minted_count})>"
-        )
+    prize_draw_results = relationship("PrizeDrawResult", back_populates="nft")
+    ownerships = relationship("UserNFTOwnership", back_populates="nft")
+    template = relationship("NFTTemplate")
 
-    # --- utility methods ---
-    @classmethod
-    def get_by_prefix(cls, session: Session, prefix: str) -> Optional["NFTTemplate"]:
-        """Retrieve a template by its unique prefix."""
-
-        stmt = select(cls).where(cls.prefix == prefix)
-        return session.scalar(stmt)
-
-    @classmethod
-    def get_by_name(cls, session: Session, name: str) -> Optional["NFTTemplate"]:
-        """Retrieve a template by its name."""
-
-        stmt = select(cls).where(cls.name == name)
-        return session.scalar(stmt)
-
-    def to_json(self, *, compact: bool = False) -> dict[str, Any]:
-        """Return a JSON (dict) of the template's properties.
-
-        When compact is True, only essential fields are returned.
-        """
+    def to_json(self, *, compact: bool = False) -> dict:
         full = {
             "id": self.id,
             "prefix": self.prefix,
+            "shared_key": self.shared_key,
             "name": self.name,
+            "nft_type": self.nft_type,
             "category": self.category,
             "subcategory": self.subcategory,
-            "default_condition_id": self.default_condition_id,
             "description": self.description,
+            "promotional_text": self.promotional_text,
+            "store_url": self.store_url,
             "image_url": self.image_url,
+            "qr_image_url": self.qr_image_url,
             "max_supply": self.max_supply,
             "minted_count": self.minted_count,
             "status": self.status,
             "triggers_bingo_card": self.triggers_bingo_card,
-            "created_by_admin_id": self.created_by_admin_id,
+            "distributes_coupons": self.distributes_coupons,
+            "is_dummy": self.is_dummy,
+            "latitude": self.latitude,
+            "longitude": self.longitude,
             "created_at": dt_iso(self.created_at),
             "updated_at": dt_iso(self.updated_at),
         }
@@ -312,476 +138,163 @@ class NFTTemplate(Base):
             "id",
             "prefix",
             "name",
-            "category",
-            "subcategory",
-            "description",
             "image_url",
-            "status",
+            "triggers_bingo_card",
+            "latitude",
+            "longitude",
+            "promotional_text",
+            "is_dummy",
         }
         return {k: v for k, v in full.items() if k in keep}
 
-    def to_json_str(self, *, compact: bool = False) -> str:
-        """
-        Serialize the template's public properties to a JSON string.
+    @classmethod
+    def count_nfts_by_prefix(cls, session: Session, prefix: str) -> int:
+        """Count ownership records for NFTs sharing the given prefix."""
 
-        Timestamps are converted to ISO 8601 strings in UTC. Fields with
-        value None are included as null in the resulting JSON.
+        from .ownership import UserNFTOwnership
 
-        Returns
-        -------
-        str
-            JSON string representation of the template.
-        """
-        import json
+        stmt = (
+            select(func.count())
+            .select_from(UserNFTOwnership)
+            .join(cls, cls.id == UserNFTOwnership.nft_id)
+            .where(cls.prefix == prefix)
+        )
+        return int(session.scalar(stmt) or 0)
 
-        return json.dumps(self.to_json(compact=compact), ensure_ascii=False)
+    def issue_dbwise_to(
+        self,
+        session: Session,
+        user: "User",
+        *,
+        unique_nft_id: Optional[str] = None,
+        serial_number: Optional[int] = None,
+        acquired_at: Optional[datetime] = None,
+        status: str = "succeeded",
+        **ownership_fields,
+    ) -> "UserNFTOwnership":
+        """Assign ownership of this NFT definition to a user in the database."""
+
+        from .ownership import UserNFTOwnership
+
+        if self.max_supply is not None and self.minted_count >= self.max_supply:
+            raise ValueError("Max supply for this NFT has been reached")
+
+        existing = UserNFTOwnership.get_by_user_and_nft(session, user, self)
+        if existing is not None:
+            raise ValueError("User already owns this NFT")
+
+        if not inspect(self).persistent:
+            session.add(self)
+            session.flush()
+
+        if serial_number is None:
+            serial_number = self.minted_count
+        if unique_nft_id is None:
+            unique_nft_id = generate_unique_nft_id(self.prefix, session=session)
+
+        ownership = UserNFTOwnership(
+            user_id=user.id,
+            nft_id=self.id,
+            serial_number=serial_number,
+            unique_nft_id=unique_nft_id,
+            acquired_at=acquired_at or datetime.now(timezone.utc),
+            status=status,
+            **ownership_fields,
+        )
+        session.add(ownership)
+        self.minted_count += 1
+
+        if hasattr(user, "ownerships"):
+            user.ownerships.append(ownership)
+            try:
+                user.unlock_bingo_cells(session, ownership)
+            except Exception:
+                pass
+
+        session.flush()
+        return ownership
+
+
+class NFTTemplate(Base):
+    """Reusable NFT template metadata (currently unused by API)."""
+
+    __tablename__ = "nft_templates"
+
+    id: Mapped[int] = mapped_column(ID_TYPE, primary_key=True, index=True, autoincrement=True)
+    prefix: Mapped[str] = mapped_column(String(100), nullable=False)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    category: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    subcategory: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    image_url: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    qr_image_url: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    max_supply: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    status: Mapped[str] = mapped_column(String(50), default="active")
+    default_condition_id: Mapped[Optional[int]] = mapped_column(
+        ID_TYPE, ForeignKey("nft_conditions.id"), nullable=True
+    )
+    start_time: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    end_time: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    latitude: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    longitude: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    radius: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    required_nft_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
+    prohibited_nft_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
+    other_conditions: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    triggers_bingo_card: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_by_admin_id: Mapped[int] = mapped_column(
+        ID_TYPE, ForeignKey("admins.id"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
+
+    __table_args__ = (
+        UniqueConstraint("prefix", name="nft_templates_prefix_key"),
+    )
 
     def instantiate_nft(
         self,
+        *,
         shared_key: str,
         override_name: Optional[str] = None,
         override_description: Optional[str] = None,
         override_created_by_admin_id: Optional[int] = None,
-    ) -> "NFT":
-        """Instantiate an :class:`NFT` based on this template.
-
-        Parameters
-        ----------
-        shared_key : str
-            Shared key to associate with the new NFT.
-        override_name : Optional[str]
-            Optionally override the name. Defaults to the template's ``name``.
-        override_description : Optional[str]
-            Optionally override the description. Defaults to the template's
-            ``description``.
-        override_created_by_admin_id : Optional[int]
-            Optionally override the creator admin ID. Defaults to the template's
-            ``created_by_admin_id``.
-
-        Returns
-        -------
-        NFT
-            An ``NFT`` instance mirroring this template's metadata. Note that this
-            method does NOT save the instance to the database. The caller is responsible
-            for adding and committing it to the session as needed.
-        """
-        if self.max_supply is not None and self.minted_count >= self.max_supply:
-            raise ValueError("Max supply for this template has been reached")
+    ) -> NFT:
+        """Instantiate an NFT definition based on this template."""
 
         nft = NFT(
             template_id=self.id,
             prefix=self.prefix,
             shared_key=shared_key,
             name=override_name or self.name,
+            nft_type="default",
             category=self.category,
             subcategory=self.subcategory,
             description=override_description or self.description,
             image_url=self.image_url,
             condition_id=self.default_condition_id,
-            created_by_admin_id=override_created_by_admin_id
-            or self.created_by_admin_id,
+            max_supply=self.max_supply,
+            status=self.status,
+            triggers_bingo_card=self.triggers_bingo_card,
+            created_by_admin_id=override_created_by_admin_id or self.created_by_admin_id,
         )
         return nft
 
-
-class NFT(Base):
-    """Instance of an NFT."""
-
-    def __init__(
-        self,
-        shared_key: str,
-        template_id: int,
-        prefix: Optional[str] = None,
-        name: Optional[str] = None,
-        category: Optional[str] = None,
-        subcategory: Optional[str] = None,
-        created_by_admin_id: int = 0,
-        id_on_chain: Optional[int] = None,
-        origin: Optional[str] = None,
-        current_location: Optional[str] = None,
-        description: Optional[str] = None,
-        image_url: Optional[str] = None,
-        condition_id: Optional[int] = None,
-        status: str = "active",
-        created_at: Optional[datetime] = None,
-        updated_at: Optional[datetime] = None,
-    ):
-        """Create a new :class:`NFT`.
-
-        Parameters
-        ----------
-        shared_key : str
-            Shared key from the user.
-        template_id : int
-            ID of the originating :class:`NFTTemplate`.
-        prefix : str, optional
-            Copy of the template prefix for quick lookup.
-        name : str, optional
-            Display name of the NFT.
-        category : str, optional
-            Category label, e.g. "game", "restaurant", "event", etc.
-        subcategory : str, optional
-            Subcategory label, such as the name of a restaurant or event.
-        created_by_admin_id : int, optional
-            Admin who created the NFT.
-        id_on_chain : int, optional
-            Id assigned by the blockchain.
-        origin : str, optional
-            The NFT's origin on the blockchain.
-        current_location : str, optional
-            The NFT's current location on the blockchain.
-        description : str, optional
-            Description of the NFT.
-        image_url : str, optional
-            URL of the NFT's image.
-        condition_id : int, optional
-            The :class:`NFTCondition` applied to the NFT.
-
-        status : str, optional
-            Lifecycle state (e.g., ``"active"``). Defaults to ``"active"``.
-        created_at : datetime, optional
-            Explicit creation timestamp.
-        updated_at : datetime, optional
-            Explicit last update timestamp.
-        """
-        self.shared_key = shared_key
-        self.template_id = template_id
-        self.prefix = prefix
-        self.name = name
-        self.category = category
-        self.subcategory = subcategory
-        self.created_by_admin_id = created_by_admin_id
-        self.id_on_chain = id_on_chain
-        self.origin = origin
-        self.current_location = current_location
-        self.description = description
-        self.image_url = image_url
-        self.condition_id = condition_id
-        self.status = status
-        self.created_at = created_at or datetime.now(timezone.utc)
-        self.updated_at = updated_at or datetime.now(timezone.utc)
-
-    __tablename__ = "nfts"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    template_id: Mapped[int] = mapped_column(
-        ForeignKey("nft_templates.id", ondelete="RESTRICT"), nullable=False, index=True
-    )
-    prefix: Mapped[Optional[str]] = mapped_column(
-        String(100), nullable=True, index=True
-    )
-    shared_key: Mapped[str] = mapped_column(String(255), nullable=False)
-    name: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
-    category: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
-    subcategory: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
-    id_on_chain: Mapped[Optional[int]] = mapped_column(
-        Integer, nullable=True, unique=True
-    )
-    origin: Mapped[Optional[str]] = mapped_column(
-        String(128), nullable=True, unique=True
-    )
-    current_location: Mapped[Optional[str]] = mapped_column(
-        String(128), nullable=True, unique=True
-    )
-    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    image_url: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-    condition_id: Mapped[Optional[int]] = mapped_column(
-        ForeignKey("nft_conditions.id", ondelete="SET NULL", use_alter=True),
-        nullable=True,
-    )
-    status: Mapped[str] = mapped_column(String(50), nullable=False, default="active")
-    created_by_admin_id: Mapped[int] = mapped_column(
-        ForeignKey("admins.id"), nullable=False
-    )
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        nullable=False,
-        server_default=func.now(),
-        default=lambda: datetime.now(timezone.utc),
-    )
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        nullable=False,
-        server_default=func.now(),
-        server_onupdate=func.now(),
-        default=lambda: datetime.now(timezone.utc),
-        onupdate=lambda: datetime.now(timezone.utc),
-    )
-
-    # relationships
-    template: Mapped[NFTTemplate] = relationship(back_populates="nfts")
-    condition: Mapped[Optional[NFTCondition]] = relationship(
-        foreign_keys=[condition_id]
-    )
-    ownerships: Mapped[list["UserNFTOwnership"]] = relationship(back_populates="nft")
-    coupon_bindings: Mapped[list["NFTCouponBinding"]] = relationship(
-        "NFTCouponBinding",
-        back_populates="nft",
-        cascade="all, delete-orphan",
-    )
-    coupon_instances: Mapped[list["CouponInstance"]] = relationship(
-        "CouponInstance",
-        back_populates="nft",
-    )
-    target_cell: Mapped[Optional["BingoCell"]] = relationship(
-        back_populates="nft", uselist=False
-    )
-    chain_txs: Mapped[list["BlockchainTransaction"]] = relationship(
-        back_populates="nft"
-    )
-
-    __table_args__ = (
-        CheckConstraint(
-            "status IN ('active','inactive','archived')", name="status_enum"
-        ),
-    )
-
-    def __repr__(self) -> str:
-        return (
-            f"<NFT(id={self.id}, template_id={self.template_id}, prefix='{self.prefix}', "
-            f"shared_key='{self.shared_key}', status='{self.status}', updated_at={self.updated_at})>"
-        )
-
-    # --- utility methods ---
     @classmethod
-    def get_by_origin(cls, session: Session, origin: str) -> Optional["NFT"]:
-        """Get an NFT object by its ``origin`` field."""
-
-        stmt = select(cls).where(cls.origin == origin)
+    def get_by_prefix(cls, session: Session, prefix: str) -> Optional["NFTTemplate"]:
+        stmt = select(cls).where(cls.prefix == prefix)
         return session.scalar(stmt)
 
     @classmethod
-    def count_nfts_by_prefix(cls, session: Session, prefix: str) -> int:
-        """Count NFTs that share a given prefix.
+    def get_by_name(cls, session: Session, name: str) -> Optional["NFTTemplate"]:
+        stmt = select(cls).where(cls.name == name)
+        return session.scalar(stmt)
 
-        Returns
-        -------
-        int
-            Number of NFTs found.
-        """
 
-        stmt = select(func.count()).where(cls.prefix == prefix)
-        res = session.scalar(stmt)
-        return res or 0
-
-    def count_same_template_nfts(self, session: Session) -> int:
-        """Count NFTs that originate from the same template as this NFT.
-
-        Returns
-        -------
-        int
-            Number of NFTs sharing this template.
-        """
-
-        stmt = select(func.count()).where(NFT.template_id == self.template_id)
-        res = session.scalar(stmt)
-        return res or 0
-
-    # --- blockchain integration ---
-    def issue_dbwise_to(self, session: Session, user: "User") -> "NFT":
-        """Assign ownership of this NFT to a user in the database, and unlock bingo cells if needed.
-
-        Parameters
-        ----------
-        session : Session
-            Active SQLAlchemy session.
-        user : User
-            User who will own this NFT.
-
-        Returns
-        -------
-        NFT
-            Returns ``self`` after ownership is recorded.
-
-        Notes
-        -----
-        - Enforces template ``max_supply``.
-        - Ensures the NFT is persisted before creating the ownership row.
-        - Increments the template's ``minted_count``.
-        """
-        # Local import to avoid circular imports at module load time
-        from .ownership import UserNFTOwnership
-
-        # Enforce max supply before issuing
-        template = self.template or session.get(NFTTemplate, self.template_id)
-        if template is None:
-            raise ValueError("NFT template not found")
-        needs_increment = self.id_on_chain is None
-        if template.max_supply is not None:
-            projected_count = template.minted_count + (1 if needs_increment else 0)
-            if projected_count > template.max_supply:
-                raise ValueError("Max supply for this template has been reached")
-
-        # Ensure NFT is persisted/attached before creating ownership
-        if not inspect(self).persistent:
-            session.add(self)
-            session.flush()
-
-        serial = template.minted_count if needs_increment else template.minted_count - 1
-        new_unique_id = generate_unique_nft_id(template.prefix, session=session)
-        new_ownership = UserNFTOwnership(
-            user_id=user.id,
-            nft_id=self.id,
-            serial_number=serial,
-            unique_nft_id=new_unique_id,
-            acquired_at=self.created_at,
-        )
-        session.add(new_ownership)
-        user.ownerships.append(new_ownership)
-        if needs_increment:
-            template.minted_count += 1
-
-        session.flush()
-
-        user.unlock_bingo_cells(session, new_ownership)
-
-        return self
-
-    def mint_on_chain(
-        self,
-        session: Session,
-        client: Optional["ChainClient"] = None,
-        app: Optional[str] = "nict-badge-wallet-sys",
-        recipient_paymail: Optional[str] = None,
-        file_path: Optional[str] = None,
-        additional_info: Optional[dict[str, Any]] = None,
-    ) -> dict[str, Any]:
-        """Mint this NFT on chain, update its database record, and create a `BlockchainTransaction`.
-
-        Parameters
-        ----------
-        session : Session
-            Active SQLAlchemy session.
-        client : ChainClient, optional
-            Existing `ChainClient`. If omitted, a new one is created.
-        app : str, optional
-            Application identifier sent to the chain API. Defaults to
-            "nict-badge-wallet-sys".
-        recipient_paymail : str, optional
-            Recipient's paymail.
-            If omitted, the NFT on chain will be sent to the current admin's account
-            that is set in the `.dotenv` file.
-        file_path : str, optional
-            Optional path to the NFT's image file. This will be uploaded to the blockchain.
-        additional_info : dict[str, Any], optional
-            Extra metadata to store on chain.
-
-        Returns
-        -------
-        dict[str, Any]
-            Response from ``ChainClient.create_nft``.
-
-        Notes
-        -----
-        - This method does not create a local ownership record; call
-        ``NFT.issue_dbwise_to`` separately.
-        """
-        import json
-        from .chain import BlockchainTransaction
-        from .ownership import UserNFTOwnership
-        from ..blockchain.api import ChainClient
-
-        client = client or ChainClient()
-
-        # Ensure the NFT is persisted so ``session.flush`` will write it to the DB
-        if not inspect(self).persistent:
-            session.add(self)
-            session.flush()
-
-        # Enforce template supply limit
-        template = self.template or session.get(NFTTemplate, self.template_id)
-        if template is None:
-            raise ValueError("NFT template not found")
-        if (
-            template.max_supply is not None
-            and template.minted_count >= template.max_supply
-        ):
-            raise ValueError("Max supply for this template has been reached")
-
-        # Compose metadata to send alongside mint
-        meta: dict[str, Any] = dict(additional_info or {})
-        meta.setdefault("prefix", template.prefix)
-        meta.setdefault("shared_key", self.shared_key)
-        meta.setdefault("category", template.category)
-        meta.setdefault("subcategory", template.subcategory)
-        if template.description:
-            meta.setdefault("description", template.description)
-        if template.image_url:
-            meta.setdefault("image_url", template.image_url)
-        if template.default_condition_id:
-            meta.setdefault("condition_id", template.default_condition_id)
-
-        # Prepare client call
-        kwargs: dict[str, Any] = {
-            "app": app,
-            "name": template.name,
-            "additional_info": json.dumps(meta, ensure_ascii=False),
-        }
-        if recipient_paymail:
-            kwargs["recipient_paymail"] = recipient_paymail
-        if file_path:
-            kwargs["file_path"] = file_path
-
-        # Call the chain API (normalized response)
-        resp: dict = client.create_nft(**kwargs)
-
-        # Drop transaction_hex field before persisting to DB
-        resp.pop("transaction_hex", None)
-        tx_hash: str = resp["transaction_id"]
-        nft_information: dict = resp["nft_information"]
-
-        # Update self
-        self.update_from_info_on_chain(nft_information)
-        if template:
-            template.minted_count += 1
-        session.flush()
-
-        # Record blockchain transaction (status 'sent')
-        now = datetime.now(timezone.utc)
-
-        ownership_unique_id = session.scalar(
-            select(UserNFTOwnership.unique_nft_id)
-            .where(UserNFTOwnership.nft_id == self.id)
-            .order_by(UserNFTOwnership.id.desc())
-        )
-        if ownership_unique_id:
-            tx_unique_nft_id = ownership_unique_id
-        else:
-            tx_unique_nft_id = generate_unique_nft_id(template.prefix, session=session)
-
-        tx = BlockchainTransaction(
-            user_paymail=recipient_paymail if recipient_paymail else None,
-            nft_id=self.id,
-            unique_nft_id=tx_unique_nft_id,
-            type="mint",
-            status="sent",
-            tx_hash=tx_hash,
-            request_payload_json=json.dumps(
-                kwargs,
-                ensure_ascii=False,
-            ),
-            response_payload_json=json.dumps(resp, ensure_ascii=False),
-            created_at=now,
-            confirmed_at=now,
-        )
-        session.add(tx)
-        session.flush()
-
-        return resp
-
-    def update_from_info_on_chain(self, nft_info: dict) -> None:
-        """
-        Update the NFT instance with information from the blockchain.
-
-        Parameters
-        ----------
-        nft_info : dict
-            The NFT information from the blockchain. Typically obtained
-            from Blockchain API responses.
-        """
-        self.id_on_chain = nft_info.get("nft_id", self.id_on_chain)
-        self.origin = nft_info.get("nft_origin", self.origin)
-        self.current_location = nft_info.get(
-            "current_nft_location", self.current_location
-        )
-        self.updated_at = datetime.now(timezone.utc)
+NFTDefinition = NFT

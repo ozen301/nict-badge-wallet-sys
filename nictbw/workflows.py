@@ -101,6 +101,8 @@ def register_user(
         raise ValueError("Blockchain sign-up response did not include a paymail.")
 
     user.paymail = paymail
+    if user.email is None:
+        user.email = email
     user.on_chain_id = signup_username
     user.updated_at = datetime.now(timezone.utc)
 
@@ -111,45 +113,34 @@ def register_user(
 
 
 def create_and_issue_nft(
-    session: Session, user: User, shared_key: str, nft_template: "NFTTemplate"
+    session: Session,
+    user: User,
+    shared_key: Optional[str],
+    nft_template: "NFT | NFTTemplate",
 ) -> "NFT":
-    """Instantiate, mint, and assign an NFT generated from ``nft_template``.
+    """Create an NFT definition (if needed) and assign it to a user.
 
-    The supplied ``user`` must have a paymail so the NFT can be minted on-chain.
-
-    This function performs the following steps:
-    1. Instantiates an NFT from the template using ``shared_key``.
-    2. Mints the NFT on-chain. Updates the NFT instance with on-chain metadata.
-    3. Stores the NFT in the database.
-    4. Links it to the user. If the template is configured to trigger bingo cards,
-    a fresh card is generated for the user.
-
-    Returns:
-        The fully populated ``NFT`` instance after it has been minted and stored.
+    For backward compatibility, ``nft_template`` can be either an NFT definition
+    or an NFTTemplate. When a template is supplied, a new NFT definition is
+    instantiated from it using ``shared_key``.
     """
     from .models.bingo import BingoCard
+    from .models.nft import NFTTemplate
 
-    if user.paymail is None:
-        raise ValueError("User must have a paymail to receive an NFT.")
+    if isinstance(nft_template, NFTTemplate):
+        if shared_key is None:
+            raise ValueError("shared_key is required when instantiating from a template")
+        nft = nft_template.instantiate_nft(shared_key=shared_key)
+        session.add(nft)
+        session.flush()
+    else:
+        nft = nft_template
 
-    # Instantiate the NFT
-    nft = nft_template.instantiate_nft(shared_key=shared_key)
-    create_new_bingo_card: bool = nft_template.triggers_bingo_card
-
-    # Mint on-chain; this updates the NFT instance with on-chain metadata.
-    nft.mint_on_chain(session, recipient_paymail=user.paymail)
-
-    # Store the NFT in the database.
-    session.add(nft)
-    session.flush()
-
-    # Link the NFT to the user and optionally generate the triggered bingo card.
-    nft.issue_dbwise_to(session, user)
-    if create_new_bingo_card:
-        BingoCard.generate_for_user(session, user, center_template=nft_template)
+    ownership = nft.issue_dbwise_to(session, user)
+    if nft.triggers_bingo_card:
+        BingoCard.generate_for_user(session, user, nft)
 
     session.flush()
-
     return nft
 
 
@@ -305,14 +296,14 @@ def _nfts_for_template_with_ownership(
     session: Session,
     template_id: int,
 ) -> list["NFT"]:
-    """Return NFTs minted from ``template_id`` that have an ownership record."""
+    """Return the NFT definition matching ``template_id`` if it has ownerships."""
 
     from .models.ownership import UserNFTOwnership
 
     stmt = (
         select(NFT)
         .join(UserNFTOwnership, UserNFTOwnership.nft_id == NFT.id)
-        .where(NFT.template_id == template_id)
+        .where(NFT.id == template_id)
         .order_by(NFT.id.asc())
     )
     return _unique_nfts_preserve_insertion(session.scalars(stmt).all())
@@ -490,8 +481,7 @@ def run_final_attendance_prize_draw(
     """Run a draw that targets only the final-day attendance stamp NFTs.
 
     ``attendance_template_id`` must be supplied to resolve the attendance
-    template. Only NFTs minted from that template (and with at least one
-    ownership record) participate in the draw.
+    NFT definition. Only ownerships for that NFT participate in the draw.
     Winners are ranked by similarity with ties included at the cutoff.
     """
 

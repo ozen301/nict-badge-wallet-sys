@@ -46,3 +46,8 @@ This value is compared with a **winning number** to determine outcomes — insta
 - The API orchestrates draw scheduling/events and handles coupon issuance/carry-over. This repo exposes workflows to select entries and compute winners.
 
 ---
+
+## Schema Sync Notes
+- Production Postgres is the source of truth for schema shape.
+- Alembic baseline revision: `9624f3823ec4` (older revisions archived in `alembic/versions_legacy`).
+- Use `python scripts/check_schema_drift.py` to detect ORM vs live DB drift.

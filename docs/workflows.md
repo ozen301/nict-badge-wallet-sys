@@ -13,7 +13,7 @@ The reader may also refer to the code examples in the [code_examples.ipynb](./co
 This is wrapped up in the `nictbw.workflows.register_user` function.
 
 0. Instantiate a new `User` object with the information collected from
-   the mobile app (e.g. `in_app_id`, nickname). The paymail can be left unset and an optional `login_mail` can be provided when available. (This step is not included in the workflow function.)
+   the mobile app (e.g. `in_app_id`, nickname). The paymail can be left unset and an optional `email` can be provided when available. (This step is not included in the workflow function.)
 1. Sign the user up via the blockchain API, supplying the blockchain credentials (username, password, email and optional profile/group information) by using `ChainClient.signup_user`. Captures the generated paymail in the response from the API.
 2. Persist the `User` record in the db, including its `paymail` and `on_chain_id` obtained from the step above.
 3. Return the registered `User` instance.
@@ -25,18 +25,16 @@ This is wrapped up in the `nictbw.workflows.register_user` function.
 ## User Information Update
 1. Modify the relevant `User` object properties in the database session and commit.
 
-## NFT Template Creation
-1. Instantiate a new `Template` object describing the NFT metadata.
-2. Add the template to the active session and commit.
+## NFT Definition Creation
+1. Instantiate a new `NFT` object describing the badge metadata (prefix, name, type, category, etc).
+2. Add the definition to the active session and commit.
 
-## NFT Creation and Issuance to a User
+## NFT Issuance to a User
 This is wrapped up in the `nictbw.workflows.create_and_issue_nft` function.
 
-1. Retrieve the desired `NFTTemplate` via its unique `prefix` or `name`, as well as the target `User` typically via the `in_app_id` or `paymail`. (This is done outside the workflow function. `NFTTemplate.get_by_prefix` or `NFTTemplate.get_by_name` and `User.get_by_in_app_id` or `User.get_by_paymail` can be used here.)
-2. Instantiate a new `NFT` object from the template using `NFTTemplate.instantiate_nft`.
-3. Mint the NFT on-chain by `NFT.mint_on_chain`, updating minting metadata such as the origin.
-4. Persist the NFT to the database and associate it with the recipient `User` using `NFT.issue_dbwise_to`.
-5. Return the minted NFT to the caller as needed.
+1. Retrieve the desired `NFT` definition via its unique `prefix`, and the target `User` typically via the `in_app_id` or `paymail`.
+2. Associate the NFT definition with the recipient `User` using `NFT.issue_dbwise_to`, which creates a `UserNFTOwnership` record.
+3. If the minting workflow provides chain metadata, populate the ownership fields (e.g. `nft_origin`).
 
 ## NFT Synchronization from the Blockchain
 This is wrapped up in the `User.sync_nfts_from_chain` method, which reconciles the local database with the
@@ -49,16 +47,16 @@ minted or transferred on-chain without corresponding local records.
 3. For each NFT payload returned from the chain, the method:
    - Extracts the embedded metadata (including `metadata.MAP.subTypeData`) and
      maps common aliases (`sharedKey`, `imageUrl`, etc.) to the local schema.
-   - Ensures an `NFTTemplate` exists for the NFT prefix, creating a shell
-     template populated with the on-chain metadata when necessary.
-   - Creates or updates the associated `NFT` row, aligning descriptive fields,
-     timestamps, and on-chain identifiers.
+   - Ensures an `NFT` definition exists for the NFT prefix, creating a shell
+     definition populated with the on-chain metadata when necessary.
+   - Creates or updates the associated `NFT` row, aligning descriptive fields
+     and timestamps.
    - Creates or refreshes `UserNFTOwnership` rows so the user owns the NFT
      locally, storing the metadata snapshot in `other_meta` and assigning a
      unique identifier formatted as `<prefix>-<base62(12)>` (regenerated until
      no collision exists).
 4. After processing every payload the method reconciles
-   `NFTTemplate.minted_count` for all templates touched during the sync so the
+   `NFT.minted_count` for all definitions touched during the sync so the
    local counts match the on-chain state.
 
 ## User Bingo Card Info Update
@@ -66,12 +64,12 @@ This is wrapped up in the `nictbw.workflows.update_user_bingo_info` function, wh
 
 However, normally it is not necessary to call these methods directly, as the bingo card and cell info is automatically updated when the user gets a new NFT issued via the `create_and_issue_nft` workflow. This workflow is only needed when the bingo card or cell info gets out of sync for some reason.
 
-1. Query for the `NFTTemplate` entities that have the `triggers_bingo_card` flag set to
+1. Query for the `NFT` definitions that have the `triggers_bingo_card` flag set to
    `True` and owned by the user.
 2. For each such template, check if the corresponding `BingoCard` is created for the user;
    if not, create it. This ensures that the user has the correct number of bingo cards.
-3. Query for the `NFTTemplate` entities owned by the user.
-4. For each such template, check if the corresponding `BingoCell` is unlocked for the user;
+3. Query for the `NFT` definitions owned by the user.
+4. For each such definition, check if the corresponding `BingoCell` is unlocked for the user;
    if not, unlock it. This ensures that the user has the correct bingo cells unlocked.
 
 ## Bingo Card Information Request
@@ -111,7 +109,7 @@ This is wrapped up in the `nictbw.workflows.submit_winning_number` helper.
 This is wrapped up in the `nictbw.workflows.run_prize_draw` and `nictbw.workflows.run_prize_draw_batch` helpers, which delegate to
 the `PrizeDrawEngine` service.
 
-1. Derive the deterministic draw number from the NFT origin.
+1. Derive the deterministic draw number from the ownership `nft_origin`.
 2. Run the scoring algorithm (when a winning number is provided) and
    save the result (in "win", "lose", or "pending" string format) expected by the database model.
 3. Upsert the `PrizeDrawResult` row, including the 10-digit summaries of the hashed

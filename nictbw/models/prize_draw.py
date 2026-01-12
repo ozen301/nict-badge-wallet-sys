@@ -15,13 +15,17 @@ from sqlalchemy import (
     UniqueConstraint,
     Index,
     func,
+    text,
     select,
+    JSON,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship, Session
 
 from .base import Base
+from .id_type import ID_TYPE
 
 if TYPE_CHECKING:
+    from .bingo import BingoCard
     from .user import User
     from .nft import NFT
     from .ownership import UserNFTOwnership
@@ -35,7 +39,7 @@ class PrizeDrawType(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     """Primary key."""
 
-    internal_name: Mapped[str] = mapped_column(String(100), nullable=False, unique=True)
+    internal_name: Mapped[str] = mapped_column(String(100), nullable=False)
     """Machine friendly identifier used by application code."""
 
     display_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
@@ -53,7 +57,6 @@ class PrizeDrawType(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
-        server_default=func.now(),
         default=lambda: datetime.now(timezone.utc),
     )
     """Timestamp when the draw type was created."""
@@ -61,8 +64,6 @@ class PrizeDrawType(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
-        server_default=func.now(),
-        server_onupdate=func.now(),
         default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc),
     )
@@ -78,7 +79,12 @@ class PrizeDrawType(Base):
         back_populates="draw_type",
         cascade="all, delete-orphan",
     )
+    events: Mapped[list["RaffleEvent"]] = relationship(back_populates="draw_type")
     """All evaluation results belonging to this draw type."""
+
+    __table_args__ = (
+        UniqueConstraint("internal_name", name="prize_draw_types_internal_name_key"),
+    )
 
     def latest_winning_number(
         self, session: Session
@@ -159,7 +165,6 @@ class PrizeDrawWinningNumber(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
-        server_default=func.now(),
         default=lambda: datetime.now(timezone.utc),
     )
     """Timestamp recording when the winning number was stored."""
@@ -169,6 +174,101 @@ class PrizeDrawWinningNumber(Base):
 
     results: Mapped[list["PrizeDrawResult"]] = relationship(
         back_populates="winning_number"
+    )
+    events: Mapped[list["RaffleEvent"]] = relationship(back_populates="winning_number")
+
+
+class RaffleEvent(Base):
+    __tablename__ = "raffle_events"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    draw_type_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("prize_draw_types.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    winning_number_id: Mapped[Optional[int]] = mapped_column(
+        Integer,
+        ForeignKey("prize_draw_winning_numbers.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    scheduled_by_admin_id: Mapped[Optional[int]] = mapped_column(
+        ID_TYPE, ForeignKey("admins.id", ondelete="SET NULL"), nullable=True
+    )
+    winner_user_id: Mapped[Optional[int]] = mapped_column(
+        ID_TYPE, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    winner_result_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("prize_draw_results.id", ondelete="SET NULL"), nullable=True
+    )
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+    completed_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    meta: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+
+    draw_type: Mapped["PrizeDrawType"] = relationship(back_populates="events")
+    winning_number: Mapped[Optional["PrizeDrawWinningNumber"]] = relationship(
+        back_populates="events"
+    )
+    winner_user: Mapped[Optional["User"]] = relationship(
+        "User", back_populates="raffle_events_won", foreign_keys=[winner_user_id]
+    )
+    winner_result: Mapped[Optional["PrizeDrawResult"]] = relationship(
+        "PrizeDrawResult", foreign_keys=[winner_result_id], post_update=True
+    )
+    entries: Mapped[list["RaffleEntry"]] = relationship(
+        "RaffleEntry", back_populates="raffle_event"
+    )
+    results: Mapped[list["PrizeDrawResult"]] = relationship(
+        "PrizeDrawResult",
+        back_populates="event",
+        foreign_keys="PrizeDrawResult.event_id",
+    )
+
+
+class RaffleEntry(Base):
+    __tablename__ = "raffle_entries"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(
+        ID_TYPE, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    bingo_card_id: Mapped[Optional[int]] = mapped_column(
+        ID_TYPE, ForeignKey("bingo_cards.id", ondelete="SET NULL"), nullable=True
+    )
+    ownership_id: Mapped[Optional[int]] = mapped_column(
+        ID_TYPE, ForeignKey("user_nft_ownership.id", ondelete="SET NULL"), nullable=True
+    )
+    raffle_event_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("raffle_events.id", ondelete="SET NULL"), nullable=True
+    )
+    line_signature: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+
+    user: Mapped["User"] = relationship("User", back_populates="raffle_entries")
+    bingo_card: Mapped[Optional["BingoCard"]] = relationship(
+        "BingoCard", back_populates="raffle_entries"
+    )
+    ownership: Mapped[Optional["UserNFTOwnership"]] = relationship(
+        "UserNFTOwnership", back_populates="raffle_entries"
+    )
+    raffle_event: Mapped[Optional["RaffleEvent"]] = relationship(
+        "RaffleEvent", back_populates="entries"
+    )
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "bingo_card_id", name="uq_raffle_entry_per_card"),
     )
     """All prize draw results evaluated using this winning number."""
 
@@ -207,6 +307,12 @@ class PrizeDrawResult(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     """Surrogate primary key."""
 
+    event_id: Mapped[Optional[int]] = mapped_column(
+        Integer,
+        ForeignKey("raffle_events.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     draw_type_id: Mapped[int] = mapped_column(
         ForeignKey("prize_draw_types.id", ondelete="CASCADE"),
         nullable=False,
@@ -222,17 +328,17 @@ class PrizeDrawResult(Base):
     """Specific winning number applied to this evaluation, if recorded."""
 
     user_id: Mapped[int] = mapped_column(
-        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+        ID_TYPE, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
     """User who owned the NFT at evaluation time."""
 
     nft_id: Mapped[int] = mapped_column(
-        ForeignKey("nfts.id", ondelete="CASCADE"), nullable=False, index=True
+        ID_TYPE, ForeignKey("nfts.id", ondelete="CASCADE"), nullable=False, index=True
     )
     """NFT evaluated during the draw."""
 
     ownership_id: Mapped[Optional[int]] = mapped_column(
-        ForeignKey("user_nft_ownership.id", ondelete="SET NULL"), nullable=True
+        ID_TYPE, ForeignKey("user_nft_ownership.id", ondelete="SET NULL"), nullable=True
     )
     """Snapshot of the ownership record to preserve historical association."""
 
@@ -245,25 +351,25 @@ class PrizeDrawResult(Base):
     draw_top_digits: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
     """Top 10 significant digits (string) of the hashed draw number for user display."""
 
-    winning_top_digits: Mapped[Optional[str]] = mapped_column(
-        String(10), nullable=True
-    )
+    winning_top_digits: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
     """Top 10 significant digits (string) of the hashed winning number for user display."""
 
     threshold_used: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     """Threshold that was applied when computing the outcome."""
 
-    outcome: Mapped[str] = mapped_column(String(50), nullable=False, default="pending")
+    outcome: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
     """Outcome derived from the evaluation ("win", "lose", or "pending")."""
 
     evaluated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
-        server_default=func.now(),
         default=lambda: datetime.now(timezone.utc),
     )
     """Timestamp when the draw was evaluated."""
 
+    event: Mapped[Optional["RaffleEvent"]] = relationship(
+        "RaffleEvent", back_populates="results", foreign_keys=[event_id]
+    )
     draw_type: Mapped["PrizeDrawType"] = relationship(back_populates="results")
     """Relationship to the draw type."""
 
@@ -272,23 +378,27 @@ class PrizeDrawResult(Base):
     )
     """Relationship to the winning number used, if any."""
 
-    user: Mapped["User"] = relationship()
+    user: Mapped["User"] = relationship(back_populates="prize_draw_results")
     """Relationship to the user evaluated."""
 
-    nft: Mapped["NFT"] = relationship()
+    nft: Mapped["NFT"] = relationship(back_populates="prize_draw_results")
     """Relationship to the NFT evaluated."""
 
-    ownership: Mapped[Optional["UserNFTOwnership"]] = relationship()
+    ownership: Mapped[Optional["UserNFTOwnership"]] = relationship(
+        back_populates="prize_draw_results"
+    )
     """Relationship to the ownership snapshot for historical tracking."""
 
     __table_args__ = (
-        UniqueConstraint("nft_id", "draw_type_id", name="uq_draw_result_unique"),
+        UniqueConstraint("nft_id", "draw_type_id", name="uq_prize_draw_result_unique"),
         Index("ix_prize_draw_results_outcome", "outcome"),
     )
 
     def __init__(
         self,
         *,
+        event: Optional["RaffleEvent"] = None,
+        event_id: Optional[int] = None,
         draw_type: Optional["PrizeDrawType"] = None,
         draw_type_id: Optional[int] = None,
         winning_number: Optional["PrizeDrawWinningNumber"] = None,
@@ -307,6 +417,10 @@ class PrizeDrawResult(Base):
         outcome: str = "pending",
         evaluated_at: Optional[datetime] = None,
     ) -> None:
+        if event is not None:
+            self.event = event
+        if event_id is not None:
+            self.event_id = event_id
         if draw_type is not None:
             self.draw_type = draw_type
         if draw_type_id is not None:

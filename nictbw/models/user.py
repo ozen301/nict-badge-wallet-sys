@@ -1,19 +1,22 @@
+from __future__ import annotations
+
 from datetime import datetime, timezone
 import json
 from typing import TYPE_CHECKING, Optional, Any
-from sqlalchemy.orm import Session, Mapped, mapped_column, relationship
-from sqlalchemy import Integer, String, DateTime, func, select
 
-from .nft import NFT, NFTTemplate
-from .ownership import UserNFTOwnership
+from sqlalchemy import Boolean, DateTime, String, func, select, text, UniqueConstraint
+from sqlalchemy.orm import Session, Mapped, mapped_column, relationship, synonym, validates
+
+from .id_type import ID_TYPE
 from .base import Base
-from .utils import generate_unique_nft_id
+from .ownership import UserNFTOwnership
 
 if TYPE_CHECKING:
     from ..blockchain.api import ChainClient
     from .bingo import BingoCard
-    from .chain import BlockchainTransaction
     from .coupon import CouponInstance
+    from .nft import NFT
+    from .prize_draw import PrizeDrawResult, RaffleEntry, RaffleEvent
 
 
 class User(Base):
@@ -21,12 +24,17 @@ class User(Base):
 
     def __init__(
         self,
-        in_app_id: str,
+        in_app_id: Optional[str] = None,
+        *,
+        uid: Optional[str] = None,
+        email: Optional[str] = None,
         paymail: Optional[str] = None,
-        login_mail: Optional[str] = None,
         on_chain_id: Optional[str] = None,
         nickname: Optional[str] = None,
         password_hash: Optional[str] = None,
+        password_provided: Optional[bool] = None,
+        fcm_token: Optional[str] = None,
+        initial_reward_claimed: Optional[bool] = None,
         created_at: Optional[datetime] = None,
         updated_at: Optional[datetime] = None,
     ):
@@ -53,14 +61,20 @@ class User(Base):
             Explicit last update timestamp.
         """
 
+        if in_app_id is None:
+            in_app_id = uid
         self.in_app_id = in_app_id
+        self.email = email
         self.on_chain_id = on_chain_id
         self.nickname = nickname
         self.password_hash = password_hash
-        if paymail is not None:
-            self.paymail = paymail
-        if login_mail is not None:
-            self.login_mail = login_mail
+        self.paymail = paymail
+        if password_provided is not None:
+            self.password_provided = password_provided
+        if fcm_token is not None:
+            self.fcm_token = fcm_token
+        if initial_reward_claimed is not None:
+            self.initial_reward_claimed = initial_reward_claimed
         if created_at is not None:
             self.created_at = created_at
         if updated_at is not None:
@@ -68,25 +82,42 @@ class User(Base):
 
     __tablename__ = "users"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    in_app_id: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
-    paymail: Mapped[Optional[str]] = mapped_column(
-        String(100), unique=True, nullable=False
+    id: Mapped[int] = mapped_column(
+        ID_TYPE, primary_key=True, index=True, autoincrement=True
     )
-    login_mail: Mapped[Optional[str]] = mapped_column(
-        String(100), unique=True, nullable=True
+    in_app_id: Mapped[Optional[str]] = mapped_column(
+        String(100), unique=True, index=True, nullable=True
     )
-    on_chain_id: Mapped[Optional[str]] = mapped_column(
-        String(50), unique=True, nullable=True
+    email: Mapped[Optional[str]] = mapped_column(
+        String(100), unique=True, index=True, nullable=True
     )
-    nickname: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     password_hash: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    password_provided: Mapped[bool] = mapped_column(Boolean, default=False)
+    nickname: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    paymail: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    on_chain_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    fcm_token: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    initial_reward_claimed: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False, server_default=text("false")
+    )
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
     )
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+        nullable=False,
     )
+
+    __table_args__ = (
+        UniqueConstraint("paymail", name="users_paymail_key"),
+    )
+
+    uid = synonym("in_app_id")
+    login_mail = synonym("email")
 
     # relationships
     ownerships: Mapped[list["UserNFTOwnership"]] = relationship(
@@ -95,11 +126,20 @@ class User(Base):
     bingo_cards: Mapped[list["BingoCard"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
-    chain_txs: Mapped[list["BlockchainTransaction"]] = relationship(
-        "BlockchainTransaction",
-        primaryjoin="User.paymail==BlockchainTransaction.user_paymail",
+    raffle_entries: Mapped[list["RaffleEntry"]] = relationship(
+        "RaffleEntry",
         back_populates="user",
-        viewonly=False,
+        cascade="all, delete-orphan",
+    )
+    prize_draw_results: Mapped[list["PrizeDrawResult"]] = relationship(
+        "PrizeDrawResult",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
+    raffle_events_won: Mapped[list["RaffleEvent"]] = relationship(
+        "RaffleEvent",
+        back_populates="winner_user",
+        foreign_keys="RaffleEvent.winner_user_id",
     )
     coupons: Mapped[list["CouponInstance"]] = relationship(
         "CouponInstance",
@@ -110,8 +150,15 @@ class User(Base):
         return (
             f"<User(id={self.id}, in_app_id='{self.in_app_id}', "
             f"nickname='{self.nickname}', on_chain_id='{self.on_chain_id}', "
-            f"login_mail='{self.login_mail}', updated_at='{self.updated_at}')>"
+            f"email='{self.email}', updated_at='{self.updated_at}')>"
         )
+
+    @validates("email")
+    def _normalize_email(self, _key: str, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        normalized = value.strip().lower()
+        return normalized or None
 
     @classmethod
     def get_by_in_app_id(cls, session: Session, in_app_id: str) -> Optional["User"]:
@@ -127,9 +174,13 @@ class User(Base):
 
     @classmethod
     def get_by_login_mail(cls, session: Session, login_mail: str) -> Optional["User"]:
-        """Retrieve a user by login_mail address."""
+        """Backward-compatible alias for email lookup."""
+        return session.scalar(select(cls).where(cls.email == login_mail))
 
-        return session.scalar(select(cls).where(cls.login_mail == login_mail))
+    @classmethod
+    def get_by_email(cls, session: Session, email: str) -> Optional["User"]:
+        """Retrieve a user by email address."""
+        return session.scalar(select(cls).where(cls.email == email))
 
     @classmethod
     def get_by_on_chain_id(cls, session: Session, on_chain_id: str) -> Optional["User"]:
@@ -172,11 +223,18 @@ class User(Base):
             ``True`` if any cell was unlocked.
         """
 
+        from .bingo import BingoCard
+
         unlocked_any = False
-        for card in self.bingo_cards:
-            if card.state == "active":
-                if card.unlock_cells_for_ownership(session, ownership):
-                    unlocked_any = True
+        cards = session.scalars(
+            select(BingoCard).where(
+                BingoCard.user_id == self.id,
+                BingoCard.state == "active",
+            )
+        ).all()
+        for card in cards:
+            if card.unlock_cells_for_ownership(session, ownership):
+                unlocked_any = True
 
         return unlocked_any
 
@@ -218,35 +276,33 @@ class User(Base):
 
         from sqlalchemy import select
         from .bingo import BingoCard, BingoCell
+        from .nft import NFT
 
-        # Select the templates the user owns that trigger bingo cards
-        triggering_templates = session.scalars(
-            select(NFTTemplate)
-            .join(NFT)
+        triggering_nfts = session.scalars(
+            select(NFT)
             .join(UserNFTOwnership)
             .where(
                 UserNFTOwnership.user_id == self.id,
-                NFTTemplate.triggers_bingo_card.is_(True),
+                NFT.triggers_bingo_card.is_(True),
             )
             .distinct()
         ).all()
 
         # For each template, check if a corresponding bingo card already exists
         created = 0
-        for tpl in triggering_templates:
+        for nft in triggering_nfts:
             exists = session.scalar(
                 select(BingoCard)
                 .join(BingoCell)
                 .where(
                     BingoCard.user_id == self.id,
                     BingoCell.idx == 4,
-                    BingoCell.target_template_id == tpl.id,
+                    BingoCell.target_template_id == nft.id,
                 )
             )
             # If not, create one
             if exists is None:
-                card = BingoCard.generate_for_user(session, self, tpl)
-                self.bingo_cards.append(card)
+                BingoCard.generate_for_user(session, self, nft)
                 created += 1
 
         return created
@@ -273,7 +329,7 @@ class User(Base):
             .join(NFT)
             .where(UserNFTOwnership.user_id == self.id)
         ).all()
-        ownership_map = {o.nft.template_id: o for o in ownerships}
+        ownership_map = {o.nft_id: o for o in ownerships}
 
         unlocked = 0
         for card in self.bingo_cards:
@@ -358,14 +414,14 @@ class User(Base):
 
             client = ChainClient()
 
-        # Retrieve the latest state of the user's NFTs from the blockchain.
         chain_items = client.get_user_nfts(self.on_chain_id) or []
 
         from .admin import Admin
+        from .nft import NFT
+        from .ownership import UserNFTOwnership
+        from .utils import generate_unique_nft_id
 
-        # Helper: normalise timestamps returned by the blockchain API.
         def _parse_datetime(value: Any) -> datetime:
-            """Return a timezone-aware datetime for chain-supplied values."""
             if isinstance(value, datetime):
                 return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
             if isinstance(value, str):
@@ -382,17 +438,13 @@ class User(Base):
             return datetime.now(timezone.utc)
 
         def _extract_metadata(item: dict[str, Any]) -> dict[str, Any]:
-            """Collect metadata embedded in a blockchain NFT payload."""
-
             meta: dict[str, Any] = {}
-
             metadata_block = item.get("metadata")
             if isinstance(metadata_block, dict):
                 map_block = metadata_block.get("MAP")
                 if isinstance(map_block, dict):
                     subtype_data = map_block.get("subTypeData")
                     if isinstance(subtype_data, dict):
-                        # The API guarantees metadata is embedded under ``subTypeData``.
                         for key, value in subtype_data.items():
                             if value is not None and key not in meta:
                                 meta[key] = value
@@ -425,36 +477,9 @@ class User(Base):
 
             return meta
 
-        # Track already-known NFTs by their on-chain origin so we can decide
-        # whether to update an ownership record or create a brand new one.
-        existing_nft_origins = {
-            ownership.nft.origin: ownership
-            for ownership in self.ownerships
-            if ownership.nft and ownership.nft.origin
-        }
-
-        # Cache expensive per-template counts and remember which templates were
-        # touched so that their minted totals can be reconciled afterwards.
-        template_nft_counts: dict[int, int] = {}
-        touched_template_ids: set[int] = set()
         default_admin_id: Optional[int] = None
 
-        def _template_count(template: NFTTemplate) -> int:
-            """Return cached NFT counts per template to align minted totals."""
-            if template.id is None:
-                session.flush()
-            assert template.id is not None
-            if template.id not in template_nft_counts:
-                template_nft_counts[template.id] = (
-                    session.scalar(
-                        select(func.count()).where(NFT.template_id == template.id)
-                    )
-                    or 0
-                )
-            return template_nft_counts[template.id]
-
         def _default_admin_id() -> int:
-            """Fetch the lowest admin ID for use when creating templates."""
             nonlocal default_admin_id
             if default_admin_id is None:
                 default_admin_id = session.scalar(select(func.min(Admin.id)))
@@ -462,17 +487,24 @@ class User(Base):
                     default_admin_id = 0
             return default_admin_id
 
-        # Process each NFT payload returned by the blockchain.
+        touched_nft_ids: set[int] = set()
+        nft_updated_at_map: dict[int, datetime] = {}
+
         for item in chain_items:
             if not isinstance(item, dict):
                 continue
-            origin = item.get("nft_origin")
+
+            origin = (
+                item.get("nft_origin")
+                or item.get("origin")
+                or item.get("txid")
+                or item.get("transaction_id")
+            )
             if not origin:
                 continue
 
             metadata = _extract_metadata(item)
 
-            # Determine identifiers and descriptive fields from the metadata.
             prefix_raw = metadata.get("prefix") or item.get("prefix")
             prefix = str(prefix_raw) if prefix_raw is not None else f"onchain-{origin}"
             prefix = prefix[:100]
@@ -486,177 +518,119 @@ class User(Base):
             shared_key = str(shared_key_raw) if shared_key_raw is not None else origin
             shared_key = shared_key[:255]
 
-            category_raw = metadata.get("category") or item.get("category")
-            category = (
-                str(category_raw) if category_raw is not None else "uncategorized"
-            )
-            category = category[:50]
+            name_raw = metadata.get("name") or item.get("name")
+            name = str(name_raw)[:100] if name_raw is not None else prefix
 
-            subcategory_raw = (
-                metadata.get("subcategory")
-                or metadata.get("subCategory")
-                or item.get("subcategory")
-            )
-            if subcategory_raw is None:
-                subcategory_raw = f"{prefix}-default"
-            subcategory = str(subcategory_raw)[:100]
-
-            template_name_raw = metadata.get("name") or item.get("name")
-            template_name = (
-                str(template_name_raw)[:100]
-                if template_name_raw is not None
-                else prefix
-            )
-
-            description_raw = metadata.get("description") or item.get("description")
-            description = str(description_raw) if description_raw is not None else None
-
-            image_url_raw = (
+            nft_type = str(item.get("nft_type") or metadata.get("nft_type") or "default")[:50]
+            category = metadata.get("category") or item.get("category")
+            category = str(category)[:50] if category is not None else None
+            subcategory = metadata.get("subcategory") or item.get("subcategory")
+            subcategory = str(subcategory)[:50] if subcategory is not None else None
+            description = metadata.get("description") or item.get("description")
+            image_url = (
                 metadata.get("image_url")
                 or metadata.get("imageUrl")
                 or item.get("image_url")
             )
-            image_url = str(image_url_raw) if image_url_raw is not None else None
 
             created_at = _parse_datetime(item.get("created_at"))
             updated_at = _parse_datetime(item.get("updated_at"))
 
-            # Ensure a local template exists for the prefix returned on-chain.
-            template = NFTTemplate.get_by_prefix(session, prefix)
-            if template is None:
-                # No template exists locally yet; create a shell from the
-                # metadata embedded in the blockchain payload.
-                template = NFTTemplate(
+            nft = session.scalar(select(NFT).where(NFT.prefix == prefix))
+            if nft is None:
+                nft = NFT(
                     prefix=prefix,
-                    name=template_name,
+                    shared_key=shared_key,
+                    name=name,
+                    nft_type=nft_type,
                     category=category,
                     subcategory=subcategory,
                     description=description,
                     image_url=image_url,
+                    condition_id=metadata.get("condition_id"),
                     created_by_admin_id=_default_admin_id(),
-                    created_at=created_at,
-                    updated_at=updated_at,
-                )
-                session.add(template)
-                session.flush()
-
-            touched_template_ids.add(template.id)
-
-            # Track the current number of NFTs for mint count reconciliation later.
-            current_count = _template_count(template)
-
-            nft = NFT.get_by_origin(session, origin)
-
-            nft_name_raw = metadata.get("name") or item.get("name")
-            if nft_name_raw is not None:
-                nft_name = str(nft_name_raw)[:100]
-            else:
-                nft_name = template.name or prefix
-
-            meta_description = (
-                description if description is not None else template.description
-            )
-            meta_image = image_url if image_url is not None else template.image_url
-            current_location = item.get("current_nft_location") or origin
-
-            # Create or update the NFT row itself.
-            if nft is None:
-                nft = NFT(
-                    template_id=template.id,
-                    prefix=prefix,
-                    shared_key=shared_key,
-                    name=nft_name,
-                    category=category,
-                    subcategory=subcategory,
-                    description=meta_description,
-                    image_url=meta_image,
-                    created_by_admin_id=template.created_by_admin_id,
-                    id_on_chain=item.get("nft_id"),
-                    origin=origin,
-                    current_location=current_location,
                     created_at=created_at,
                     updated_at=updated_at,
                 )
                 session.add(nft)
                 session.flush()
-                current_count += 1
-                template_nft_counts[template.id] = current_count
             else:
-                if nft.prefix != prefix:
-                    nft.prefix = prefix
-                if shared_key and nft.shared_key != shared_key:
-                    nft.shared_key = shared_key
-                if nft.template_id != template.id:
-                    nft.template_id = template.id
-                if nft.name != nft_name:
-                    nft.name = nft_name
-                if category and nft.category != category:
-                    nft.category = category
-                if subcategory and nft.subcategory != subcategory:
-                    nft.subcategory = subcategory
-                if meta_description is not None and nft.description != meta_description:
-                    nft.description = meta_description
-                if meta_image is not None and nft.image_url != meta_image:
-                    nft.image_url = meta_image
-                # Always align created/updated timestamps to on-chain source
+                nft.name = name
+                nft.nft_type = nft_type
+                nft.category = category
+                nft.subcategory = subcategory
+                nft.description = description
+                nft.image_url = image_url
+                nft.shared_key = shared_key
                 nft.created_at = created_at
-                nft.id_on_chain = item.get("nft_id", nft.id_on_chain)
-                nft.current_location = current_location
                 nft.updated_at = updated_at
-                template_nft_counts[template.id] = current_count
+
+            touched_nft_ids.add(nft.id)
+            nft_updated_at_map[nft.id] = updated_at
 
             meta_json = json.dumps(metadata, ensure_ascii=False) if metadata else None
+            current_location = item.get("current_nft_location") or origin
 
-            ownership = existing_nft_origins.get(origin)
-            if ownership is not None:
-                # Refresh stored metadata to match what is currently on chain.
-                if ownership.other_meta != meta_json:
-                    ownership.other_meta = meta_json
-                provided_unique_id = item.get("unique_nft_id")
-                if provided_unique_id:
-                    truncated = str(provided_unique_id)[:255]
-                    if ownership.unique_nft_id != truncated:
-                        ownership.unique_nft_id = truncated
-                if created_at:
-                    ownership.acquired_at = created_at
-                continue
-
+            ownership = UserNFTOwnership.get_by_user_and_nft(session, self.id, nft.id)
             provided_unique_id = item.get("unique_nft_id")
-            if provided_unique_id:
-                unique_nft_id = str(provided_unique_id)[:255]
-            else:
-                unique_nft_id = generate_unique_nft_id(prefix, session=session)
-            serial = max(template_nft_counts.get(template.id, current_count) - 1, 0)
-            # The NFT is new to the local database; create a corresponding
-            # ownership entry for this user.
-            ownership = UserNFTOwnership(
-                user_id=self.id,
-                nft_id=nft.id,
-                serial_number=serial,
-                unique_nft_id=unique_nft_id,
-                acquired_at=created_at,
-                other_meta=meta_json,
-            )
-            session.add(ownership)
-            existing_nft_origins[origin] = ownership
+            if ownership is None:
+                if provided_unique_id:
+                    unique_nft_id = str(provided_unique_id)[:255]
+                else:
+                    unique_nft_id = generate_unique_nft_id(prefix, session=session)
 
-        # Align minted counts for each template touched during the sync.
-        for template_id in touched_template_ids:
-            template_obj = session.get(NFTTemplate, template_id)
-            if template_obj is None:
-                continue
-            count = template_nft_counts.get(template_id)
-            if count is None:
-                count = (
-                    session.scalar(
-                        select(func.count()).where(NFT.template_id == template_id)
-                    )
-                    or 0
+                ownership = UserNFTOwnership(
+                    user_id=self.id,
+                    nft_id=nft.id,
+                    serial_number=nft.minted_count,
+                    unique_nft_id=unique_nft_id,
+                    acquired_at=created_at,
+                    status="succeeded",
                 )
-                template_nft_counts[template_id] = count
-            if template_obj.minted_count < count:
-                template_obj.minted_count = count
+                session.add(ownership)
+                nft.minted_count += 1
+            elif provided_unique_id:
+                ownership.unique_nft_id = str(provided_unique_id)[:255]
+
+            ownership.acquired_at = created_at
+            ownership.blockchain_nft_id = item.get("nft_id")
+            ownership.nft_origin = origin
+            ownership.current_nft_location = current_location
+            ownership.blockchain_name = item.get("name")
+            ownership.sub_type = item.get("sub_type") or metadata.get("sub_type")
+            ownership.blockchain_created_at = _parse_datetime(item.get("created_at"))
+            ownership.blockchain_updated_at = _parse_datetime(item.get("updated_at"))
+            ownership.transaction_id = item.get("transaction_id") or origin
+            ownership.contract_address = item.get("contract_address")
+            ownership.token_id = item.get("token_id")
+            ownership.other_meta = meta_json
+
+        for nft_id in touched_nft_ids:
+            nft_obj = session.get(NFT, nft_id)
+            if nft_obj is None:
+                continue
+            count = session.scalar(
+                select(func.count()).where(UserNFTOwnership.nft_id == nft_id)
+            )
+            nft_obj.minted_count = int(count or 0)
+            updated_at = nft_updated_at_map.get(nft_id)
+            if updated_at is not None:
+                nft_obj.updated_at = updated_at
 
         session.flush()
 
-        # The commit is handled by the caller, not here.
+        if nft_updated_at_map:
+            from sqlalchemy import update
+            from sqlalchemy.orm.attributes import set_committed_value
+
+            for nft_id, updated_at in nft_updated_at_map.items():
+                session.execute(
+                    update(NFT)
+                    .where(NFT.id == nft_id)
+                    .values(updated_at=updated_at)
+                )
+                nft_obj = session.get(NFT, nft_id)
+                if nft_obj is not None:
+                    set_committed_value(nft_obj, "updated_at", updated_at)
+
+        session.flush()

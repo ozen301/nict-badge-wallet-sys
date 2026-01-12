@@ -215,3 +215,6 @@ dev_tests/
 # development notes
 dev_memo.md
 better_wallet_api_spec.json
+
+# API reference files
+_api_ref/

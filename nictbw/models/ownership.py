@@ -1,82 +1,61 @@
-from datetime import datetime
-from typing import TYPE_CHECKING, Optional
-from sqlalchemy.orm import Mapped, mapped_column, relationship, Session
-from sqlalchemy import (
-    Integer,
-    String,
-    DateTime,
-    Text,
-    ForeignKey,
-    UniqueConstraint,
-    Index,
-    select,
-)
+from __future__ import annotations
+
+from datetime import datetime, timezone
+from typing import Optional, TYPE_CHECKING
+
+from sqlalchemy import BigInteger, DateTime, Integer, String, Text, ForeignKey, UniqueConstraint
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
 from .base import Base
+from .id_type import ID_TYPE
 
 if TYPE_CHECKING:
     from .user import User
     from .nft import NFT
-    from .bingo import BingoCell
     from .coupon import CouponInstance
+    from .prize_draw import PrizeDrawResult, RaffleEntry
 
 
 class UserNFTOwnership(Base):
-    """Association table recording which user owns which NFT."""
-
-    def __init__(
-        self,
-        user_id: int,
-        nft_id: int,
-        serial_number: int,
-        unique_nft_id: str,
-        acquired_at: datetime,
-        other_meta: Optional[str] = None,
-    ):
-        """Create a new ownership record.
-
-        Parameters
-        ----------
-        user_id : int
-            Owning user's ID.
-        nft_id : int
-            ID of the owned NFT.
-        serial_number : int
-            Serial number of this NFT within those minted from the same template.
-        unique_nft_id : str
-            Unique identifier for the NFT. The format is f"{nft.prefix}_{nft.shared_key}".
-        acquired_at : datetime
-            When the user acquired the NFT.
-        other_meta : str, optional
-            Additional metadata encoded as JSON string.
-        """
-
-        self.user_id = user_id
-        self.nft_id = nft_id
-        self.serial_number = serial_number
-        self.unique_nft_id = unique_nft_id
-        self.acquired_at = acquired_at
-        self.other_meta = other_meta
+    """Association table recording which user owns which NFT definition."""
 
     __tablename__ = "user_nft_ownership"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    user_id: Mapped[int] = mapped_column(
-        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
-    )
-    nft_id: Mapped[int] = mapped_column(
-        ForeignKey("nfts.id", ondelete="CASCADE"), nullable=False, index=True
-    )
+    id: Mapped[int] = mapped_column(ID_TYPE, primary_key=True, index=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ID_TYPE, ForeignKey("users.id"), nullable=False)
+    nft_id: Mapped[int] = mapped_column(ID_TYPE, ForeignKey("nfts.id"), nullable=False)
     serial_number: Mapped[int] = mapped_column(Integer, nullable=False)
-    unique_nft_id: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
+    unique_nft_id: Mapped[str] = mapped_column(String(255), nullable=False)
     acquired_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="succeeded")
+    blockchain_nft_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
+    nft_origin: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    current_nft_location: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    blockchain_name: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    sub_type: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    blockchain_created_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    blockchain_updated_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    transaction_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    contract_address: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    token_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     other_meta: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     user: Mapped["User"] = relationship(back_populates="ownerships")
     nft: Mapped["NFT"] = relationship(back_populates="ownerships")
-    matched_cells: Mapped[list["BingoCell"]] = relationship(
-        back_populates="matched_ownership"
+    prize_draw_results: Mapped[list["PrizeDrawResult"]] = relationship(
+        "PrizeDrawResult",
+        back_populates="ownership",
+    )
+    raffle_entries: Mapped[list["RaffleEntry"]] = relationship(
+        "RaffleEntry",
+        back_populates="ownership",
     )
     coupon_instances: Mapped[list["CouponInstance"]] = relationship(
         "CouponInstance",
@@ -84,46 +63,26 @@ class UserNFTOwnership(Base):
     )
 
     __table_args__ = (
-        UniqueConstraint("user_id", "nft_id", name="uq_user_nft"),
-        UniqueConstraint("nft_id", "serial_number", name="uq_nft_serial"),
-        Index("ix_unique_nft_id", "unique_nft_id"),
+        UniqueConstraint("user_id", "nft_id", name="uq_user_nft_once"),
     )
-
-    def __repr__(self) -> str:
-        return (
-            f"<UserNFTOwnership(id={self.id}, user_id={self.user_id}, "
-            f"nft_id={self.nft_id}, acquired_at={self.acquired_at})>"
-        )
 
     @classmethod
     def get_by_user_and_nft(
         cls,
-        session: Session,
+        session,
         user: "User | int",
         nft: "NFT | int",
     ) -> Optional["UserNFTOwnership"]:
-        """Retrieve ownership record linking ``user`` to ``nft``.
-
-        Parameters
-        ----------
-        session : Session
-            Active SQLAlchemy session.
-        user : User | int
-            The owning user or their primary key. Can be a ``User`` instance or its primary key.
-        nft : NFT | int
-            NFT whose ownership is queried, or its primary key. Can be an ``NFT`` instance or its primary key.
-
-        Returns
-        -------
-        Optional[UserNFTOwnership]
-            The matching ownership or ``None`` if not owned.
-        """
+        """Retrieve ownership record linking ``user`` to ``nft``."""
 
         def _to_id(obj: "int | User | NFT") -> int:
             return obj if isinstance(obj, int) else obj.id
 
         user_id = _to_id(user)
         nft_id = _to_id(nft)
-        return session.scalar(
-            select(cls).where(cls.user_id == user_id, cls.nft_id == nft_id)
-        )
+        return session.query(cls).filter(
+            cls.user_id == user_id, cls.nft_id == nft_id
+        ).one_or_none()
+
+
+NFTInstance = UserNFTOwnership

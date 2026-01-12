@@ -1,13 +1,14 @@
 from datetime import datetime, timedelta, timezone
 
 from sqlalchemy.orm import sessionmaker
+
 from nictbw.db.engine import make_engine
 from nictbw.models import (
     Base,
     Admin,
     User,
     NFTCondition,
-    NFTTemplate,
+    NFT,
     CouponTemplate,
     NFTCouponBinding,
     CouponInstance,
@@ -18,9 +19,6 @@ def main() -> None:
     """Seed the development database with sample data."""
     engine = make_engine()
 
-    # Drop and recreate all tables. SQLite struggles with cyclic foreign-key
-    # dependencies during DROP, so temporarily disable foreign key checks to
-    # ensure a clean reset of the schema.
     if engine.dialect.name == "sqlite":
         with engine.connect() as conn:
             conn.exec_driver_sql("PRAGMA foreign_keys=OFF")
@@ -35,9 +33,8 @@ def main() -> None:
     now = datetime.now(timezone.utc)
 
     with Session.begin() as session:
-        # Admin
         admin = Admin(
-            paymail="admin@example.com",
+            email="admin@example.com",
             password_hash="dev-hash",
             name="nictbw_admin",
             role="superuser",
@@ -47,7 +44,6 @@ def main() -> None:
         session.add(admin)
         session.flush()
 
-        # Users
         user1 = User(
             in_app_id="user_01",
             paymail="paymail_01",
@@ -65,7 +61,6 @@ def main() -> None:
         session.add_all([user1, user2])
         session.flush()
 
-        # NFT condition
         condition = NFTCondition(
             start_time=now,
             end_time=now + timedelta(days=30),
@@ -75,226 +70,187 @@ def main() -> None:
         session.add(condition)
         session.flush()
 
-        # NFT templates
-        tpl1 = NFTTemplate(
-            prefix="prefix-1",
-            name="Game Watching Badge",
-            category="game",
-            subcategory="Sendai89ers_2025-09-11",
-            description="Description to be shown in the mobile app goes here, e.g. issued for watching the game.",
-            default_condition=condition,
-            created_by_admin_id=admin.id,
-            triggers_bingo_card=True,
-            image_url="https://upload.wikimedia.org/wikipedia/commons/thumb/1/10/Basketball_through_hoop.jpg/330px-Basketball_through_hoop.jpg",
-            created_at=now,
-            updated_at=now,
-        )
-        tpl2 = NFTTemplate(
-            prefix="prefix-2",
-            name="Game Watching Badge",
-            category="game",
-            subcategory="Sendai89ers_2025-09-12",
-            description="Description to be shown in the mobile app goes here, e.g. issued for watching the game.",
-            created_by_admin_id=admin.id,
-            triggers_bingo_card=True,
-            image_url="https://upload.wikimedia.org/wikipedia/commons/4/4e/Basketball_Goal.jpg",
-            created_at=now,
-            updated_at=now,
-        )
-        tpl3 = NFTTemplate(
-            prefix="prefix-3",
-            name="ExampleShop-1 Badge",
-            category="restaurant",
-            subcategory="ExampleShopName-1",
-            description="Description to be shown in the mobile app goes here, e.g. issued for visiting partner restaurant #1.",
-            created_by_admin_id=admin.id,
-            image_url="https://upload.wikimedia.org/wikipedia/commons/8/85/Intel_logo_2023.svg",
-            created_at=now,
-            updated_at=now,
-        )
-        tpl4 = NFTTemplate(
-            prefix="prefix-4",
-            name="ExampleShop-2 Badge",
-            category="restaurant",
-            subcategory="ExampleShopName-2",
-            description="Description to be shown in the mobile app goes here, e.g. issued for visiting partner restaurant #2.",
-            created_by_admin_id=admin.id,
-            image_url="https://upload.wikimedia.org/wikipedia/commons/7/7c/AMD_Logo.svg",
-            created_at=now,
-            updated_at=now,
-        )
-        tpl5 = NFTTemplate(
-            prefix="prefix-5",
-            name="ExampleShop-3 Badge",
-            category="restaurant",
-            subcategory="ExampleShopName-3",
-            description="Description to be shown in the mobile app goes here, e.g. issued for visiting partner restaurant #3.",
-            created_by_admin_id=admin.id,
-            image_url="https://upload.wikimedia.org/wikipedia/commons/a/a4/NVIDIA_logo.svg",
-            created_at=now,
-            updated_at=now,
-        )
-        tpl6 = NFTTemplate(
-            prefix="prefix-6",
-            name="ExampleShop-4 Badge",
-            category="restaurant",
-            subcategory="ExampleShopName-4",
-            description="Description to be shown in the mobile app goes here, e.g. issued for visiting partner restaurant #4.",
-            created_by_admin_id=admin.id,
-            image_url="https://upload.wikimedia.org/wikipedia/commons/9/96/Microsoft_logo_%282012%29.svg",
-            created_at=now,
-            updated_at=now,
-        )
-        tpl7 = NFTTemplate(
-            prefix="prefix-7",
-            name="ExampleShop-5 Badge",
-            category="restaurant",
-            subcategory="ExampleShopName-5",
-            description="Description to be shown in the mobile app goes here, e.g. issued for attending partner restaurant #5.",
-            created_by_admin_id=admin.id,
-            image_url="https://upload.wikimedia.org/wikipedia/commons/f/fa/Apple_logo_black.svg",
-            created_at=now,
-            updated_at=now,
-        )
-        tpl8 = NFTTemplate(
-            prefix="prefix-8",
-            name="ExampleEvent-1 Badge",
-            category="event",
-            subcategory="ExampleEventName-1",
-            description="Description to be shown in the mobile app goes here, e.g. issued for attending partner event #1.",
-            created_by_admin_id=admin.id,
-            image_url="https://upload.wikimedia.org/wikipedia/commons/thumb/3/31/Basketball_historic.tif/lossless-page1-236px-Basketball_historic.tif.png",
-            created_at=now,
-            updated_at=now,
-        )
-        tpl9 = NFTTemplate(
-            prefix="prefix-9",
-            name="ExampleEvent-2 Badge",
-            category="event",
-            subcategory="ExampleEventName-2",
-            description="Description to be shown in the mobile app goes here, e.g. issued for attending partner event #2.",
-            created_by_admin_id=admin.id,
-            image_url="https://upload.wikimedia.org/wikipedia/commons/thumb/5/54/SPALDING_NBA_OFFICIAL_GAME_BALL.jpg/250px-SPALDING_NBA_OFFICIAL_GAME_BALL.jpg",
-            created_at=now,
-            updated_at=now,
-        )
-        tpl10 = NFTTemplate(
-            prefix="prefix-10",
-            name="ExampleEvent-3 Badge",
-            category="event",
-            subcategory="ExampleEventName-3",
-            description="Description to be shown in the mobile app goes here, e.g. issued for attending partner event #3.",
-            created_by_admin_id=admin.id,
-            image_url="https://upload.wikimedia.org/wikipedia/commons/thumb/d/db/FIBA_Basketballs_2004-2005.JPG/330px-FIBA_Basketballs_2004-2005.JPG",
-            created_at=now,
-            updated_at=now,
-        )
-        tpl11 = NFTTemplate(
-            prefix="prefix-11",
-            name="ExampleEvent-4 Badge",
-            category="event",
-            subcategory="ExampleEventName-4",
-            description="Description to be shown in the mobile app goes here, e.g. issued for attending partner event #4.",
-            created_by_admin_id=admin.id,
-            image_url="https://upload.wikimedia.org/wikipedia/commons/7/7a/Basketball.png",
-            created_at=now,
-            updated_at=now,
-        )
-        tpl12 = NFTTemplate(
-            prefix="prefix-12",
-            name="ExampleShop-6 Badge",
-            category="restaurant",
-            subcategory="ExampleShopName-6",
-            description="Description to be shown in the mobile app goes here, e.g. issued for visiting partner restaurant #6.",
-            created_by_admin_id=admin.id,
-            image_url="https://upload.wikimedia.org/wikipedia/commons/2/2f/Google_2015_logo.svg",
-            created_at=now,
-            updated_at=now,
-        )
+        nft_specs = [
+            {
+                "prefix": "prefix-1",
+                "name": "Game Watching Badge",
+                "category": "game",
+                "subcategory": "Sendai89ers_2025-09-11",
+                "description": "Issued for watching the game.",
+                "triggers_bingo_card": True,
+                "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/10/Basketball_through_hoop.jpg/330px-Basketball_through_hoop.jpg",
+            },
+            {
+                "prefix": "prefix-2",
+                "name": "Game Watching Badge",
+                "category": "game",
+                "subcategory": "Sendai89ers_2025-09-12",
+                "description": "Issued for watching the game.",
+                "triggers_bingo_card": True,
+                "image_url": "https://upload.wikimedia.org/wikipedia/commons/4/4e/Basketball_Goal.jpg",
+            },
+            {
+                "prefix": "prefix-3",
+                "name": "ExampleShop-1 Badge",
+                "category": "restaurant",
+                "subcategory": "ExampleShopName-1",
+                "description": "Issued for visiting partner restaurant #1.",
+                "image_url": "https://upload.wikimedia.org/wikipedia/commons/8/85/Intel_logo_2023.svg",
+            },
+            {
+                "prefix": "prefix-4",
+                "name": "ExampleShop-2 Badge",
+                "category": "restaurant",
+                "subcategory": "ExampleShopName-2",
+                "description": "Issued for visiting partner restaurant #2.",
+                "image_url": "https://upload.wikimedia.org/wikipedia/commons/4/4e/Pleiades_large.jpg",
+            },
+            {
+                "prefix": "prefix-5",
+                "name": "ExampleShop-3 Badge",
+                "category": "restaurant",
+                "subcategory": "ExampleShopName-3",
+                "description": "Issued for visiting partner restaurant #3.",
+                "image_url": "https://upload.wikimedia.org/wikipedia/commons/3/3c/Shaki_waterfall.jpg",
+            },
+            {
+                "prefix": "prefix-6",
+                "name": "ExampleShop-4 Badge",
+                "category": "restaurant",
+                "subcategory": "ExampleShopName-4",
+                "description": "Issued for visiting partner restaurant #4.",
+                "image_url": "https://upload.wikimedia.org/wikipedia/commons/6/6f/Great_Wave_off_Kanagawa2.jpg",
+            },
+            {
+                "prefix": "prefix-7",
+                "name": "ExampleShop-5 Badge",
+                "category": "restaurant",
+                "subcategory": "ExampleShopName-5",
+                "description": "Issued for visiting partner restaurant #5.",
+                "image_url": "https://upload.wikimedia.org/wikipedia/commons/6/64/Paris_Skyline.jpg",
+            },
+            {
+                "prefix": "prefix-8",
+                "name": "ExampleShop-6 Badge",
+                "category": "restaurant",
+                "subcategory": "ExampleShopName-6",
+                "description": "Issued for visiting partner restaurant #6.",
+                "image_url": "https://upload.wikimedia.org/wikipedia/commons/5/50/Vd-Orig.png",
+            },
+            {
+                "prefix": "prefix-9",
+                "name": "ExampleShop-7 Badge",
+                "category": "restaurant",
+                "subcategory": "ExampleShopName-7",
+                "description": "Issued for visiting partner restaurant #7.",
+                "image_url": "https://upload.wikimedia.org/wikipedia/commons/3/3a/Cat03.jpg",
+            },
+            {
+                "prefix": "prefix-10",
+                "name": "ExampleShop-8 Badge",
+                "category": "restaurant",
+                "subcategory": "ExampleShopName-8",
+                "description": "Issued for visiting partner restaurant #8.",
+                "image_url": "https://upload.wikimedia.org/wikipedia/commons/5/57/Tubifex_worms.gif",
+            },
+            {
+                "prefix": "prefix-11",
+                "name": "ExampleShop-9 Badge",
+                "category": "restaurant",
+                "subcategory": "ExampleShopName-9",
+                "description": "Issued for visiting partner restaurant #9.",
+                "image_url": "https://upload.wikimedia.org/wikipedia/commons/5/5b/Plotter_XY_1983_Robotron.jpg",
+            },
+            {
+                "prefix": "prefix-12",
+                "name": "ExampleShop-10 Badge",
+                "category": "restaurant",
+                "subcategory": "ExampleShopName-10",
+                "description": "Issued for visiting partner restaurant #10.",
+                "image_url": "https://upload.wikimedia.org/wikipedia/commons/3/3f/JPEG_example_flower.jpg",
+            },
+        ]
 
-        session.add_all(
-            [tpl1, tpl2, tpl3, tpl4, tpl5, tpl6, tpl7, tpl8, tpl9, tpl10, tpl11, tpl12]
-        )
+        nfts: list[NFT] = []
+        for spec in nft_specs:
+            nfts.append(
+                NFT(
+                    prefix=spec["prefix"],
+                    shared_key=f"{spec['prefix']}-shared",
+                    name=spec["name"],
+                    nft_type="default",
+                    category=spec["category"],
+                    subcategory=spec["subcategory"],
+                    description=spec["description"],
+                    image_url=spec.get("image_url"),
+                    condition_id=condition.id,
+                    triggers_bingo_card=spec.get("triggers_bingo_card", False),
+                    created_by_admin_id=admin.id,
+                    created_at=now,
+                    updated_at=now,
+                )
+            )
+        session.add_all(nfts)
         session.flush()
 
-        # Coupon templates
         coupon_tpl1 = CouponTemplate(
-            prefix="coupon-ramen",
-            name="10% Off Ramen",
-            description="Redeem for a 10% discount at Ichiban Ramen.",
+            prefix="CPN1",
+            name="Basketball Coupon",
+            description="Sample coupon template",
+            max_supply=10,
+            max_redeem=10,
             expiry_days=30,
-            store_name="Ichiban Ramen",
-            max_supply=500,
-            created_at=now,
+            store_name="Sample Store 1",
         )
         coupon_tpl2 = CouponTemplate(
-            prefix="coupon-dessert",
-            name="Free Dessert",
-            description="Enjoy a complimentary dessert with any entrée.",
+            prefix="CPN2",
+            name="Restaurant Coupon",
+            description="Sample coupon template",
+            max_supply=5,
+            max_redeem=5,
             expiry_days=14,
-            store_name="Sweet Court",
-            max_supply=200,
-            created_at=now,
+            store_name="Sample Store 2",
         )
         session.add_all([coupon_tpl1, coupon_tpl2])
         session.flush()
 
-        # Issue NFTs to user1
-        nft1 = tpl1.instantiate_nft(shared_key="shared-key-1")
-        nft1.issue_dbwise_to(session, user1)
-        nft2 = tpl2.instantiate_nft(shared_key="shared-key-2")
-        nft2.issue_dbwise_to(session, user1)
-        session.flush()
-
-        user1.ensure_bingo_cards(session)
-        session.flush()
-
-        # Coupon bindings
         binding1 = NFTCouponBinding(
-            nft=nft1,
-            template=coupon_tpl1,
+            nft_id=nfts[0].id,
+            template_id=coupon_tpl1.id,
             quantity_per_claim=1,
-            created_at=now,
+            active=True,
         )
         binding2 = NFTCouponBinding(
-            nft=nft2,
-            template=coupon_tpl2,
-            quantity_per_claim=2,
-            created_at=now,
+            nft_id=nfts[1].id,
+            template_id=coupon_tpl2.id,
+            quantity_per_claim=1,
+            active=True,
         )
         session.add_all([binding1, binding2])
         session.flush()
 
-        # Coupon instances
-        ownership1 = user1.ownerships[0]
-        coupon_instance1 = CouponInstance(
+        # Issue sample ownerships
+        nfts[0].issue_dbwise_to(session, user1, nft_origin="seed-origin-1")
+        nfts[1].issue_dbwise_to(session, user1, nft_origin="seed-origin-2")
+
+        # Issue sample coupon instances
+        coupon1 = CouponInstance(
             template=coupon_tpl1,
-            nft=nft1,
-            user=user1,
-            ownership=ownership1,
             serial_number=1,
             coupon_code=f"{coupon_tpl1.prefix}-000001",
             expiry=now + timedelta(days=coupon_tpl1.expiry_days or 30),
             store_name=coupon_tpl1.store_name,
-            assigned_at=now,
         )
-        coupon_tpl1.next_serial = 2
-
-        coupon_instance2 = CouponInstance(
+        coupon2 = CouponInstance(
             template=coupon_tpl2,
-            user=user2,
             serial_number=1,
             coupon_code=f"{coupon_tpl2.prefix}-000001",
             expiry=now + timedelta(days=coupon_tpl2.expiry_days or 14),
             store_name=coupon_tpl2.store_name,
-            assigned_at=now,
         )
+        session.add_all([coupon1, coupon2])
+        coupon_tpl1.next_serial = 2
         coupon_tpl2.next_serial = 2
-
-        session.add_all([coupon_instance1, coupon_instance2])
-        session.flush()
-
-    print("Development database seeded.")
 
 
 if __name__ == "__main__":

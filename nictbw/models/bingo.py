@@ -1,8 +1,11 @@
+from __future__ import annotations
+
 from datetime import datetime, timezone
 import random
 from typing import TYPE_CHECKING, Iterable, Optional, Any
 from sqlalchemy.orm import Mapped, Session, mapped_column, relationship
 from sqlalchemy import (
+    Boolean,
     Integer,
     String,
     DateTime,
@@ -10,15 +13,36 @@ from sqlalchemy import (
     CheckConstraint,
     UniqueConstraint,
     Index,
+    JSON,
+    Text,
     select,
+    text,
 )
 from .base import Base
 from ..db.utils import dt_iso
+from .id_type import ID_TYPE
 
 if TYPE_CHECKING:
     from .user import User
-    from .nft import NFT, NFTTemplate
+    from .nft import NFT
     from .ownership import UserNFTOwnership
+    from .prize_draw import RaffleEntry
+
+
+class BingoPeriod(Base):
+    """Bingo season/window."""
+
+    __tablename__ = "bingo_periods"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    start_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    end_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+
+    cards: Mapped[list["BingoCard"]] = relationship(back_populates="period")
 
 
 class BingoCard(Base):
@@ -32,33 +56,59 @@ class BingoCard(Base):
         self,
         user_id: int,
         issued_at: datetime,
+        period_id: Optional[int] = None,
+        start_time: Optional[datetime] = None,
+        issuance_month: Optional[str] = None,
         completed_at: Optional[datetime] = None,
+        expiry: Optional[datetime] = None,
         state: str = "active",
+        bingo_reward_claimed: bool = False,
     ):
         self.user_id = user_id
         self.issued_at = issued_at
+        self.period_id = period_id
+        self.start_time = start_time
+        self.issuance_month = issuance_month
         self.completed_at = completed_at
+        self.expiry = expiry
         self.state = state
+        self.bingo_reward_claimed = bingo_reward_claimed
 
     __tablename__ = "bingo_cards"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(ID_TYPE, primary_key=True, index=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(
-        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+        ID_TYPE, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    period_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("bingo_periods.id"), nullable=True
     )
     issued_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    start_time: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    issuance_month: Mapped[Optional[str]] = mapped_column(String(7), nullable=True)
     completed_at: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    expiry: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     state: Mapped[str] = mapped_column(String(20), nullable=False, default="active")
+    bingo_reward_claimed: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False, server_default=text("false")
+    )
 
     user: Mapped["User"] = relationship(back_populates="bingo_cards")
+    period: Mapped[Optional["BingoPeriod"]] = relationship(back_populates="cards")
     cells: Mapped[list["BingoCell"]] = relationship(
         back_populates="card", cascade="all, delete-orphan", order_by="BingoCell.idx"
     )
+    raffle_entries: Mapped[list["RaffleEntry"]] = relationship(
+        "RaffleEntry", back_populates="bingo_card"
+    )
 
     __table_args__ = (
-        CheckConstraint("state IN ('active','completed','expired')", name="state_enum"),
+        CheckConstraint("state IN ('active','completed','expired')", name="bingo_card_state_enum"),
+        UniqueConstraint("user_id", "issuance_month", name="uq_bingo_card_user_month"),
     )
 
     def __repr__(self) -> str:
@@ -81,13 +131,22 @@ class BingoCard(Base):
             "id": self.id,
             "user_id": self.user_id,
             "issued_at": dt_iso(self.issued_at),
+            "issuance_month": self.issuance_month,
             "completed_at": dt_iso(self.completed_at),
             "state": self.state,
+            "bingo_reward_claimed": self.bingo_reward_claimed,
             "cells": cells_list,
         }
         if not compact:
             return full
-        keep = {"id", "state", "completed_at", "cells"}
+        keep = {
+            "id",
+            "state",
+            "completed_at",
+            "cells",
+            "issuance_month",
+            "bingo_reward_claimed",
+        }
         return {k: v for k, v in full.items() if k in keep}
 
     def to_json_str(self, *, compact: bool = False) -> str:
@@ -101,10 +160,10 @@ class BingoCard(Base):
         cls,
         session: Session,
         user: "User",
-        center_template: "NFTTemplate",
+        center_template: "NFT",
         *,
-        excluded_templates: Optional[Iterable["int | NFTTemplate"]] = None,
-        included_templates: Optional[Iterable["int | NFTTemplate"]] = None,
+        excluded_templates: Optional[Iterable["int | NFT"]] = None,
+        included_templates: Optional[Iterable["int | NFT"]] = None,
         issued_at: Optional[datetime] = None,
         state: str = "active",
         rng: Optional[random.Random] = None,
@@ -121,16 +180,16 @@ class BingoCard(Base):
             Active SQLAlchemy session.
         user : User
             Recipient of the card.
-        center_template : NFTTemplate
-            Template assigned to the centre cell (index 4).
-        excluded_templates : iterable[int | NFTTemplate], optional
-            Templates that must not appear on the card. Can be specified as a list of
-            `NFTTemplate` objects or their integer primary keys.
-        included_templates : iterable[int | NFTTemplate], optional
-            If provided, the method will select non-centre templates only from
+        center_template : NFT
+            NFT definition assigned to the centre cell (index 4).
+        excluded_templates : iterable[int | NFT], optional
+            Definitions that must not appear on the card. Can be specified as a list of
+            `NFT` objects or their integer primary keys.
+        included_templates : iterable[int | NFT], optional
+            If provided, the method will select non-centre definitions only from
             this set (after removing any excluded_templates). If omitted or
-            empty, templates are chosen from all available NFTTemplate records.
-            Can be specified as a list of `NFTTemplate` objects or their integer primary keys.
+            empty, definitions are chosen from all available NFT records.
+            Can be specified as a list of `NFT` objects or their integer primary keys.
         issued_at : datetime, optional
             Timestamp for card issuance. Defaults to the current UTC time.
         state : str, optional
@@ -142,7 +201,7 @@ class BingoCard(Base):
         Raises
         ------
         ValueError
-            If there are fewer than 8 eligible templates to fill the non-centre
+            If there are fewer than 8 eligible definitions to fill the non-centre
             cells after applying included/excluded constraints.
 
         Returns
@@ -154,9 +213,9 @@ class BingoCard(Base):
         """
 
         from .ownership import UserNFTOwnership
-        from .nft import NFT, NFTTemplate
+        from .nft import NFT
 
-        def _to_id(t: int | NFTTemplate) -> int:
+        def _to_id(t: int | NFT) -> int:
             return t if isinstance(t, int) else t.id
 
         rng = rng or random.Random()
@@ -168,13 +227,13 @@ class BingoCard(Base):
         if included_ids:
             candidate_ids = set(included_ids)
         else:
-            candidate_ids = set(session.scalars(select(NFTTemplate.id)))
+            candidate_ids = set(session.scalars(select(NFT.id)))
 
         candidate_ids.discard(center_template.id)
         candidate_ids -= excluded_ids
 
         if len(candidate_ids) < 8:
-            raise ValueError("Not enough NFT templates to populate bingo card")
+            raise ValueError("Not enough NFTs to populate bingo card")
 
         # Randomly pick 8 distinct templates for the non-centre cells, then
         # shuffle the destination positions (excluding the centre at 4).
@@ -196,10 +255,10 @@ class BingoCard(Base):
             .join(NFT)
             .where(
                 UserNFTOwnership.user_id == user.id,
-                NFT.template_id.in_(template_ids_needed),
+                NFT.id.in_(template_ids_needed),
             )
         ).all()
-        ownership_map = {o.nft.template_id: o for o in ownerships}
+        ownership_map = {o.nft_id: o for o in ownerships}
 
         # Helper to build a cell
         def build_cell(idx: int, template_id: int) -> "BingoCell":
@@ -284,7 +343,7 @@ class BingoCard(Base):
         """
 
         unlocked_any = False
-        template_id = ownership.nft.template_id
+        template_id = ownership.nft_id
         for cell in self.cells:
             if cell.state == "locked" and cell.target_template_id == template_id:
                 cell.nft_id = ownership.nft_id
@@ -299,6 +358,52 @@ class BingoCard(Base):
                 self.state = "completed"
 
         return unlocked_any
+
+
+class BingoCardIssueTask(Base):
+    """Outbox-style task for issuing bingo cards asynchronously."""
+
+    __tablename__ = "bingo_card_issue_tasks"
+
+    id: Mapped[int] = mapped_column(ID_TYPE, primary_key=True, index=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(
+        ID_TYPE, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    center_nft_id: Mapped[int] = mapped_column(
+        ID_TYPE, ForeignKey("nfts.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    ownership_id: Mapped[int] = mapped_column(
+        ID_TYPE,
+        ForeignKey("user_nft_ownership.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    unique_nft_ref: Mapped[str] = mapped_column(String(255), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
+    attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    next_run_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc)
+    )
+    last_error: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc)
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('pending','processing','succeeded','failed','blocked')",
+            name="bingo_issue_status_enum",
+        ),
+        UniqueConstraint(
+            "ownership_id", name="bingo_card_issue_tasks_ownership_id_key"
+        ),
+        Index("ix_bingo_issue_status_run", "status", "next_run_at"),
+    )
 
 
 class BingoCell(Base):
@@ -324,19 +429,19 @@ class BingoCell(Base):
 
     __tablename__ = "bingo_cells"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(ID_TYPE, primary_key=True, index=True, autoincrement=True)
     bingo_card_id: Mapped[int] = mapped_column(
-        ForeignKey("bingo_cards.id", ondelete="CASCADE"), nullable=False
+        ID_TYPE, ForeignKey("bingo_cards.id", ondelete="CASCADE"), nullable=False
     )
     idx: Mapped[int] = mapped_column(Integer, nullable=False)
     target_template_id: Mapped[int] = mapped_column(
-        ForeignKey("nft_templates.id", ondelete="RESTRICT"), nullable=False, index=True
+        ID_TYPE, ForeignKey("nfts.id", ondelete="RESTRICT"), nullable=False, index=True
     )
     nft_id: Mapped[Optional[int]] = mapped_column(
-        ForeignKey("nfts.id", ondelete="SET NULL"), nullable=True, index=True
+        ID_TYPE, ForeignKey("nfts.id", ondelete="SET NULL"), nullable=True, index=True
     )
     matched_ownership_id: Mapped[Optional[int]] = mapped_column(
-        ForeignKey("user_nft_ownership.id", ondelete="SET NULL"), nullable=True
+        ID_TYPE, ForeignKey("user_nft_ownership.id", ondelete="SET NULL"), nullable=True
     )
     state: Mapped[str] = mapped_column(String(20), nullable=False, default="locked")
     unlocked_at: Mapped[Optional[datetime]] = mapped_column(
@@ -344,21 +449,18 @@ class BingoCell(Base):
     )
 
     card: Mapped["BingoCard"] = relationship(back_populates="cells")
-    target_template: Mapped["NFTTemplate"] = relationship(back_populates="target_cells")
-    nft: Mapped[Optional["NFT"]] = relationship(back_populates="target_cell")
+    target_template: Mapped["NFT"] = relationship(
+        "NFT", foreign_keys=[target_template_id]
+    )
+    nft: Mapped[Optional["NFT"]] = relationship("NFT", foreign_keys=[nft_id])
     matched_ownership: Mapped[Optional["UserNFTOwnership"]] = relationship(
-        back_populates="matched_cells"
+        "UserNFTOwnership"
     )
 
     __table_args__ = (
-        UniqueConstraint("bingo_card_id", "idx", name="uq_card_idx"),
-        CheckConstraint("state IN ('locked','unlocked')", name="state_enum"),
-        CheckConstraint(
-            "(state = 'locked' AND nft_id IS NULL AND matched_ownership_id IS NULL) OR "
-            "(state = 'unlocked' AND nft_id IS NOT NULL AND matched_ownership_id IS NOT NULL)",
-            name="locked_unlocked_consistency",
-        ),
-        CheckConstraint("idx >= 0 AND idx <= 8", name="idx_range"),
+        UniqueConstraint("bingo_card_id", "idx", name="uq_bingo_card_idx"),
+        CheckConstraint("state IN ('locked','unlocked')", name="bingo_cell_state_enum"),
+        CheckConstraint("idx >= 0 AND idx <= 8", name="bingo_cell_idx_range"),
         Index("ix_bingo_cells_card", "bingo_card_id"),
     )
 
@@ -398,3 +500,18 @@ class BingoCell(Base):
         import json
 
         return json.dumps(self.to_json(compact=compact), ensure_ascii=False)
+
+
+class PreGeneratedBingoCard(Base):
+    """Pool of pre-generated bingo cards."""
+
+    __tablename__ = "pre_generated_bingo_cards"
+
+    id: Mapped[int] = mapped_column(ID_TYPE, primary_key=True, index=True, autoincrement=True)
+    period_id: Mapped[int] = mapped_column(Integer, ForeignKey("bingo_periods.id"), nullable=False)
+    center_nft_id: Mapped[int] = mapped_column(ID_TYPE, ForeignKey("nfts.id"), nullable=False)
+    cell_nft_ids: Mapped[list] = mapped_column(JSON, nullable=False)
+    status: Mapped[str] = mapped_column(String(20), default="available", index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )

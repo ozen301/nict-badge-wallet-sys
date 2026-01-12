@@ -81,7 +81,8 @@ class PrizeDrawEngine:
         Parameters
         ----------
         nft : NFT
-            The NFT instance to evaluate, whose ``nft.origin`` must be set.
+            NFT definition to evaluate. The latest ownership must provide
+            ``nft_origin`` for draw number derivation.
         draw_type : PrizeDrawType
             Draw configuration describing algorithm and default threshold.
         winning_number : Optional[PrizeDrawWinningNumber], default: None
@@ -107,7 +108,7 @@ class PrizeDrawEngine:
 
         1. Resolve the most recent :class:`UserNFTOwnership`
            record to capture which user owned the NFT at evaluation time.
-        2. Derive the deterministic draw number from the NFT origin.
+        2. Derive the deterministic draw number from the ownership's NFT origin.
         3. Run the scoring algorithm (when a winning number is provided) and
            save the result (in "win", "lose", or "pending" string format)
            expected by the database model.
@@ -122,8 +123,6 @@ class PrizeDrawEngine:
 
         if nft.id is None:
             raise ValueError("NFT must be persisted before running a prize draw")
-        if nft.origin is None:
-            raise ValueError("NFT must have an origin before running a prize draw")
         if draw_type.id is None:
             raise ValueError("Draw type must be persisted before running a prize draw")
 
@@ -131,7 +130,10 @@ class PrizeDrawEngine:
         if ownership is None:
             raise ValueError("NFT has no ownership record and cannot be evaluated")
 
-        draw_number = derive_draw_number(nft.origin)
+        if ownership.nft_origin is None:
+            raise ValueError("Ownership must have an nft_origin before running a prize draw")
+
+        draw_number = derive_draw_number(ownership.nft_origin)
 
         threshold_to_use = (
             threshold if threshold is not None else draw_type.default_threshold

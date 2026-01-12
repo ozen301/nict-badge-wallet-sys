@@ -1,19 +1,36 @@
 import unittest
+from typing import Any, Optional
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+from nictbw.blockchain.api import ChainClient
 from nictbw.models import Base, User
 from nictbw.workflows import register_user
 
 
-class DummyClient:
+class DummyClient(ChainClient):
     def __init__(self, response):
         self.response = response
         self.calls: list[dict] = []
 
-    def signup_user(self, **kwargs):
-        self.calls.append(kwargs)
+    def signup_user(
+        self,
+        username: str,
+        email: str,
+        password: str,
+        profile_pic_filepath: Optional[str] = None,
+        group: Optional[str] = None,
+    ) -> dict[str, Any]:
+        self.calls.append(
+            {
+                "username": username,
+                "email": email,
+                "password": password,
+                "profile_pic_filepath": profile_pic_filepath,
+                "group": group,
+            }
+        )
         return self.response
 
 

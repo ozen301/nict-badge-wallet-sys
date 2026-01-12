@@ -1,50 +1,47 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
-from sqlalchemy.orm import Mapped, mapped_column, Session
-from sqlalchemy import Integer, String, DateTime, func, select
+
+from sqlalchemy import DateTime, String
+from sqlalchemy.orm import Mapped, Session, mapped_column, validates
+
 from .base import Base
+from .id_type import ID_TYPE
 
 
 class Admin(Base):
-    def __init__(
-        self,
-        paymail: str,
-        password_hash: str,
-        name: Optional[str] = None,
-        role: Optional[str] = None,
-        created_at: Optional[datetime] = None,
-        updated_at: Optional[datetime] = None,
-    ):
-        self.paymail = paymail
-        self.password_hash = password_hash
-        self.name = name
-        self.role = role
-        if created_at is not None:
-            self.created_at = created_at
-        if updated_at is not None:
-            self.updated_at = updated_at
+    """Admin account model aligned with API schema."""
 
     __tablename__ = "admins"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    paymail: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
+    id: Mapped[int] = mapped_column(ID_TYPE, primary_key=True, index=True, autoincrement=True)
+    email: Mapped[Optional[str]] = mapped_column(String(100), unique=True, index=True, nullable=True)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     name: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     role: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
     )
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
     )
 
-    def __repr__(self) -> str:
-        return (
-            f"<Admin(id={self.id}, name='{self.name}', role='{self.role}', "
-            f"updated_at={self.updated_at})>"
-        )
+    @validates("email")
+    def _normalize_email(self, _key: str, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        normalized = value.strip().lower()
+        return normalized or None
 
     @classmethod
-    def get_by_paymail(cls, session: Session, paymail: str) -> Optional['Admin']:
-        """Get admin by their paymail address."""
-        return session.scalar(select(cls).where(cls.paymail == paymail))
+    def get_by_email(cls, session: Session, email: str) -> Optional["Admin"]:
+        """Get admin by their email address."""
+        return session.query(cls).filter(cls.email == email).one_or_none()
+
+    @classmethod
+    def get_by_paymail(cls, session: Session, paymail: str) -> Optional["Admin"]:
+        """Backward-compatible alias that maps to email lookup."""
+        return cls.get_by_email(session, paymail)
+

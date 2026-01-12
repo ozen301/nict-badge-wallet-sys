@@ -3,16 +3,36 @@ from .base import Base
 # import models so Alembic/autoloaders can discover mappers
 from .admin import Admin  # noqa: F401
 from .user import User  # noqa: F401
-from .nft import NFTCondition, NFTTemplate, NFT  # noqa: F401
-from .ownership import UserNFTOwnership  # noqa: F401
-from .bingo import BingoCard, BingoCell  # noqa: F401
-from .chain import BlockchainTransaction  # noqa: F401
-from .audit import AuditLog  # noqa: F401
-from .coupon import CouponTemplate, NFTCouponBinding, CouponInstance  # noqa: F401
+from .nft import NFTCondition, NFTTemplate, NFT, NFTDefinition  # noqa: F401
+from .ownership import UserNFTOwnership, NFTInstance  # noqa: F401
+from .bingo import (  # noqa: F401
+    BingoPeriod,
+    BingoCard,
+    BingoCardIssueTask,
+    BingoCell,
+    PreGeneratedBingoCard,
+)
+from .coupon import (  # noqa: F401
+    CouponTemplate,
+    NFTCouponBinding,
+    CouponInstance,
+    CouponStore,
+    CouponPlayer,
+    CouponPlayerStoreInventory,
+)
 from .prize_draw import (  # noqa: F401
     PrizeDrawType,
     PrizeDrawWinningNumber,
     PrizeDrawResult,
+    RaffleEvent,
+    RaffleEntry,
+)
+from .misc import (  # noqa: F401
+    NFTClaimRequest,
+    ExternalAccount,
+    AppBanner,
+    PreMintedUser,
+    SystemConfiguration,
 )
 
 __all__ = [
@@ -22,15 +42,28 @@ __all__ = [
     "NFTCondition",
     "NFTTemplate",
     "NFT",
+    "NFTDefinition",
     "UserNFTOwnership",
+    "NFTInstance",
+    "BingoPeriod",
     "BingoCard",
+    "BingoCardIssueTask",
     "BingoCell",
-    "BlockchainTransaction",
-    "AuditLog",
+    "PreGeneratedBingoCard",
     "CouponTemplate",
     "NFTCouponBinding",
     "CouponInstance",
+    "CouponStore",
+    "CouponPlayer",
+    "CouponPlayerStoreInventory",
     "PrizeDrawType",
     "PrizeDrawWinningNumber",
     "PrizeDrawResult",
+    "RaffleEvent",
+    "RaffleEntry",
+    "NFTClaimRequest",
+    "ExternalAccount",
+    "AppBanner",
+    "PreMintedUser",
+    "SystemConfiguration",
 ]

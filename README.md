@@ -47,29 +47,28 @@ python scripts/init_db.py
 python scripts/seed_dev.py  # optional, seed dev data
 ```
 
-This by default creates `dev.db` (SQLite) with all schema objects. The `init_db.py` script will print all tables present after migration:
+This creates all schema objects in the database configured by `DB_URL`. The `init_db.py` script will print all tables present after migration:
 
 ```
-Current tables: admins, audit_logs, bingo_cards, bingo_cells, blockchain_transactions, coupon_instances, coupon_templates, nft_conditions, nft_coupon_bindings, nft_templates, nfts, prize_draw_results, prize_draw_types, prize_draw_winning_numbers, user_nft_ownership, users
+Current tables: admins, app_banners, bingo_card_issue_tasks, bingo_cards, bingo_cells, bingo_periods, coupon_instances, coupon_player_store_inventories, coupon_players, coupon_stores, coupon_templates, external_accounts, nft_claim_requests, nft_conditions, nft_coupon_bindings, nft_templates, nfts, pre_generated_bingo_cards, pre_minted_users, prize_draw_results, prize_draw_types, prize_draw_winning_numbers, raffle_entries, raffle_events, system_configurations, user_nft_ownership, users
 ```
 
-> `scripts/init_db.py` now wraps `alembic upgrade head`, so running it or executing Alembic directly yields the same schema state.
 ---
 
 ## Switch Databases
 Simply change the `DB_URL` variable in `.env`:
 
 ```python
-DB_URL="sqlite:///./dev.db"  # SQLite by default
+DB_URL="postgresql://user:password@localhost:5432/nictdevdb"  # PostgreSQL recommended
 
-# Example PostgreSQL URL:
-# DB_URL="postgresql://user:password@localhost:5432/nictdevdb"
+# Optional local SQLite:
+# DB_URL="sqlite:///./dev.db"
 ```
 
 Any URL supported by SQLAlchemy is valid here.
 
 ## Database migrations (Alembic)
-We use [Alembic](https://alembic.sqlalchemy.org/) to keep the SQL schema in sync with the ORM models.
+We use [Alembic](https://alembic.sqlalchemy.org/) to keep the SQL schema in sync with the ORM models. Older revisions were archived in `alembic/versions_legacy` when the API-aligned baseline was created.
 
 Common commands (run from the repo root):
 
@@ -84,6 +83,15 @@ alembic upgrade head
 alembic downgrade -1
 ```
 
+### Production baseline (one-time)
+Production previously did not track Alembic revisions. To start tracking without changing schema, stamp the baseline once:
+
+```bash
+alembic stamp 9624f3823ec4
+```
+
+After stamping, future migrations can be applied with `alembic upgrade head`.
+
 You can override the database URL for one-off commands without editing `.env` by prefixing the command with the desired `DB_URL`. For example, to run migrations on a temporary SQLite DB:
 
 ```bash
@@ -93,6 +101,15 @@ DB_URL=sqlite:///./temp.db alembic upgrade head
 That shell prefix temporarily sets `DB_URL` only for the single command, so your `.env` and running services stay untouched.
 
 The generated migration scripts live in `alembic/versions/`.
+
+### Schema drift guard
+To detect drift between the ORM metadata and the live database schema, run:
+
+```bash
+python scripts/check_schema_drift.py
+```
+
+The script exits non-zero when differences are detected and prints the operations Alembic would generate.
 
 ---
 

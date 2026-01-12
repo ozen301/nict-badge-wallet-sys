@@ -9,14 +9,6 @@ from sqlalchemy import inspect
 from nictbw.db.engine import make_engine
 
 
-def upgrade_db(target_revision: str = "head") -> None:
-    """Apply Alembic migrations up to the requested revision."""
-    project_root = Path(__file__).resolve().parents[1]
-    alembic_cfg = Config(str(project_root / "alembic.ini"))
-    alembic_cfg.set_main_option("script_location", str(project_root / "alembic"))
-    command.upgrade(alembic_cfg, target_revision)
-
-
 def print_tables() -> None:
     """Inspect the configured database and print all table names."""
     engine = make_engine()
@@ -25,8 +17,10 @@ def print_tables() -> None:
 
 
 def main() -> None:
-    """Apply migrations (default to head) and report the resulting schema."""
-    upgrade_db()
+    """Apply Alembic migrations and report the resulting schema."""
+    config_path = Path(__file__).resolve().parents[1] / "alembic.ini"
+    alembic_cfg = Config(str(config_path))
+    command.upgrade(alembic_cfg, "head")
     print_tables()
 
 

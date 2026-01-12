@@ -12,7 +12,7 @@ from nictbw.models import (
     Base,
     BingoCard,
     BingoCell,
-    NFTTemplate,
+    NFT,
     PrizeDrawResult,
     PrizeDrawType,
     User,
@@ -39,36 +39,33 @@ class PrizeDrawWorkflowTests(unittest.TestCase):
     def tearDown(self) -> None:
         self.engine.dispose()
 
-    def _seed_user_and_template(self, session):
-        admin = Admin(paymail="admin@example.com", password_hash="x")
+    def _seed_user_and_admin(self, session):
+        admin = Admin(email="admin@example.com", password_hash="x")
         user = User(in_app_id="draw-user", paymail="wallet@example.com")
         session.add_all([admin, user])
         session.flush()
+        return user, admin
 
-        template = NFTTemplate(
-            prefix="DRW",
-            name="Draw Template",
+    def _mint_nft(self, session, admin: Admin, user: User, *, origin: str):
+        prefix = f"NFT-{origin}"
+        nft = NFT(
+            prefix=prefix,
+            shared_key=f"key-{origin}",
+            name=f"NFT {origin}",
+            nft_type="default",
             category="event",
             subcategory="game",
             created_by_admin_id=admin.id,
-            minted_count=0,
         )
-        session.add(template)
-        session.flush()
-        return user, template
-
-    def _mint_nft(self, session, template: NFTTemplate, user: User, *, origin: str):
-        nft = template.instantiate_nft(shared_key=f"key-{origin}")
-        nft.origin = origin
         session.add(nft)
         session.flush()
-        nft.issue_dbwise_to(session, user)
+        nft.issue_dbwise_to(session, user, nft_origin=origin)
         return nft
 
     def test_run_prize_draw_overwrites_result(self) -> None:
         with self.Session.begin() as session:
-            user, template = self._seed_user_and_template(session)
-            nft = self._mint_nft(session, template, user, origin="ABC")
+            user, admin = self._seed_user_and_admin(session)
+            nft = self._mint_nft(session, admin, user, origin="ABC")
 
             draw_type = PrizeDrawType(
                 internal_name="instant",
@@ -121,9 +118,9 @@ class PrizeDrawWorkflowTests(unittest.TestCase):
 
     def test_run_prize_draw_batch_uses_latest_winning_number(self) -> None:
         with self.Session.begin() as session:
-            user, template = self._seed_user_and_template(session)
-            nft_one = self._mint_nft(session, template, user, origin="abc")
-            nft_two = self._mint_nft(session, template, user, origin="abz")
+            user, admin = self._seed_user_and_admin(session)
+            nft_one = self._mint_nft(session, admin, user, origin="abc")
+            nft_two = self._mint_nft(session, admin, user, origin="abz")
 
             draw_type = PrizeDrawType(
                 internal_name="batch",
@@ -157,7 +154,7 @@ class PrizeDrawWorkflowTests(unittest.TestCase):
 
     def test_run_prize_draw_batch_empty_ids_returns_empty(self) -> None:
         with self.Session.begin() as session:
-            user, template = self._seed_user_and_template(session)
+            user, _admin = self._seed_user_and_admin(session)
             draw_type = PrizeDrawType(
                 internal_name="empty",
                 algorithm_key="sha256_hex_proximity",
@@ -173,7 +170,7 @@ class PrizeDrawWorkflowTests(unittest.TestCase):
 
     def test_select_top_prize_draw_results_orders_by_similarity(self) -> None:
         with self.Session.begin() as session:
-            user, template = self._seed_user_and_template(session)
+            user, admin = self._seed_user_and_admin(session)
             draw_type = PrizeDrawType(
                 internal_name="closest",
                 algorithm_key="sha256_hex_proximity",
@@ -190,7 +187,7 @@ class PrizeDrawWorkflowTests(unittest.TestCase):
 
             origins = ["abd", "abe", "abz"]
             for origin in origins:
-                nft = self._mint_nft(session, template, user, origin=origin)
+                nft = self._mint_nft(session, admin, user, origin=origin)
                 result = run_prize_draw(
                     session,
                     nft,
@@ -255,38 +252,38 @@ class PrizeDrawWorkflowSelectionTests(unittest.TestCase):
 
     def test_run_bingo_prize_draw_limits_to_completed_lines(self) -> None:
         with self.Session.begin() as session:
-            admin = Admin(paymail="admin@example.com", password_hash="x")
+            admin = Admin(email="admin@example.com", password_hash="x")
             user = User(in_app_id="bingo-player", paymail="player@example.com")
             session.add_all([admin, user])
             session.flush()
 
-            line_templates = [
-                NFTTemplate(
+            line_defs = [
+                NFT(
                     prefix=f"LINE{i}",
+                    shared_key=f"line-{i}",
                     name=f"Line {i}",
+                    nft_type="default",
                     category="game",
                     subcategory=f"cell-{i}",
                     created_by_admin_id=admin.id,
                 )
                 for i in range(3)
             ]
-            filler_template = NFTTemplate(
+            filler_def = NFT(
                 prefix="FILL",
+                shared_key="filler",
                 name="Filler",
+                nft_type="default",
                 category="game",
                 subcategory="filler",
                 created_by_admin_id=admin.id,
             )
-            session.add_all(line_templates + [filler_template])
+            session.add_all(line_defs + [filler_def])
             session.flush()
 
             nfts = []
-            for i, tpl in enumerate(line_templates):
-                nft = tpl.instantiate_nft(shared_key=f"line-{i}")
-                nft.origin = f"origin-{i}"
-                session.add(nft)
-                session.flush()
-                nft.issue_dbwise_to(session, user)
+            for i, nft in enumerate(line_defs):
+                nft.issue_dbwise_to(session, user, nft_origin=f"origin-{i}")
                 nfts.append(nft)
 
             ownership_by_nft = {o.nft_id: o for o in user.ownerships}
@@ -311,7 +308,7 @@ class PrizeDrawWorkflowSelectionTests(unittest.TestCase):
                         bingo_card_id=card.id,
                         idx=idx,
                         target_template_id=(
-                            line_templates[idx].id if idx < 3 else filler_template.id
+                            line_defs[idx].id if idx < 3 else filler_def.id
                         ),
                         nft_id=nft_id,
                         matched_ownership_id=ownership_id,
@@ -352,39 +349,34 @@ class PrizeDrawWorkflowSelectionTests(unittest.TestCase):
 
     def test_run_final_attendance_prize_draw_filters_by_prefix(self) -> None:
         with self.Session.begin() as session:
-            admin = Admin(paymail="admin2@example.com", password_hash="y")
+            admin = Admin(email="admin2@example.com", password_hash="y")
             user = User(in_app_id="final-player", paymail="final@example.com")
             session.add_all([admin, user])
             session.flush()
 
-            attendance_tpl = NFTTemplate(
+            attendance_nft = NFT(
                 prefix="FINAL-DAY",
+                shared_key="attendance",
                 name="Final Attendance",
+                nft_type="default",
                 category="event",
                 subcategory="final-day",
                 created_by_admin_id=admin.id,
             )
-            other_tpl = NFTTemplate(
+            other_nft = NFT(
                 prefix="NON-FINAL",
+                shared_key="other",
                 name="Other",
+                nft_type="default",
                 category="event",
                 subcategory="other",
                 created_by_admin_id=admin.id,
             )
-            session.add_all([attendance_tpl, other_tpl])
+            session.add_all([attendance_nft, other_nft])
             session.flush()
 
-            attendance_nft = attendance_tpl.instantiate_nft(shared_key="attendance")
-            attendance_nft.origin = "final-origin"
-            session.add(attendance_nft)
-            session.flush()
-            attendance_nft.issue_dbwise_to(session, user)
-
-            other_nft = other_tpl.instantiate_nft(shared_key="other")
-            other_nft.origin = "other-origin"
-            session.add(other_nft)
-            session.flush()
-            other_nft.issue_dbwise_to(session, user)
+            attendance_nft.issue_dbwise_to(session, user, nft_origin="final-origin")
+            other_nft.issue_dbwise_to(session, user, nft_origin="other-origin")
 
             draw_type = PrizeDrawType(
                 internal_name="final-attendance",
@@ -402,7 +394,7 @@ class PrizeDrawWorkflowSelectionTests(unittest.TestCase):
             winners = run_final_attendance_prize_draw(
                 session,
                 draw_type,
-                attendance_template_id=attendance_tpl.id,
+                attendance_template_id=attendance_nft.id,
                 winning_number=winning_number,
                 limit=1,
             )
