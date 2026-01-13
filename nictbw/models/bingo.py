@@ -97,6 +97,15 @@ class BingoCard(Base):
         Boolean, default=False, nullable=False, server_default=text("false")
     )
 
+    @property
+    def is_expired(self) -> bool:
+        if self.expiry is None:
+            return False
+        expiry = self.expiry
+        if expiry.tzinfo is None:
+            expiry = expiry.replace(tzinfo=timezone.utc)
+        return expiry < datetime.now(timezone.utc)
+
     user: Mapped["User"] = relationship(back_populates="bingo_cards")
     period: Mapped[Optional["BingoPeriod"]] = relationship(back_populates="cards")
     cells: Mapped[list["BingoCell"]] = relationship(

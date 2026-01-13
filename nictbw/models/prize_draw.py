@@ -270,33 +270,6 @@ class RaffleEntry(Base):
     __table_args__ = (
         UniqueConstraint("user_id", "bingo_card_id", name="uq_raffle_entry_per_card"),
     )
-    """All prize draw results evaluated using this winning number."""
-
-    def __init__(
-        self,
-        *,
-        value: str,
-        draw_type: Optional["PrizeDrawType"] = None,
-        draw_type_id: Optional[int] = None,
-        created_at: Optional[datetime] = None,
-        results: Optional[list["PrizeDrawResult"]] = None,
-    ) -> None:
-        self.value = value
-        if draw_type is not None:
-            self.draw_type = draw_type
-        if draw_type_id is not None:
-            self.draw_type_id = draw_type_id
-        if created_at is not None:
-            self.created_at = created_at
-        if results is not None:
-            self.results = results
-
-    def __repr__(self) -> str:  # pragma: no cover - repr is trivial
-        return "<PrizeDrawWinningNumber(id={id}, draw_type_id={dt}, value={value})>".format(
-            id=self.id,
-            dt=self.draw_type_id,
-            value=self.value,
-        )
 
 
 class PrizeDrawResult(Base):
