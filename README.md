@@ -35,7 +35,7 @@ nict-badge-wallet-sys/
 ```bash
 git clone https://github.com/ozen301/nict-badge-wallet-sys.git
 cd nict-badge-wallet-sys
-pip install -e .
+pip install -e . --config-settings editable_mode=strict
 ```
 
 ### 2. Configure .env file
