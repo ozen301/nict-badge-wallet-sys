@@ -62,7 +62,7 @@ Current tables: admins, app_banners, bingo_card_issue_tasks, bingo_cards, bingo_
 Simply change the `DB_URL` variable in `.env`:
 
 ```python
-DB_URL="postgresql://user:password@localhost:5432/nictdevdb"  # PostgreSQL recommended
+DB_URL="postgresql+psycopg://user:password@localhost:5432/nictdevdb"  # PostgreSQL recommended
 
 # Optional local SQLite:
 # DB_URL="sqlite:///./dev.db"
