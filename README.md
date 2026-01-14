@@ -43,8 +43,11 @@ Copy `.env.example` to `.env` and modify as needed.
 
 ### 3. Initialize the database
 ```bash
+# create all tables in the target database
 python scripts/init_db.py
-python scripts/seed_dev.py  # optional, seed dev data
+
+# optional, seed dev data
+python scripts/seed_dev.py  
 ```
 
 This creates all schema objects in the database configured by `DB_URL`. The `init_db.py` script will print all tables present after migration:
@@ -68,7 +71,7 @@ DB_URL="postgresql://user:password@localhost:5432/nictdevdb"  # PostgreSQL recom
 Any URL supported by SQLAlchemy is valid here.
 
 ## Database migrations (Alembic)
-We use [Alembic](https://alembic.sqlalchemy.org/) to keep the SQL schema in sync with the ORM models. Older revisions were archived in `alembic/versions_legacy` when the API-aligned baseline was created.
+We use [Alembic](https://alembic.sqlalchemy.org/) to keep the SQL schema in sync with the ORM models. Older revisions were archived in `alembic/versions_legacy` when the API-aligned baseline was created, while current migrations are stored in `alembic/versions`.
 
 Common commands (run from the repo root):
 
@@ -83,16 +86,8 @@ alembic upgrade head
 alembic downgrade -1
 ```
 
-### Production baseline (one-time)
-Production previously did not track Alembic revisions. To start tracking without changing schema, stamp the baseline once:
-
-```bash
-alembic stamp 9624f3823ec4
-```
-
-After stamping, future migrations can be applied with `alembic upgrade head`.
-
-You can override the database URL for one-off commands without editing `.env` by prefixing the command with the desired `DB_URL`. For example, to run migrations on a temporary SQLite DB:
+### One-time DB_URL override
+You can override the database URL for one-time commands without editing `.env` by prefixing the command with the desired `DB_URL`. For example, to run migrations on a temporary SQLite DB:
 
 ```bash
 DB_URL=sqlite:///./temp.db alembic upgrade head
@@ -100,7 +95,7 @@ DB_URL=sqlite:///./temp.db alembic upgrade head
 
 That shell prefix temporarily sets `DB_URL` only for the single command, so your `.env` and running services stay untouched.
 
-The generated migration scripts live in `alembic/versions/`.
+
 
 ### Schema drift guard
 To detect drift between the ORM metadata and the live database schema, run:
