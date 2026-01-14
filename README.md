@@ -106,6 +106,19 @@ python scripts/check_schema_drift.py
 
 The script exits non-zero when differences are detected and prints the operations Alembic would generate.
 
+## Schema governance
+This repository is the source of truth for the database schema used by the transit API.
+
+When updating the schema:
+1. Update the ORM models and add an Alembic migration in this repo.
+2. Run tests and `python scripts/check_schema_drift.py`.
+3. Bump `pyproject.toml` version and tag a release (e.g., `v0.2.0`).
+4. Apply the migration to production from this repo.
+
+When the API needs a schema update:
+1. Update the API dependency to the new `nict-bw` tag.
+2. Verify migrations are already applied in the target environment.
+
 ---
 
 ## Documentation and Examples

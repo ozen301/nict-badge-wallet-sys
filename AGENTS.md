@@ -51,3 +51,13 @@ This value is compared with a **winning number** to determine outcomes — insta
 - Production Postgres is the source of truth for schema shape.
 - Alembic baseline revision: `9624f3823ec4` (older revisions archived in `alembic/versions_legacy`).
 - Use `python scripts/check_schema_drift.py` to detect ORM vs live DB drift.
+- When schema changes, bump `pyproject.toml` version, tag a release, and update API dependency.
+
+## Recent Integration Notes
+- Released `v0.2.0` from this repo (pyproject version updated to 0.2.0).
+- Added API adapter: `_api_ref/nft_transit_api/app/models.py` statically re-exports `nictbw.models` (Pylance-friendly).
+- API `app/db.py` uses `nictbw.models.Base`; API `requirements.txt` pins `nict-bw` to `v0.2.0`.
+- Compatibility tweaks in `nictbw`: `BingoCard.is_expired` added; broken `RaffleEntry.__init__` removed.
+- API main has newer period-based bingo changes (BingoPeriodReward, user_id+period_id uniqueness) not in prod; avoid merging until prod schema is updated.
+- API docs updated: `_api_ref/nft_transit_api/docs/ja/DEVELOPMENT.md` includes schema update procedure.
+- `_api_ref/` is a local reference clone and is not part of the `nict-bw` repo; it may not be present in future sessions.
