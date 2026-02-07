@@ -43,6 +43,35 @@ class BingoPeriod(Base):
     )
 
     cards: Mapped[list["BingoCard"]] = relationship(back_populates="period")
+    rewards: Mapped[list["BingoPeriodReward"]] = relationship(back_populates="period")
+
+
+class BingoPeriodReward(Base):
+    """Reward NFT configuration for a bingo period."""
+
+    __tablename__ = "bingo_period_rewards"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    period_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("bingo_periods.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    reward_nft_id: Mapped[int] = mapped_column(
+        ID_TYPE, ForeignKey("nfts.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    enabled: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True, server_default=text("true")
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc)
+    )
+
+    period: Mapped["BingoPeriod"] = relationship(back_populates="rewards")
+    reward_nft: Mapped["NFT"] = relationship("NFT")
+
+    __table_args__ = (
+        UniqueConstraint("period_id", name="uq_bingo_period_rewards_period"),
+        Index("ix_bingo_period_rewards_enabled", "enabled"),
+    )
 
 
 class BingoCard(Base):
@@ -117,7 +146,6 @@ class BingoCard(Base):
 
     __table_args__ = (
         CheckConstraint("state IN ('active','completed','expired')", name="bingo_card_state_enum"),
-        UniqueConstraint("user_id", "issuance_month", name="uq_bingo_card_user_month"),
     )
 
     def __repr__(self) -> str:
@@ -139,7 +167,10 @@ class BingoCard(Base):
         full = {
             "id": self.id,
             "user_id": self.user_id,
+            "period_id": self.period_id,
             "issued_at": dt_iso(self.issued_at),
+            "start_time": dt_iso(self.start_time),
+            "expiry": dt_iso(self.expiry),
             "issuance_month": self.issuance_month,
             "completed_at": dt_iso(self.completed_at),
             "state": self.state,
@@ -155,6 +186,9 @@ class BingoCard(Base):
             "cells",
             "issuance_month",
             "bingo_reward_claimed",
+            "expiry",
+            "start_time",
+            "period_id",
         }
         return {k: v for k, v in full.items() if k in keep}
 

@@ -7,6 +7,7 @@ from .nft import NFTCondition, NFTTemplate, NFT, NFTDefinition  # noqa: F401
 from .ownership import UserNFTOwnership, NFTInstance  # noqa: F401
 from .bingo import (  # noqa: F401
     BingoPeriod,
+    BingoPeriodReward,
     BingoCard,
     BingoCardIssueTask,
     BingoCell,
@@ -29,6 +30,7 @@ from .prize_draw import (  # noqa: F401
 )
 from .misc import (  # noqa: F401
     NFTClaimRequest,
+    UserActivityEvent,
     ExternalAccount,
     AppBanner,
     PreMintedUser,
@@ -46,6 +48,7 @@ __all__ = [
     "UserNFTOwnership",
     "NFTInstance",
     "BingoPeriod",
+    "BingoPeriodReward",
     "BingoCard",
     "BingoCardIssueTask",
     "BingoCell",
@@ -62,6 +65,7 @@ __all__ = [
     "RaffleEvent",
     "RaffleEntry",
     "NFTClaimRequest",
+    "UserActivityEvent",
     "ExternalAccount",
     "AppBanner",
     "PreMintedUser",

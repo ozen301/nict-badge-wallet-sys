@@ -24,6 +24,12 @@ class UserNFTOwnership(Base):
     id: Mapped[int] = mapped_column(ID_TYPE, primary_key=True, index=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(ID_TYPE, ForeignKey("users.id"), nullable=False)
     nft_id: Mapped[int] = mapped_column(ID_TYPE, ForeignKey("nfts.id"), nullable=False)
+    bingo_period_id: Mapped[Optional[int]] = mapped_column(
+        Integer,
+        ForeignKey("bingo_periods.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     serial_number: Mapped[int] = mapped_column(Integer, nullable=False)
     unique_nft_id: Mapped[str] = mapped_column(String(255), nullable=False)
     acquired_at: Mapped[datetime] = mapped_column(

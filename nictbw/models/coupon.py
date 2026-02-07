@@ -43,6 +43,12 @@ class CouponTemplate(Base):
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     next_serial: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     max_supply: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    max_per_user: Mapped[Optional[int]] = mapped_column(
+        Integer, nullable=True, server_default=text("1")
+    )
+    eligible_for_cross_promo: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default=text("false")
+    )
     max_redeem: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     expiry_days: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
@@ -51,6 +57,12 @@ class CouponTemplate(Base):
     available_stores: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     usage_restrictions: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     image_url: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
+    default_display_nft_id: Mapped[Optional[int]] = mapped_column(
+        ID_TYPE,
+        ForeignKey("nfts.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     fixed_expiry_date: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
@@ -162,6 +174,12 @@ class CouponInstance(Base):
     nft_id: Mapped[Optional[int]] = mapped_column(
         ID_TYPE, ForeignKey("nfts.id"), nullable=True
     )
+    display_nft_id: Mapped[Optional[int]] = mapped_column(
+        ID_TYPE,
+        ForeignKey("nfts.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     user_id: Mapped[Optional[int]] = mapped_column(
         ID_TYPE, ForeignKey("users.id"), nullable=True
     )
@@ -179,6 +197,10 @@ class CouponInstance(Base):
     redeemed_at: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    redeem_request_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    redeem_client_ip: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    redeem_x_forwarded_for: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    redeem_user_agent: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     expiry: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
@@ -192,7 +214,8 @@ class CouponInstance(Base):
     image_url: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
 
     template: Mapped["CouponTemplate"] = relationship(back_populates="instances")
-    nft: Mapped[Optional["NFT"]] = relationship()
+    nft: Mapped[Optional["NFT"]] = relationship("NFT", foreign_keys=[nft_id])
+    display_nft: Mapped[Optional["NFT"]] = relationship("NFT", foreign_keys=[display_nft_id])
     user: Mapped[Optional["User"]] = relationship(back_populates="coupons")
     ownership: Mapped[Optional["UserNFTOwnership"]] = relationship(
         back_populates="coupon_instances"
@@ -311,12 +334,14 @@ class CouponPlayerStoreInventory(Base):
 
     __tablename__ = "coupon_player_store_inventories"
 
-    id: Mapped[int] = mapped_column(ID_TYPE, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(
+        ID_TYPE, primary_key=True, index=True, autoincrement=True
+    )
     store_id: Mapped[int] = mapped_column(
-        ID_TYPE, ForeignKey("coupon_stores.id", ondelete="CASCADE"), nullable=False
+        ID_TYPE, ForeignKey("coupon_stores.id", ondelete="CASCADE"), nullable=False, index=True
     )
     player_id: Mapped[int] = mapped_column(
-        ID_TYPE, ForeignKey("coupon_players.id", ondelete="CASCADE"), nullable=False
+        ID_TYPE, ForeignKey("coupon_players.id", ondelete="CASCADE"), nullable=False, index=True
     )
     max_supply: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     issued_count: Mapped[int] = mapped_column(
@@ -350,6 +375,4 @@ class CouponPlayerStoreInventory(Base):
             name="ck_cpsi_max_redeem_le_max_supply",
         ),
         Index("ix_cpsi_active", "active"),
-        Index("ix_cpsi_store_id", "store_id"),
-        Index("ix_cpsi_player_id", "player_id"),
     )
