@@ -211,6 +211,7 @@ dev.db
 
 # tests during development
 dev_tests/
+scratch/
 
 # development notes
 dev_memo.md
