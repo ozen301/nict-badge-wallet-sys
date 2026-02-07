@@ -16,6 +16,7 @@ from sqlalchemy import (
     func,
     select,
     inspect,
+    text,
 )
 from sqlalchemy.orm import Mapped, Session, mapped_column, relationship
 
@@ -60,7 +61,7 @@ class NFT(Base):
 
     id: Mapped[int] = mapped_column(ID_TYPE, primary_key=True, index=True, autoincrement=True)
     template_id: Mapped[Optional[int]] = mapped_column(
-        ID_TYPE, ForeignKey("nft_templates.id"), nullable=True
+        ID_TYPE, ForeignKey("nft_templates.id"), nullable=True, index=True
     )
     prefix: Mapped[str] = mapped_column(String(100), nullable=False)
     shared_key: Mapped[str] = mapped_column(String(255), nullable=False)
@@ -82,8 +83,26 @@ class NFT(Base):
     status: Mapped[str] = mapped_column(String(50), default="active")
     triggers_bingo_card: Mapped[bool] = mapped_column(Boolean, default=False)
     distributes_coupons: Mapped[bool] = mapped_column(Boolean, default=True)
+    bingo_period_id: Mapped[Optional[int]] = mapped_column(
+        Integer,
+        ForeignKey("bingo_periods.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    bingo_is_center: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=text("false"), nullable=False
+    )
+    bingo_force_include: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=text("false"), nullable=False
+    )
     is_dummy: Mapped[bool] = mapped_column(Boolean, default=False)
     can_be_center: Mapped[bool] = mapped_column(Boolean, default=True)
+    bingo_random_candidate: Mapped[bool] = mapped_column(
+        Boolean, default=True, server_default=text("true"), nullable=False
+    )
+    is_public: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=text("false"), nullable=False
+    )
     store_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     latitude: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     longitude: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
@@ -106,6 +125,7 @@ class NFT(Base):
     prize_draw_results = relationship("PrizeDrawResult", back_populates="nft")
     ownerships = relationship("UserNFTOwnership", back_populates="nft")
     template = relationship("NFTTemplate")
+    bingo_period = relationship("BingoPeriod")
 
     def to_json(self, *, compact: bool = False) -> dict:
         full = {
@@ -242,6 +262,9 @@ class NFTTemplate(Base):
     prohibited_nft_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
     other_conditions: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     triggers_bingo_card: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_public: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=text("false"), nullable=False
+    )
     created_by_admin_id: Mapped[int] = mapped_column(
         ID_TYPE, ForeignKey("admins.id"), nullable=False
     )
