@@ -358,12 +358,15 @@ class BingoCard(Base):
         completed lines. Each tuple represents the positions of cells in a winning
         line that are all in ``"unlocked"`` state.
         """
+        # Create a mapping from idx to cell for safe access
+        cell_map = {cell.idx: cell for cell in self.cells}
+        
         result: list[tuple[int, int, int]] = []
         for a, b, c in self.winning_lines:
-            if all(
-                cell.state == "unlocked"
-                for cell in (self.cells[a], self.cells[b], self.cells[c])
-            ):
+            if (a in cell_map and b in cell_map and c in cell_map and
+                cell_map[a].state == "unlocked" and
+                cell_map[b].state == "unlocked" and
+                cell_map[c].state == "unlocked"):
                 result.append((a, b, c))
         return result
 
@@ -518,7 +521,13 @@ class BingoCell(Base):
 
         When compact is True, keep only essential fields and a compact template.
         """
-        template_obj = self.target_template.to_json(compact=compact)
+        template_obj = self.target_template.to_json(compact=compact) if self.target_template else None
+
+        # Wildcard cells special handling 
+        # (this is required by the transit API's bingo_wildcard.py feature)
+        if self.idx in {4, 7}:
+            if self.state == "unlocked" and self.nft is not None:
+                template_obj = self.nft.to_json(compact=compact)
 
         full = {
             "id": self.id,

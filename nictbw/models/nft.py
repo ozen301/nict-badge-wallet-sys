@@ -127,6 +127,12 @@ class NFT(Base):
     template = relationship("NFTTemplate")
     bingo_period = relationship("BingoPeriod")
 
+    @property
+    def remaining_supply(self) -> Optional[int]:
+        if self.max_supply is None:
+            return None
+        return max(0, self.max_supply - self.minted_count)
+
     def to_json(self, *, compact: bool = False) -> dict:
         full = {
             "id": self.id,
