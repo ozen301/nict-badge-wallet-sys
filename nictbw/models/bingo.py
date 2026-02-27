@@ -203,17 +203,17 @@ class BingoCard(Base):
         cls,
         session: Session,
         user: "User",
-        center_template: "NFTDefinition",
+        center_definition: "NFTDefinition",
         *,
-        excluded_templates: Optional[Iterable["int | NFTDefinition"]] = None,
-        included_templates: Optional[Iterable["int | NFTDefinition"]] = None,
+        excluded_definitions: Optional[Iterable["int | NFTDefinition"]] = None,
+        included_definitions: Optional[Iterable["int | NFTDefinition"]] = None,
         issued_at: Optional[datetime] = None,
         state: str = "active",
         rng: Optional[random.Random] = None,
     ) -> "BingoCard":
         """Generate and persist a bingo card for a user.
 
-        Creates a 3x3 BingoCard (centre at index 4) populated with NFTDefinition templates.
+        Creates a 3x3 BingoCard (centre at index 4) populated with NFT definitions.
         The card is added to and flushed on the provided SQLAlchemy session
         before being returned.
 
@@ -223,14 +223,14 @@ class BingoCard(Base):
             Active SQLAlchemy session.
         user : User
             Recipient of the card.
-        center_template : NFTDefinition
+        center_definition : NFTDefinition
             NFTDefinition assigned to the centre cell (index 4).
-        excluded_templates : iterable[int | NFTDefinition], optional
+        excluded_definitions : iterable[int | NFTDefinition], optional
             Definitions that must not appear on the card. Can be specified as a list of
             `NFTDefinition` objects or their integer primary keys.
-        included_templates : iterable[int | NFTDefinition], optional
+        included_definitions : iterable[int | NFTDefinition], optional
             If provided, the method will select non-centre definitions only from
-            this set (after removing any excluded_templates). If omitted or
+            this set (after removing any excluded_definitions). If omitted or
             empty, definitions are chosen from all available NFTDefinition records.
             Can be specified as a list of `NFTDefinition` objects or their integer primary keys.
         issued_at : datetime, optional
@@ -264,15 +264,15 @@ class BingoCard(Base):
         rng = rng or random.Random()
 
         # Convert include/exclude inputs into sets of NFT definition IDs.
-        excluded_definition_ids = {_to_id(t) for t in (excluded_templates or [])}
-        included_definition_ids = {_to_id(t) for t in (included_templates or [])}
+        excluded_definition_ids = {_to_id(t) for t in (excluded_definitions or [])}
+        included_definition_ids = {_to_id(t) for t in (included_definitions or [])}
 
         if included_definition_ids:
             candidate_definition_ids = set(included_definition_ids)
         else:
             candidate_definition_ids = set(session.scalars(select(NFTDefinition.id)))
 
-        candidate_definition_ids.discard(center_template.id)
+        candidate_definition_ids.discard(center_definition.id)
         candidate_definition_ids -= excluded_definition_ids
 
         if len(candidate_definition_ids) < 8:
@@ -292,7 +292,7 @@ class BingoCard(Base):
 
         # Fetch any existing ownership records for selected definitions.
         # Matching cells will be created as unlocked, typically including the centre.
-        definition_ids_needed = set(selected_definition_ids) | {center_template.id}
+        definition_ids_needed = set(selected_definition_ids) | {center_definition.id}
         ownerships = session.scalars(
             select(NFTInstance)
             .join(NFTDefinition)
@@ -325,7 +325,7 @@ class BingoCard(Base):
             )
 
         # Build the centre cell first, then the others
-        cells = [build_cell(4, center_template.id)]
+        cells = [build_cell(4, center_definition.id)]
         for idx, tid in zip(positions, selected_definition_ids):
             cells.append(build_cell(idx, tid))
 

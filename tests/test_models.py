@@ -557,7 +557,7 @@ class DBTestCase(unittest.TestCase):
             card = BingoCard.generate_for_user(
                 session=session,
                 user=user,
-                center_template=definitions[0],
+                center_definition=definitions[0],
                 rng=rng,
             )
             self.assertEqual(len(card.cells), 9)
