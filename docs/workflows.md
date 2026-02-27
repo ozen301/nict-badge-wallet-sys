@@ -130,7 +130,7 @@ Use `nictbw.workflows.run_bingo_prize_draw` to evaluate only NFTs that are part 
 
 ### Final-Day Attendance Prize Draw
 Use `nictbw.workflows.run_final_attendance_prize_draw` to evaluate only the final-day attendance stamp NFTs. The helper:
-1. Requires `attendance_template_id` (the final-day attendance template).
+1. Requires `attendance_definition_id` (the final-day attendance NFT definition id).
 2. Selects `NFTInstance`s minted from that definition.
 3. Evaluates and ranks them, returning ties at the cutoff when `limit` is set.
 

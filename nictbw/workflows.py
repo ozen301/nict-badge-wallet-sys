@@ -471,7 +471,7 @@ def run_final_attendance_prize_draw(
     session: Session,
     draw_type: PrizeDrawType,
     *,
-    attendance_template_id: Optional[int] = None,
+    attendance_definition_id: Optional[int] = None,
     winning_number: Optional[PrizeDrawWinningNumber] = None,
     threshold: Optional[float] = None,
     registry: Optional[AlgorithmRegistry] = None,
@@ -479,16 +479,16 @@ def run_final_attendance_prize_draw(
 ) -> list[PrizeDrawResult]:
     """Run a draw that targets only the final-day attendance stamp instances.
 
-    ``attendance_template_id`` must be supplied to resolve the attendance
+    ``attendance_definition_id`` must be supplied to resolve the attendance
     NFT definition. Only instances for that definition participate in the draw.
     Winners are ranked by similarity with ties included at the cutoff.
     """
 
-    if attendance_template_id is None:
-        raise ValueError("attendance_template_id is required")
+    if attendance_definition_id is None:
+        raise ValueError("attendance_definition_id is required")
 
     eligible_instances = _instances_for_definition_with_ownership(
-        session, attendance_template_id
+        session, attendance_definition_id
     )
     if not eligible_instances:
         return []

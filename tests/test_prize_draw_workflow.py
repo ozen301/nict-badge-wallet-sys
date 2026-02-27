@@ -399,7 +399,7 @@ class PrizeDrawWorkflowSelectionTests(unittest.TestCase):
             winners = run_final_attendance_prize_draw(
                 session,
                 draw_type,
-                attendance_template_id=attendance_nft.id,
+                attendance_definition_id=attendance_nft.id,
                 winning_number=winning_number,
                 limit=1,
             )
