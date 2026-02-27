@@ -5,7 +5,7 @@ import json
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from nictbw.models import Base, Admin, User, NFT, BingoCard, BingoCell
+from nictbw.models import Base, Admin, User, NFTDefinition, BingoCard, BingoCell
 
 
 class SerializationTestCase(unittest.TestCase):
@@ -27,7 +27,7 @@ class SerializationTestCase(unittest.TestCase):
             session.add(admin)
             session.flush()
 
-            nft = NFT(
+            nft = NFTDefinition(
                 prefix="SER",
                 shared_key="shared",
                 name="Serializable",
@@ -54,7 +54,7 @@ class SerializationTestCase(unittest.TestCase):
             self.assertIsInstance(d["created_at"], str)
             self.assertIsInstance(d["updated_at"], str)
 
-            # NFT serialization uses the dict directly
+            # NFTDefinition serialization uses the dict directly
             parsed = json.loads(json.dumps(d))
             self.assertEqual(parsed, d)
 
@@ -65,7 +65,7 @@ class SerializationTestCase(unittest.TestCase):
             session.add(admin)
             session.flush()
 
-            nft = NFT(
+            nft = NFTDefinition(
                 prefix="CELL",
                 shared_key="shared",
                 name="CellTpl",
@@ -111,10 +111,10 @@ class SerializationTestCase(unittest.TestCase):
             session.add(admin)
             session.flush()
 
-            # Create 9 NFT definitions
+            # Create 9 NFTDefinition definitions
             definitions = []
             for i in range(9):
-                nft = NFT(
+                nft = NFTDefinition(
                     prefix=f"T{i}",
                     shared_key=f"shared-{i}",
                     name=f"T{i}",

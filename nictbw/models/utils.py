@@ -19,16 +19,16 @@ def generate_unique_nft_id(
     """Return a unique NFT identifier using base62 random characters.
 
     When a session is provided, the helper retries if the generated value is
-    already present (or pending) in ``UserNFTOwnership.unique_nft_id``.
+    already present (or pending) in ``NFTInstance.unique_nft_id``.
     """
 
     ownership_cls = None
     select_stmt = None
     if session is not None:
         from sqlalchemy import select
-        from .ownership import UserNFTOwnership
+        from .ownership import NFTInstance
 
-        ownership_cls = UserNFTOwnership
+        ownership_cls = NFTInstance
         select_stmt = select
 
     attempts = 0

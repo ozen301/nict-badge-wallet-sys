@@ -26,7 +26,7 @@ from .id_type import ID_TYPE
 from .utils import generate_unique_nft_id
 
 if TYPE_CHECKING:
-    from .ownership import UserNFTOwnership
+    from .ownership import NFTInstance
     from .user import User
 
 
@@ -54,8 +54,8 @@ class NFTCondition(Base):
     )
 
 
-class NFT(Base):
-    """NFT definition model (acts as the template in current API schema)."""
+class NFTDefinition(Base):
+    """NFT definition model (acts as template data in current API schema)."""
 
     __tablename__ = "nfts"
 
@@ -127,7 +127,7 @@ class NFT(Base):
     )
 
     prize_draw_results = relationship("PrizeDrawResult", back_populates="nft")
-    ownerships = relationship("UserNFTOwnership", back_populates="nft")
+    ownerships = relationship("NFTInstance", back_populates="nft")
     template = relationship("NFTTemplate")
     bingo_period = relationship("BingoPeriod")
 
@@ -178,20 +178,20 @@ class NFT(Base):
         return {k: v for k, v in full.items() if k in keep}
 
     @classmethod
-    def count_nfts_by_prefix(cls, session: Session, prefix: str) -> int:
+    def count_instances_by_prefix(cls, session: Session, prefix: str) -> int:
         """Count ownership records for NFTs sharing the given prefix."""
 
-        from .ownership import UserNFTOwnership
+        from .ownership import NFTInstance
 
         stmt = (
             select(func.count())
-            .select_from(UserNFTOwnership)
-            .join(cls, cls.id == UserNFTOwnership.nft_id)
+            .select_from(NFTInstance)
+            .join(cls, cls.id == NFTInstance.nft_id)
             .where(cls.prefix == prefix)
         )
         return int(session.scalar(stmt) or 0)
 
-    def issue_dbwise_to(
+    def issue_dbwise_to_user(
         self,
         session: Session,
         user: "User",
@@ -201,17 +201,17 @@ class NFT(Base):
         acquired_at: Optional[datetime] = None,
         status: str = "succeeded",
         **ownership_fields,
-    ) -> "UserNFTOwnership":
+    ) -> "NFTInstance":
         """Assign ownership of this NFT definition to a user in the database."""
 
-        from .ownership import UserNFTOwnership
+        from .ownership import NFTInstance
 
         if self.max_supply is not None and self.minted_count >= self.max_supply:
-            raise ValueError("Max supply for this NFT has been reached")
+            raise ValueError("Max supply for this NFT definition has been reached")
 
-        existing = UserNFTOwnership.get_by_user_and_nft(session, user, self)
+        existing = NFTInstance.get_by_user_and_definition(session, user, self)
         if existing is not None:
-            raise ValueError("User already owns this NFT")
+            raise ValueError("User already owns this NFT definition")
 
         if not inspect(self).persistent:
             session.add(self)
@@ -222,7 +222,7 @@ class NFT(Base):
         if unique_nft_id is None:
             unique_nft_id = generate_unique_nft_id(self.prefix, session=session)
 
-        ownership = UserNFTOwnership(
+        ownership = NFTInstance(
             user_id=user.id,
             nft_id=self.id,
             serial_number=serial_number,
@@ -298,10 +298,10 @@ class NFTTemplate(Base):
         override_name: Optional[str] = None,
         override_description: Optional[str] = None,
         override_created_by_admin_id: Optional[int] = None,
-    ) -> NFT:
+    ) -> NFTDefinition:
         """Instantiate an NFT definition based on this template."""
 
-        nft = NFT(
+        nft = NFTDefinition(
             template_id=self.id,
             prefix=self.prefix,
             shared_key=shared_key,
@@ -328,6 +328,3 @@ class NFTTemplate(Base):
     def get_by_name(cls, session: Session, name: str) -> Optional["NFTTemplate"]:
         stmt = select(cls).where(cls.name == name)
         return session.scalar(stmt)
-
-
-NFTDefinition = NFT

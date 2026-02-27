@@ -18,8 +18,8 @@ from sqlalchemy.orm import Session
 from .draw_number import derive_draw_number
 from .scoring import AlgorithmRegistry, DEFAULT_SCORING_REGISTRY
 from ..models import PrizeDrawResult, PrizeDrawType, PrizeDrawWinningNumber
-from ..models.nft import NFT
-from ..models.ownership import UserNFTOwnership
+from ..models.nft import NFTDefinition
+from ..models.ownership import NFTInstance
 
 
 @dataclass
@@ -70,7 +70,7 @@ class PrizeDrawEngine:
 
     def evaluate(
         self,
-        nft: NFT,
+        nft: NFTDefinition,
         draw_type: PrizeDrawType,
         winning_number: Optional[PrizeDrawWinningNumber] = None,
         threshold: Optional[float] = None,
@@ -80,8 +80,8 @@ class PrizeDrawEngine:
 
         Parameters
         ----------
-        nft : NFT
-            NFT definition to evaluate. The latest ownership must provide
+        nft : NFTDefinition
+            NFT to evaluate. The latest ownership must provide
             ``nft_origin`` for draw number derivation.
         draw_type : PrizeDrawType
             Draw configuration describing algorithm and default threshold.
@@ -106,7 +106,7 @@ class PrizeDrawEngine:
         -----
         This evaluation process performs the following steps:
 
-        1. Resolve the most recent :class:`UserNFTOwnership`
+        1. Resolve the most recent :class:`NFTInstance`
            record to capture which user owned the NFT at evaluation time.
         2. Derive the deterministic draw number from the ownership's NFT origin.
         3. Run the scoring algorithm (when a winning number is provided) and
@@ -195,7 +195,7 @@ class PrizeDrawEngine:
     def evaluate_batch(
         self,
         *,
-        nfts: Iterable[NFT],
+        nfts: Iterable[NFTDefinition],
         draw_type: PrizeDrawType,
         winning_number: Optional[PrizeDrawWinningNumber] = None,
         threshold: Optional[float] = None,
@@ -210,7 +210,7 @@ class PrizeDrawEngine:
 
         Parameters
         ----------
-        nfts : Iterable[NFT]
+        nfts : Iterable[NFTDefinition]
             Collection of NFTs to evaluate against the draw configuration.
         draw_type : PrizeDrawType
             Draw type applied to every evaluation, which determines the algorithm and
@@ -242,23 +242,23 @@ class PrizeDrawEngine:
             )
         return evaluations
 
-    def _resolve_latest_ownership(self, nft: NFT) -> Optional[UserNFTOwnership]:
+    def _resolve_latest_ownership(self, nft: NFTDefinition) -> Optional[NFTInstance]:
         """Return the newest ownership snapshot for ``nft`` if one exists."""
 
         # Ordering by ``acquired_at`` (then ``id``) gives us a deterministic
         # "latest" record even when timestamps collide due to database
         # precision.
         stmt = (
-            select(UserNFTOwnership)
-            .where(UserNFTOwnership.nft_id == nft.id)
-            .order_by(UserNFTOwnership.acquired_at.desc(), UserNFTOwnership.id.desc())
+            select(NFTInstance)
+            .where(NFTInstance.nft_id == nft.id)
+            .order_by(NFTInstance.acquired_at.desc(), NFTInstance.id.desc())
         )
         return self._session.scalars(stmt).first()
 
     def _upsert_result(
         self,
         *,
-        nft: NFT,
+        nft: NFTDefinition,
         draw_type: PrizeDrawType,
         winning_number: Optional[PrizeDrawWinningNumber],
         user_id: int,
@@ -275,7 +275,7 @@ class PrizeDrawEngine:
 
         Parameters
         ----------
-        nft : NFT
+        nft : NFTDefinition
             NFT associated with the evaluation.
         draw_type : PrizeDrawType
             `PrizeDrawType` object to be used for the evaluation, which determines
@@ -285,7 +285,7 @@ class PrizeDrawEngine:
         user_id : int
             Id (primary key) of the `User` owning the NFT.
         ownership_id : int
-            Id (primary key) of the `UserNFTOwnership` record.
+            Id (primary key) of the `NFTInstance` record.
         draw_number : str
             Normalized draw number computed for the NFT.
         similarity_score : Optional[float]

@@ -27,8 +27,8 @@ from .id_type import ID_TYPE
 if TYPE_CHECKING:
     from .bingo import BingoCard
     from .user import User
-    from .nft import NFT
-    from .ownership import UserNFTOwnership
+    from .nft import NFTDefinition
+    from .ownership import NFTInstance
 
 
 class PrizeDrawType(Base):
@@ -260,8 +260,8 @@ class RaffleEntry(Base):
     bingo_card: Mapped[Optional["BingoCard"]] = relationship(
         "BingoCard", back_populates="raffle_entries"
     )
-    ownership: Mapped[Optional["UserNFTOwnership"]] = relationship(
-        "UserNFTOwnership", back_populates="raffle_entries"
+    ownership: Mapped[Optional["NFTInstance"]] = relationship(
+        "NFTInstance", back_populates="raffle_entries"
     )
     raffle_event: Mapped[Optional["RaffleEvent"]] = relationship(
         "RaffleEvent", back_populates="entries"
@@ -273,7 +273,7 @@ class RaffleEntry(Base):
 
 
 class PrizeDrawResult(Base):
-    """Immutable record of evaluating an NFT for a given draw."""
+    """Immutable record of evaluating an NFTDefinition for a given draw."""
 
     __tablename__ = "prize_draw_results"
 
@@ -303,12 +303,12 @@ class PrizeDrawResult(Base):
     user_id: Mapped[int] = mapped_column(
         ID_TYPE, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    """User who owned the NFT at evaluation time."""
+    """User who owned the NFTDefinition at evaluation time."""
 
     nft_id: Mapped[int] = mapped_column(
         ID_TYPE, ForeignKey("nfts.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    """NFT evaluated during the draw."""
+    """NFTDefinition evaluated during the draw."""
 
     ownership_id: Mapped[Optional[int]] = mapped_column(
         ID_TYPE, ForeignKey("user_nft_ownership.id", ondelete="SET NULL"), nullable=True
@@ -316,7 +316,7 @@ class PrizeDrawResult(Base):
     """Snapshot of the ownership record to preserve historical association."""
 
     draw_number: Mapped[str] = mapped_column(String(255), nullable=False)
-    """Draw number derived from the NFT origin."""
+    """Draw number derived from the NFTDefinition origin."""
 
     similarity_score: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     """Computed similarity score (0.0-1.0) comparing the draw number to the winning number."""
@@ -354,10 +354,10 @@ class PrizeDrawResult(Base):
     user: Mapped["User"] = relationship(back_populates="prize_draw_results")
     """Relationship to the user evaluated."""
 
-    nft: Mapped["NFT"] = relationship(back_populates="prize_draw_results")
-    """Relationship to the NFT evaluated."""
+    nft: Mapped["NFTDefinition"] = relationship(back_populates="prize_draw_results")
+    """Relationship to the NFTDefinition evaluated."""
 
-    ownership: Mapped[Optional["UserNFTOwnership"]] = relationship(
+    ownership: Mapped[Optional["NFTInstance"]] = relationship(
         back_populates="prize_draw_results"
     )
     """Relationship to the ownership snapshot for historical tracking."""
@@ -378,9 +378,9 @@ class PrizeDrawResult(Base):
         winning_number_id: Optional[int] = None,
         user: Optional["User"] = None,
         user_id: Optional[int] = None,
-        nft: Optional["NFT"] = None,
+        nft: Optional["NFTDefinition"] = None,
         nft_id: Optional[int] = None,
-        ownership: Optional["UserNFTOwnership"] = None,
+        ownership: Optional["NFTInstance"] = None,
         ownership_id: Optional[int] = None,
         draw_number: str,
         similarity_score: Optional[float] = None,

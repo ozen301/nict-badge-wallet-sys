@@ -140,7 +140,7 @@ class ChainClient:
         self, nft_origin: str, data_format: Optional[str] = "binary"
     ) -> Any:
         """
-        Retrieve NFT data by origin.
+        Retrieve NFTDefinition data by origin.
 
         data_format: "binary" (default) or "base64".
         """
@@ -176,26 +176,26 @@ class ChainClient:
         recipient_paymail: Optional[str] = None,
         additional_info: Optional[dict] = None,
     ) -> dict:
-        """Create a new NFT via the blockchain API.
+        """Create a new NFTDefinition via the blockchain API.
 
         Parameters
         ----------
         app : str
-            Application identifier to tag the NFT.
+            Application identifier to tag the NFTDefinition.
         name : str
-            Human-readable name of the NFT.
+            Human-readable name of the NFTDefinition.
         file_path : str, default: module ``yenpoint_logo.png``
-            Path to the file to attach and mint as NFT content.
+            Path to the file to attach and mint as NFTDefinition content.
         recipient_paymail : Optional[str]
-            If provided, transfer the minted NFT to this paymail.
-            If not provided, the NFT is transferred to the current client user.
+            If provided, transfer the minted NFTDefinition to this paymail.
+            If not provided, the NFTDefinition is transferred to the current client user.
         additional_info : Optional[dict]
             Additional metadata to include in the minting request.
 
         Returns
         -------
         dict
-            Response payload in JSON format from the service containing transaction and NFT info.
+            Response payload in JSON format from the service containing transaction and NFTDefinition info.
         """
         with open(file_path, "rb") as f:
             response = self._request(

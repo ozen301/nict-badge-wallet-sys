@@ -72,8 +72,8 @@ class NFTClaimRequest(Base):
     )
 
     user = relationship("User")
-    nft = relationship("NFT")
-    ownership = relationship("UserNFTOwnership", foreign_keys=[ownership_id])
+    nft = relationship("NFTDefinition")
+    ownership = relationship("NFTInstance", foreign_keys=[ownership_id])
 
     __table_args__ = (
         UniqueConstraint("tmp_id", name="uq_nft_claim_tmp_id"),

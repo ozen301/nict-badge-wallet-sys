@@ -25,8 +25,8 @@ from .base import Base
 from .id_type import ID_TYPE
 
 if TYPE_CHECKING:
-    from .nft import NFT
-    from .ownership import UserNFTOwnership
+    from .nft import NFTDefinition
+    from .ownership import NFTInstance
     from .user import User
 
 
@@ -118,7 +118,7 @@ class CouponTemplate(Base):
 
 
 class NFTCouponBinding(Base):
-    """Links an NFT to a coupon template with issuance rules."""
+    """Links an NFTDefinition to a coupon template with issuance rules."""
 
     __tablename__ = "nft_coupon_bindings"
 
@@ -136,7 +136,7 @@ class NFTCouponBinding(Base):
     )
 
     template: Mapped["CouponTemplate"] = relationship(back_populates="bindings")
-    nft: Mapped["NFT"] = relationship()
+    nft: Mapped["NFTDefinition"] = relationship()
 
     @classmethod
     def get_active_for_nft(
@@ -161,7 +161,7 @@ class NFTCouponBinding(Base):
 
 
 class CouponInstance(Base):
-    """Represents an issued coupon tied to an NFT and optionally a user."""
+    """Represents an issued coupon tied to an NFTDefinition and optionally a user."""
 
     __tablename__ = "coupon_instances"
 
@@ -214,10 +214,10 @@ class CouponInstance(Base):
     image_url: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
 
     template: Mapped["CouponTemplate"] = relationship(back_populates="instances")
-    nft: Mapped[Optional["NFT"]] = relationship("NFT", foreign_keys=[nft_id])
-    display_nft: Mapped[Optional["NFT"]] = relationship("NFT", foreign_keys=[display_nft_id])
+    nft: Mapped[Optional["NFTDefinition"]] = relationship("NFTDefinition", foreign_keys=[nft_id])
+    display_nft: Mapped[Optional["NFTDefinition"]] = relationship("NFTDefinition", foreign_keys=[display_nft_id])
     user: Mapped[Optional["User"]] = relationship(back_populates="coupons")
-    ownership: Mapped[Optional["UserNFTOwnership"]] = relationship(
+    ownership: Mapped[Optional["NFTInstance"]] = relationship(
         back_populates="coupon_instances"
     )
 
@@ -284,7 +284,7 @@ class CouponStore(Base):
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
 
-    nft: Mapped["NFT"] = relationship()
+    nft: Mapped["NFTDefinition"] = relationship()
 
     __table_args__ = (
         UniqueConstraint("name", name="uq_coupon_stores_name"),

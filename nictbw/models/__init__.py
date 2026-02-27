@@ -3,8 +3,8 @@ from .base import Base
 # import models so Alembic/autoloaders can discover mappers
 from .admin import Admin  # noqa: F401
 from .user import User  # noqa: F401
-from .nft import NFTCondition, NFTTemplate, NFT, NFTDefinition  # noqa: F401
-from .ownership import UserNFTOwnership, NFTInstance  # noqa: F401
+from .nft import NFTCondition, NFTTemplate, NFTDefinition  # noqa: F401
+from .ownership import NFTInstance  # noqa: F401
 from .bingo import (  # noqa: F401
     BingoPeriod,
     BingoPeriodReward,
@@ -43,9 +43,7 @@ __all__ = [
     "User",
     "NFTCondition",
     "NFTTemplate",
-    "NFT",
     "NFTDefinition",
-    "UserNFTOwnership",
     "NFTInstance",
     "BingoPeriod",
     "BingoPeriodReward",

@@ -26,14 +26,14 @@ This is wrapped up in the `nictbw.workflows.register_user` function.
 1. Modify the relevant `User` object properties in the database session and commit.
 
 ## NFT Definition Creation
-1. Instantiate a new `NFT` object describing the badge metadata (prefix, name, type, category, etc).
+1. Instantiate a new `NFTDefinition` object describing the badge metadata (prefix, name, type, category, etc).
 2. Add the definition to the active session and commit.
 
 ## NFT Issuance to a User
 This is wrapped up in the `nictbw.workflows.create_and_issue_nft` function.
 
-1. Retrieve the desired `NFT` definition via its unique `prefix`, and the target `User` typically via the `in_app_id` or `paymail`.
-2. Associate the NFT definition with the recipient `User` using `NFT.issue_dbwise_to`, which creates a `UserNFTOwnership` record.
+1. Retrieve the desired `NFTDefinition` definition via its unique `prefix`, and the target `User` typically via the `in_app_id` or `paymail`.
+2. Associate the NFT definition with the recipient `User` using `NFTDefinition.issue_dbwise_to_user`, which creates a `NFTInstance` record.
 3. If the minting workflow provides chain metadata, populate the ownership fields (e.g. `nft_origin`).
 
 ## NFT Synchronization from the Blockchain
@@ -47,16 +47,16 @@ minted or transferred on-chain without corresponding local records.
 3. For each NFT payload returned from the chain, the method:
    - Extracts the embedded metadata (including `metadata.MAP.subTypeData`) and
      maps common aliases (`sharedKey`, `imageUrl`, etc.) to the local schema.
-   - Ensures an `NFT` definition exists for the NFT prefix, creating a shell
+   - Ensures an `NFTDefinition` definition exists for the NFT prefix, creating a shell
      definition populated with the on-chain metadata when necessary.
-   - Creates or updates the associated `NFT` row, aligning descriptive fields
+   - Creates or updates the associated `NFTDefinition` row, aligning descriptive fields
      and timestamps.
-   - Creates or refreshes `UserNFTOwnership` rows so the user owns the NFT
+   - Creates or refreshes `NFTInstance` rows so the user owns the NFT
      locally, storing the metadata snapshot in `other_meta` and assigning a
      unique identifier formatted as `<prefix>-<base62(12)>` (regenerated until
      no collision exists).
 4. After processing every payload the method reconciles
-   `NFT.minted_count` for all definitions touched during the sync so the
+   `NFTDefinition.minted_count` for all definitions touched during the sync so the
    local counts match the on-chain state.
 
 ## User Bingo Card Info Update
@@ -64,11 +64,11 @@ This is wrapped up in the `nictbw.workflows.update_user_bingo_info` function, wh
 
 However, normally it is not necessary to call these methods directly, as the bingo card and cell info is automatically updated when the user gets a new NFT issued via the `create_and_issue_nft` workflow. This workflow is only needed when the bingo card or cell info gets out of sync for some reason.
 
-1. Query for the `NFT` definitions that have the `triggers_bingo_card` flag set to
+1. Query for the `NFTDefinition` definitions that have the `triggers_bingo_card` flag set to
    `True` and owned by the user.
 2. For each such template, check if the corresponding `BingoCard` is created for the user;
    if not, create it. This ensures that the user has the correct number of bingo cards.
-3. Query for the `NFT` definitions owned by the user.
+3. Query for the `NFTDefinition` definitions owned by the user.
 4. For each such definition, check if the corresponding `BingoCell` is unlocked for the user;
    if not, unlock it. This ensures that the user has the correct bingo cells unlocked.
 

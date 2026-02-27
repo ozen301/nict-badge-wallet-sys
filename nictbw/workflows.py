@@ -5,13 +5,13 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from .models import PrizeDrawResult, PrizeDrawType, PrizeDrawWinningNumber
-from .models.nft import NFT
+from .models.nft import NFTDefinition
 from .models.user import User
 from .prize_draw.engine import PrizeDrawEngine
 from .prize_draw.scoring import AlgorithmRegistry
 
 if TYPE_CHECKING:
-    from .models import Admin, NFT, NFTTemplate
+    from .models import Admin, NFTDefinition, NFTTemplate
     from .blockchain.api import ChainClient
 
 
@@ -116,12 +116,12 @@ def create_and_issue_nft(
     session: Session,
     user: User,
     shared_key: Optional[str],
-    nft_template: "NFT | NFTTemplate",
-) -> "NFT":
-    """Create an NFT definition (if needed) and assign it to a user.
+    nft_template: "NFTDefinition | NFTTemplate",
+) -> "NFTDefinition":
+    """Create an NFTDefinition definition (if needed) and assign it to a user.
 
-    For backward compatibility, ``nft_template`` can be either an NFT definition
-    or an NFTTemplate. When a template is supplied, a new NFT definition is
+    For backward compatibility, ``nft_template`` can be either an NFTDefinition definition
+    or an NFTTemplate. When a template is supplied, a new NFTDefinition definition is
     instantiated from it using ``shared_key``.
     """
     from .models.bingo import BingoCard
@@ -136,7 +136,7 @@ def create_and_issue_nft(
     else:
         nft = nft_template
 
-    ownership = nft.issue_dbwise_to(session, user)
+    ownership = nft.issue_dbwise_to_user(session, user)
     if nft.triggers_bingo_card:
         BingoCard.generate_for_user(session, user, nft)
 
@@ -197,14 +197,14 @@ def submit_winning_number(
 
 def run_prize_draw(
     session: Session,
-    nft: "NFT",
+    nft: "NFTDefinition",
     draw_type: PrizeDrawType,
     winning_number: Optional[PrizeDrawWinningNumber] = None,
     *,
     threshold: Optional[float] = None,
     registry: Optional[AlgorithmRegistry] = None,
 ) -> PrizeDrawResult:
-    """Evaluate a single NFT and persist the resulting ``PrizeDrawResult``.
+    """Evaluate a single NFTDefinition and persist the resulting ``PrizeDrawResult``.
 
     If ``winning_number`` is not provided, the latest winning number
     for ``draw_type`` will be used. If no winning number is available, the evaluation
@@ -217,8 +217,8 @@ def run_prize_draw(
     ----------
     session : Session
         Active session used for persistence and queries.
-    nft : NFT
-        The NFT instance to evaluate.
+    nft : NFTDefinition
+        The NFTDefinition instance to evaluate.
     draw_type : PrizeDrawType
         Draw configuration that determines algorithm and thresholds.
     winning_number : Optional[PrizeDrawWinningNumber], default: None
@@ -238,7 +238,7 @@ def run_prize_draw(
     Raises
     ------
     ValueError
-        If the NFT or draw type prerequisites required by the engine are not met.
+        If the NFTDefinition or draw type prerequisites required by the engine are not met.
     """
 
     engine = PrizeDrawEngine(session, registry=registry)
@@ -255,14 +255,14 @@ def run_prize_draw(
     return evaluation.result
 
 
-def _unique_nfts_preserve_insertion(nfts: Iterable["NFT"]) -> list["NFT"]:
+def _unique_nfts_preserve_insertion(nfts: Iterable["NFTDefinition"]) -> list["NFTDefinition"]:
     """Return unique NFTs while preserving the first-seen order."""
 
-    unique: list[NFT] = []
+    unique: list[NFTDefinition] = []
     seen: set[int] = set()
     for nft in nfts:
         if nft.id is None:
-            raise ValueError("NFT must be persisted before running a prize draw")
+            raise ValueError("NFTDefinition must be persisted before running a prize draw")
         if nft.id in seen:
             continue
         seen.add(nft.id)
@@ -270,13 +270,13 @@ def _unique_nfts_preserve_insertion(nfts: Iterable["NFT"]) -> list["NFT"]:
     return unique
 
 
-def _nfts_in_completed_bingo_lines(session: Session) -> list["NFT"]:
+def _nfts_in_completed_bingo_lines(session: Session) -> list["NFTDefinition"]:
     """Return NFTs that belong to any completed bingo line."""
 
     from .models.bingo import BingoCard
 
     cards = session.scalars(select(BingoCard)).all()
-    eligible: list[NFT] = []
+    eligible: list[NFTDefinition] = []
     for card in cards:
         completed_lines = card.completed_lines
         if not completed_lines:
@@ -295,16 +295,16 @@ def _nfts_in_completed_bingo_lines(session: Session) -> list["NFT"]:
 def _nfts_for_template_with_ownership(
     session: Session,
     template_id: int,
-) -> list["NFT"]:
-    """Return the NFT definition matching ``template_id`` if it has ownerships."""
+) -> list["NFTDefinition"]:
+    """Return the NFTDefinition definition matching ``template_id`` if it has ownerships."""
 
-    from .models.ownership import UserNFTOwnership
+    from .models.ownership import NFTInstance
 
     stmt = (
-        select(NFT)
-        .join(UserNFTOwnership, UserNFTOwnership.nft_id == NFT.id)
-        .where(NFT.id == template_id)
-        .order_by(NFT.id.asc())
+        select(NFTDefinition)
+        .join(NFTInstance, NFTInstance.nft_id == NFTDefinition.id)
+        .where(NFTDefinition.id == template_id)
+        .order_by(NFTDefinition.id.asc())
     )
     return _unique_nfts_preserve_insertion(session.scalars(stmt).all())
 
@@ -365,7 +365,7 @@ def run_prize_draw_batch(
     draw_type: PrizeDrawType,
     *,
     winning_number: Optional[PrizeDrawWinningNumber] = None,
-    nfts: Optional[Sequence[NFT]] = None,
+    nfts: Optional[Sequence[NFTDefinition]] = None,
     threshold: Optional[float] = None,
     registry: Optional[AlgorithmRegistry] = None,
 ) -> list[PrizeDrawResult]:
@@ -386,8 +386,8 @@ def run_prize_draw_batch(
     winning_number : Optional[PrizeDrawWinningNumber], default: None
         Overriding winning number applied to all NFTs. If omitted, the latest stored
         winning number is resolved.
-    nfts : Optional[Sequence[NFT]], default: None
-        Optional subset of NFT instances to evaluate. When omitted, all eligible
+    nfts : Optional[Sequence[NFTDefinition]], default: None
+        Optional subset of NFTDefinition instances to evaluate. When omitted, all eligible
         NFTs (i.e. those that are related to a completed bingo card) stored
         in the database are processed.
     threshold : Optional[float], default: None
@@ -481,7 +481,7 @@ def run_final_attendance_prize_draw(
     """Run a draw that targets only the final-day attendance stamp NFTs.
 
     ``attendance_template_id`` must be supplied to resolve the attendance
-    NFT definition. Only ownerships for that NFT participate in the draw.
+    NFTDefinition definition. Only ownerships for that NFTDefinition participate in the draw.
     Winners are ranked by similarity with ties included at the cutoff.
     """
 
