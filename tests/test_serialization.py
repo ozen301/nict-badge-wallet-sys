@@ -84,7 +84,7 @@ class SerializationTestCase(unittest.TestCase):
             cell = BingoCell(
                 bingo_card_id=card.id,
                 idx=0,
-                target_template_id=nft.id,
+                target_definition_id=nft.id,
                 state="locked",
             )
             session.add(cell)
@@ -95,10 +95,10 @@ class SerializationTestCase(unittest.TestCase):
             self.assertEqual(d["state"], "locked")
             self.assertIsNone(d["unlocked_at"])
             self.assertIsNone(d["nft_id"])
-            self.assertIn("target_template", d)
-            self.assertIsInstance(d["target_template"], dict)
-            self.assertEqual(d["target_template"]["id"], nft.id)
-            self.assertEqual(d["target_template"]["prefix"], "CELL")
+            self.assertIn("target_definition", d)
+            self.assertIsInstance(d["target_definition"], dict)
+            self.assertEqual(d["target_definition"]["id"], nft.id)
+            self.assertEqual(d["target_definition"]["prefix"], "CELL")
 
             s = cell.to_json_str()
             parsed = json.loads(s)
@@ -136,7 +136,7 @@ class SerializationTestCase(unittest.TestCase):
                 cell = BingoCell(
                     bingo_card_id=card.id,
                     idx=i,
-                    target_template_id=nft.id,
+                    target_definition_id=nft.id,
                     state="locked",
                 )
                 session.add(cell)
@@ -151,9 +151,9 @@ class SerializationTestCase(unittest.TestCase):
             # Ensure each cell has a template embedded
             for i, cell_d in enumerate(d["cells"]):
                 self.assertEqual(cell_d["idx"], i)
-                self.assertIn("target_template", cell_d)
-                self.assertIsInstance(cell_d["target_template"], dict)
-                self.assertEqual(cell_d["target_template"]["prefix"], f"T{i}")
+                self.assertIn("target_definition", cell_d)
+                self.assertIsInstance(cell_d["target_definition"], dict)
+                self.assertEqual(cell_d["target_definition"]["prefix"], f"T{i}")
 
             s = card.to_json_str()
             parsed = json.loads(s)

@@ -364,7 +364,7 @@ class DBTestCase(unittest.TestCase):
             cell = BingoCell(
                 bingo_card_id=1,
                 idx=i,
-                target_template_id=1,
+                target_definition_id=1,
                 state="locked",
             )
             card.cells.append(cell)
@@ -416,16 +416,16 @@ class DBTestCase(unittest.TestCase):
             session.flush()
 
             cells = [
-                BingoCell(bingo_card_id=card.id, idx=0, target_template_id=definitions[0].id),
-                BingoCell(bingo_card_id=card.id, idx=1, target_template_id=definitions[1].id),
-                BingoCell(bingo_card_id=card.id, idx=2, target_template_id=definitions[2].id),
+                BingoCell(bingo_card_id=card.id, idx=0, target_definition_id=definitions[0].id),
+                BingoCell(bingo_card_id=card.id, idx=1, target_definition_id=definitions[1].id),
+                BingoCell(bingo_card_id=card.id, idx=2, target_definition_id=definitions[2].id),
             ]
             for i in range(3, 9):
                 cells.append(
                     BingoCell(
                         bingo_card_id=card.id,
                         idx=i,
-                        target_template_id=definitions[i].id,
+                        target_definition_id=definitions[i].id,
                     )
                 )
             for c in cells:
@@ -490,14 +490,14 @@ class DBTestCase(unittest.TestCase):
             session.flush()
 
             cells = [
-                BingoCell(bingo_card_id=card.id, idx=0, target_template_id=nft_main.id)
+                BingoCell(bingo_card_id=card.id, idx=0, target_definition_id=nft_main.id)
             ]
             for i in range(1, 9):
                 cells.append(
                     BingoCell(
                         bingo_card_id=card.id,
                         idx=i,
-                        target_template_id=nft_other.id,
+                        target_definition_id=nft_other.id,
                     )
                 )
             for c in cells:
@@ -561,7 +561,7 @@ class DBTestCase(unittest.TestCase):
                 rng=rng,
             )
             self.assertEqual(len(card.cells), 9)
-            self.assertEqual(len({c.target_template_id for c in card.cells}), 9)
+            self.assertEqual(len({c.target_definition_id for c in card.cells}), 9)
             center = next(c for c in card.cells if c.idx == 4)
             self.assertEqual(center.state, "unlocked")
 
@@ -666,7 +666,7 @@ class DBTestCase(unittest.TestCase):
             self.assertEqual(created, 1)
 
             card = user.bingo_cards[0]
-            cell = next(c for c in card.cells if c.target_template_id == nft_unlock.id)
+            cell = next(c for c in card.cells if c.target_definition_id == nft_unlock.id)
             self.assertEqual(cell.state, "locked")
 
             ownership = nft_unlock.issue_dbwise_to_user(

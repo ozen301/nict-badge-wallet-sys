@@ -263,24 +263,24 @@ class BingoCard(Base):
 
         rng = rng or random.Random()
 
-        # Convert include/exclude inputs into sets of template IDs
-        excluded_ids = {_to_id(t) for t in (excluded_templates or [])}
-        included_ids = {_to_id(t) for t in (included_templates or [])}
+        # Convert include/exclude inputs into sets of NFT definition IDs.
+        excluded_definition_ids = {_to_id(t) for t in (excluded_templates or [])}
+        included_definition_ids = {_to_id(t) for t in (included_templates or [])}
 
-        if included_ids:
-            candidate_ids = set(included_ids)
+        if included_definition_ids:
+            candidate_definition_ids = set(included_definition_ids)
         else:
-            candidate_ids = set(session.scalars(select(NFTDefinition.id)))
+            candidate_definition_ids = set(session.scalars(select(NFTDefinition.id)))
 
-        candidate_ids.discard(center_template.id)
-        candidate_ids -= excluded_ids
+        candidate_definition_ids.discard(center_template.id)
+        candidate_definition_ids -= excluded_definition_ids
 
-        if len(candidate_ids) < 8:
+        if len(candidate_definition_ids) < 8:
             raise ValueError("Not enough NFTs to populate bingo card")
 
         # Randomly pick 8 distinct templates for the non-centre cells, then
         # shuffle the destination positions (excluding the centre at 4).
-        selected_ids = rng.sample(list(candidate_ids), 8)
+        selected_definition_ids = rng.sample(list(candidate_definition_ids), 8)
         positions = [0, 1, 2, 3, 5, 6, 7, 8]
         rng.shuffle(positions)
 
@@ -290,28 +290,28 @@ class BingoCard(Base):
         session.add(card)
         session.flush()
 
-        # Fetch any existing ownership records for the selected templates.
+        # Fetch any existing ownership records for selected definitions.
         # Matching cells will be created as unlocked, typically including the centre.
-        template_ids_needed = set(selected_ids) | {center_template.id}
+        definition_ids_needed = set(selected_definition_ids) | {center_template.id}
         ownerships = session.scalars(
             select(NFTInstance)
             .join(NFTDefinition)
             .where(
                 NFTInstance.user_id == user.id,
-                NFTDefinition.id.in_(template_ids_needed),
+                NFTDefinition.id.in_(definition_ids_needed),
             )
         ).all()
         ownership_map = {o.nft_id: o for o in ownerships}
 
         # Helper to build a cell
-        def build_cell(idx: int, template_id: int) -> "BingoCell":
-            ownership = ownership_map.get(template_id)
+        def build_cell(idx: int, definition_id: int) -> "BingoCell":
+            ownership = ownership_map.get(definition_id)
             # If the user already owns this NFTDefinition, build the cell as unlocked
             if ownership is not None:
                 return BingoCell(
                     bingo_card_id=card.id,
                     idx=idx,
-                    target_template_id=template_id,
+                    target_definition_id=definition_id,
                     nft_id=ownership.nft_id,
                     matched_ownership_id=ownership.id,
                     state="unlocked",
@@ -321,12 +321,12 @@ class BingoCard(Base):
             return BingoCell(
                 bingo_card_id=card.id,
                 idx=idx,
-                target_template_id=template_id,
+                target_definition_id=definition_id,
             )
 
         # Build the centre cell first, then the others
         cells = [build_cell(4, center_template.id)]
-        for idx, tid in zip(positions, selected_ids):
+        for idx, tid in zip(positions, selected_definition_ids):
             cells.append(build_cell(idx, tid))
 
         # Add cells to the card and flush
@@ -389,9 +389,9 @@ class BingoCard(Base):
         """
 
         unlocked_any = False
-        template_id = ownership.nft_id
+        definition_id = ownership.nft_id
         for cell in self.cells:
-            if cell.state == "locked" and cell.target_template_id == template_id:
+            if cell.state == "locked" and cell.target_definition_id == definition_id:
                 cell.nft_id = ownership.nft_id
                 cell.matched_ownership_id = ownership.id
                 cell.state = "unlocked"
@@ -459,7 +459,7 @@ class BingoCell(Base):
         self,
         bingo_card_id: int,
         idx: int,
-        target_template_id: int,
+        target_definition_id: int,
         nft_id: Optional[int] = None,
         matched_ownership_id: Optional[int] = None,
         state: str = "locked",
@@ -467,7 +467,7 @@ class BingoCell(Base):
     ):
         self.bingo_card_id = bingo_card_id
         self.idx = idx
-        self.target_template_id = target_template_id
+        self.target_definition_id = target_definition_id
         self.nft_id = nft_id
         self.matched_ownership_id = matched_ownership_id
         self.state = state
@@ -480,8 +480,12 @@ class BingoCell(Base):
         ID_TYPE, ForeignKey("bingo_cards.id", ondelete="CASCADE"), nullable=False
     )
     idx: Mapped[int] = mapped_column(Integer, nullable=False)
-    target_template_id: Mapped[int] = mapped_column(
-        ID_TYPE, ForeignKey("nfts.id", ondelete="RESTRICT"), nullable=False, index=True
+    target_definition_id: Mapped[int] = mapped_column(
+        "target_template_id",
+        ID_TYPE,
+        ForeignKey("nfts.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
     )
     nft_id: Mapped[Optional[int]] = mapped_column(
         ID_TYPE, ForeignKey("nfts.id", ondelete="SET NULL"), nullable=True, index=True
@@ -495,8 +499,8 @@ class BingoCell(Base):
     )
 
     card: Mapped["BingoCard"] = relationship(back_populates="cells")
-    target_template: Mapped["NFTDefinition"] = relationship(
-        "NFTDefinition", foreign_keys=[target_template_id]
+    target_definition: Mapped["NFTDefinition"] = relationship(
+        "NFTDefinition", foreign_keys=[target_definition_id]
     )
     nft: Mapped[Optional["NFTDefinition"]] = relationship("NFTDefinition", foreign_keys=[nft_id])
     matched_ownership: Mapped[Optional["NFTInstance"]] = relationship(
@@ -512,7 +516,7 @@ class BingoCell(Base):
 
     def __repr__(self) -> str:
         return (
-            f"<BingoCell(id={self.id}, idx={self.idx}, target_template_id={self.target_template_id}, "
+            f"<BingoCell(id={self.id}, idx={self.idx}, target_definition_id={self.target_definition_id}, "
             f"nft_id={self.nft_id}, state='{self.state}')>"
         )
 
@@ -521,13 +525,17 @@ class BingoCell(Base):
 
         When compact is True, keep only essential fields and a compact template.
         """
-        template_obj = self.target_template.to_json(compact=compact) if self.target_template else None
+        definition_obj = (
+            self.target_definition.to_json(compact=compact)
+            if self.target_definition
+            else None
+        )
 
         # Wildcard cells special handling 
         # (this is required by the transit API's bingo_wildcard.py feature)
         if self.idx in {4, 7}:
             if self.state == "unlocked" and self.nft is not None:
-                template_obj = self.nft.to_json(compact=compact)
+                definition_obj = self.nft.to_json(compact=compact)
 
         full = {
             "id": self.id,
@@ -537,11 +545,11 @@ class BingoCell(Base):
             "unlocked_at": dt_iso(self.unlocked_at),
             "nft_id": self.nft_id,
             "matched_ownership_id": self.matched_ownership_id,
-            "target_template": template_obj,
+            "target_definition": definition_obj,
         }
         if not compact:
             return full
-        keep = {"id", "idx", "state", "unlocked_at", "target_template"}
+        keep = {"id", "idx", "state", "unlocked_at", "target_definition"}
         return {k: v for k, v in full.items() if k in keep}
 
     def to_json_str(self, *, compact: bool = False) -> str:

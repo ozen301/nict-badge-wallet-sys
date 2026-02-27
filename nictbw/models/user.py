@@ -303,7 +303,7 @@ class User(Base):
                 .where(
                     BingoCard.user_id == self.id,
                     BingoCell.idx == 4,
-                    BingoCell.target_template_id == nft.id,
+                    BingoCell.target_definition_id == nft.id,
                 )
             )
             # If not, create one
@@ -329,7 +329,7 @@ class User(Base):
         # Reload relationships to capture newly created cards or ownerships
         session.expire(self, ["bingo_cards", "ownerships"])
 
-        # Map template_id -> ownership for quick lookup
+        # Map definition_id -> ownership for quick lookup
         ownerships = session.scalars(
             select(NFTInstance)
             .join(NFTDefinition)
@@ -344,7 +344,7 @@ class User(Base):
             card_unlocked = False
             for cell in card.cells:
                 if cell.state == "locked":
-                    ownership = ownership_map.get(cell.target_template_id)
+                    ownership = ownership_map.get(cell.target_definition_id)
                     if ownership is not None:
                         cell.nft_id = ownership.nft_id
                         cell.matched_ownership_id = ownership.id

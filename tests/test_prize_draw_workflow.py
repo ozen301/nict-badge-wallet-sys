@@ -308,7 +308,7 @@ class PrizeDrawWorkflowSelectionTests(unittest.TestCase):
                     BingoCell(
                         bingo_card_id=card.id,
                         idx=idx,
-                        target_template_id=(
+                        target_definition_id=(
                             line_defs[idx].id if idx < 3 else filler_def.id
                         ),
                         nft_id=nft_id,
