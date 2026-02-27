@@ -35,6 +35,7 @@ class User(Base):
         password_provided: Optional[bool] = None,
         fcm_token: Optional[str] = None,
         initial_reward_claimed: Optional[bool] = None,
+        is_test_user: Optional[bool] = None,
         created_at: Optional[datetime] = None,
         updated_at: Optional[datetime] = None,
     ):
@@ -75,6 +76,8 @@ class User(Base):
             self.fcm_token = fcm_token
         if initial_reward_claimed is not None:
             self.initial_reward_claimed = initial_reward_claimed
+        if is_test_user is not None:
+            self.is_test_user = is_test_user
         if created_at is not None:
             self.created_at = created_at
         if updated_at is not None:
@@ -98,6 +101,9 @@ class User(Base):
     on_chain_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     fcm_token: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     initial_reward_claimed: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False, server_default=text("false")
+    )
+    is_test_user: Mapped[bool] = mapped_column(
         Boolean, default=False, nullable=False, server_default=text("false")
     )
     created_at: Mapped[datetime] = mapped_column(

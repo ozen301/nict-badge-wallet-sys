@@ -100,9 +100,13 @@ class NFT(Base):
     bingo_random_candidate: Mapped[bool] = mapped_column(
         Boolean, default=True, server_default=text("true"), nullable=False
     )
-    is_public: Mapped[bool] = mapped_column(
-        Boolean, default=False, server_default=text("false"), nullable=False
+    allow_bingo_duplicates: Mapped[bool] = mapped_column(
+        Boolean, default=True, server_default=text("true"), nullable=False
     )
+    is_public: Mapped[bool] = mapped_column(
+        Boolean, default=True, server_default=text("true"), nullable=False
+    )
+    bingo_group_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     store_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     latitude: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     longitude: Mapped[Optional[float]] = mapped_column(Float, nullable=True)

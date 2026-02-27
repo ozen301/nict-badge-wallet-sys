@@ -50,6 +50,8 @@ class UserNFTOwnership(Base):
     transaction_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     contract_address: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     token_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    nft_id_hash: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    user_claim_hash: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
     other_meta: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
