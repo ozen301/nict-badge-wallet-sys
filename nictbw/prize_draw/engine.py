@@ -284,13 +284,24 @@ class PrizeDrawEngine:
                 PrizeDrawResult.draw_type_id == draw_type.id,
             )
         )
-        if result is None:
-            result = self._session.scalar(
-                select(PrizeDrawResult).where(
-                    PrizeDrawResult.nft_id == nft_instance.nft_id,
-                    PrizeDrawResult.draw_type_id == draw_type.id,
-                )
+        result_by_definition = self._session.scalar(
+            select(PrizeDrawResult).where(
+                PrizeDrawResult.nft_id == nft_instance.nft_id,
+                PrizeDrawResult.draw_type_id == draw_type.id,
             )
+        )
+        if result is None and result_by_definition is not None:
+            if (
+                result_by_definition.ownership_id is not None
+                and result_by_definition.ownership_id != nft_instance.id
+            ):
+                raise ValueError(
+                    "Cannot persist prize draw results for multiple NFT instances "
+                    "sharing the same definition with the current schema "
+                    "constraint (nft_id, draw_type_id). Migrate to an "
+                    "ownership-based uniqueness constraint to evaluate all instances."
+                )
+            result = result_by_definition
 
         if result is None:
             result = PrizeDrawResult(

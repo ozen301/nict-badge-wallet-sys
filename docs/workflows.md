@@ -122,6 +122,9 @@ Re-running the workflow for the same `(instance, draw_type, winning_number)` com
 
 When `run_prize_draw_batch` is called without explicitly passing `instances`, it automatically collects `NFTInstance`s that sit on completed bingo lines and evaluates only those candidates.
 
+Current schema limitation:
+`prize_draw_results` is still unique on `(nft_id, draw_type_id)`, so the workflow cannot persist separate results for multiple instances that share the same NFT definition. In that case, the workflow raises `ValueError` until the schema is migrated to ownership-based uniqueness.
+
 ### Bingo Prize Draw (Completed Bingo Lines)
 Use `nictbw.workflows.run_bingo_prize_draw` to evaluate only NFTs that are part of completed bingo lines. The helper:
 1. Selects eligible NFTs on completed lines at draw time.

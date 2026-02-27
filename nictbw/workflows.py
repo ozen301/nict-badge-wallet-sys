@@ -275,6 +275,31 @@ def _unique_instances_preserve_insertion(
     return unique
 
 
+def _validate_instances_compatible_with_result_uniqueness(
+    instances: Sequence["NFTInstance"],
+) -> None:
+    """Validate instance batches against current prize-result uniqueness constraints."""
+
+    first_instance_per_definition: dict[int, int] = {}
+    for instance in instances:
+        if instance.id is None:
+            raise ValueError("NFT instance must be persisted before running a prize draw")
+        if instance.nft_id is None:
+            raise ValueError("NFT instance must have an nft_id before running a prize draw")
+
+        prior_instance_id = first_instance_per_definition.get(instance.nft_id)
+        if prior_instance_id is None:
+            first_instance_per_definition[instance.nft_id] = instance.id
+            continue
+
+        if prior_instance_id != instance.id:
+            raise ValueError(
+                "Batch contains multiple NFT instances for the same NFT definition. "
+                "Current schema uniqueness on (nft_id, draw_type_id) cannot store "
+                "separate results per instance."
+            )
+
+
 def _instances_in_completed_bingo_lines(session: Session) -> list["NFTInstance"]:
     """Return NFT instances that belong to any completed bingo line."""
 
@@ -419,6 +444,8 @@ def run_prize_draw_batch(
         instances_to_evaluate = list(instances)
         if not instances_to_evaluate:
             return []
+
+    _validate_instances_compatible_with_result_uniqueness(instances_to_evaluate)
 
     results: list[PrizeDrawResult] = []
     for instance in instances_to_evaluate:

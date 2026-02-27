@@ -168,6 +168,98 @@ class PrizeDrawWorkflowTests(unittest.TestCase):
             results = run_prize_draw_batch(session, draw_type, instances=[])
             self.assertEqual(results, [])
 
+    def test_run_prize_draw_batch_raises_on_same_definition_instances(self) -> None:
+        with self.Session.begin() as session:
+            user_one, admin = self._seed_user_and_admin(session)
+            user_two = User(in_app_id="draw-user-2", paymail="draw-user-2@wallet")
+            session.add(user_two)
+            session.flush()
+
+            definition = NFTDefinition(
+                prefix="BATCH-CONFLICT",
+                shared_key="batch-conflict-key",
+                name="Batch Conflict",
+                nft_type="default",
+                category="event",
+                subcategory="game",
+                created_by_admin_id=admin.id,
+            )
+            session.add(definition)
+            session.flush()
+
+            instance_one = definition.issue_dbwise_to_user(
+                session, user_one, nft_origin="conflict-1"
+            )
+            instance_two = definition.issue_dbwise_to_user(
+                session, user_two, nft_origin="conflict-2"
+            )
+
+            draw_type = PrizeDrawType(
+                internal_name="batch-conflict",
+                algorithm_key="sha256_hex_proximity",
+                default_threshold=None,
+            )
+            session.add(draw_type)
+            session.flush()
+            submit_winning_number(session, draw_type, value="conflict")
+
+            with self.assertRaises(ValueError):
+                run_prize_draw_batch(
+                    session,
+                    draw_type,
+                    instances=[instance_one, instance_two],
+                )
+
+    def test_run_prize_draw_raises_on_conflicting_existing_definition_result(self) -> None:
+        with self.Session.begin() as session:
+            user_one, admin = self._seed_user_and_admin(session)
+            user_two = User(in_app_id="draw-user-3", paymail="draw-user-3@wallet")
+            session.add(user_two)
+            session.flush()
+
+            definition = NFTDefinition(
+                prefix="SINGLE-CONFLICT",
+                shared_key="single-conflict-key",
+                name="Single Conflict",
+                nft_type="default",
+                category="event",
+                subcategory="game",
+                created_by_admin_id=admin.id,
+            )
+            session.add(definition)
+            session.flush()
+
+            instance_one = definition.issue_dbwise_to_user(
+                session, user_one, nft_origin="single-conflict-1"
+            )
+            instance_two = definition.issue_dbwise_to_user(
+                session, user_two, nft_origin="single-conflict-2"
+            )
+
+            draw_type = PrizeDrawType(
+                internal_name="single-conflict",
+                algorithm_key="sha256_hex_proximity",
+                default_threshold=None,
+            )
+            session.add(draw_type)
+            session.flush()
+            winning_number = submit_winning_number(session, draw_type, value="single")
+
+            run_prize_draw(
+                session,
+                instance_one,
+                draw_type,
+                winning_number=winning_number,
+            )
+
+            with self.assertRaises(ValueError):
+                run_prize_draw(
+                    session,
+                    instance_two,
+                    draw_type,
+                    winning_number=winning_number,
+                )
+
     def test_select_top_prize_draw_results_orders_by_similarity(self) -> None:
         with self.Session.begin() as session:
             user, admin = self._seed_user_and_admin(session)
