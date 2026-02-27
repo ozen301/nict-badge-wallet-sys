@@ -8,6 +8,7 @@ Although most complicated workflows are wrapped up in single functions, it is ne
 **Note:** coupon issuance is now managed by the API layer. This repository focuses on selecting eligible NFTs and computing winners.
 
 The reader may also refer to the code examples in the [code_examples.ipynb](./code_examples.ipynb) notebook for practical usage of these workflows.
+If upgrading from pre-`v1.0.0` APIs, read [migration_v1.md](./migration_v1.md) first.
 
 ## User Registration
 This is wrapped up in the `nictbw.workflows.register_user` function.
