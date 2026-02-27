@@ -244,15 +244,18 @@ class User(Base):
 
         return unlocked_any
 
-    def unlock_cells_for_nft(self, session: Session, nft: "NFTDefinition | int") -> bool:
-        """Unlock bingo cells for a specific NFTDefinition owned by this user.
+    def unlock_cells_for_definition(
+        self, session: Session, definition: "NFTDefinition | int"
+    ) -> bool:
+        """Unlock bingo cells for a specific NFT definition owned by this user.
 
         Parameters
         ----------
         session : Session
             Active SQLAlchemy session.
-        nft : NFTDefinition | int
-            The NFTDefinition to match against locked cells. Can be an ``NFTDefinition`` instance or its primary key.
+        definition : NFTDefinition | int
+            The NFT definition to match against locked cells. Can be an
+            ``NFTDefinition`` instance or its primary key.
 
         Returns
         -------
@@ -263,7 +266,9 @@ class User(Base):
         def _to_id(n: int | NFTDefinition) -> int:
             return n if isinstance(n, int) else n.id
 
-        ownership = NFTInstance.get_by_user_and_definition(session, self.id, _to_id(nft))
+        ownership = NFTInstance.get_by_user_and_definition(
+            session, self.id, _to_id(definition)
+        )
         if ownership is None:
             return False
 

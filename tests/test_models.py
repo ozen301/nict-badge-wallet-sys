@@ -450,7 +450,7 @@ class DBTestCase(unittest.TestCase):
             self.assertTrue(all(c.state == "unlocked" for c in card.cells))
             self.assertTrue(all(c.matched_ownership_id is not None for c in card.cells))
 
-    def test_user_unlock_cells_for_nft(self):
+    def test_user_unlock_cells_for_definition(self):
         now = datetime.now(timezone.utc)
         with self.Session() as session:
             admin = Admin(email="admin@example.com", password_hash="x")
@@ -508,7 +508,7 @@ class DBTestCase(unittest.TestCase):
             cell = cells[0]
             self.assertEqual(cell.state, "locked")
 
-            result = user.unlock_cells_for_nft(session, nft_main)
+            result = user.unlock_cells_for_definition(session, nft_main)
             self.assertTrue(result)
             self.assertEqual(cell.state, "unlocked")
             self.assertEqual(cell.matched_ownership_id, user.ownerships[0].id)
@@ -519,7 +519,7 @@ class DBTestCase(unittest.TestCase):
             cell.matched_ownership_id = None
             session.flush()
 
-            result = user.unlock_cells_for_nft(session, nft_main.id)
+            result = user.unlock_cells_for_definition(session, nft_main.id)
             self.assertTrue(result)
             self.assertEqual(cell.state, "unlocked")
             self.assertEqual(cell.matched_ownership_id, user.ownerships[0].id)
