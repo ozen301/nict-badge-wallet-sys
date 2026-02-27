@@ -117,27 +117,27 @@ def create_and_issue_nft(
     session: Session,
     user: User,
     shared_key: Optional[str],
-    nft_template: "NFTDefinition | NFTTemplate",
+    definition_or_template: "NFTDefinition | NFTTemplate",
 ) -> "NFTInstance":
     """Create (if needed) and issue an NFT instance to a user.
 
-    ``nft_template`` can be either an existing NFT definition or an NFTTemplate.
+    ``definition_or_template`` can be either an existing NFT definition or an NFTTemplate.
     When a template is supplied, a definition row is created/reused and then
     issued to ``user`` as an NFT instance.
     """
     from .models.bingo import BingoCard
     from .models.nft import NFTTemplate
 
-    if isinstance(nft_template, NFTTemplate):
+    if isinstance(definition_or_template, NFTTemplate):
         if shared_key is None:
             raise ValueError("shared_key is required when instantiating from a template")
-        ownership = nft_template.instantiate_nft(
+        ownership = definition_or_template.instantiate_nft(
             session,
             user,
             shared_key=shared_key,
         )
     else:
-        ownership = nft_template.issue_dbwise_to_user(session, user)
+        ownership = definition_or_template.issue_dbwise_to_user(session, user)
 
     definition = ownership.nft
     if definition.triggers_bingo_card:

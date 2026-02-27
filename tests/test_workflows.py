@@ -5,8 +5,8 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from nictbw.blockchain.api import ChainClient
-from nictbw.models import Base, User
-from nictbw.workflows import register_user
+from nictbw.models import Admin, Base, NFTDefinition, NFTInstance, NFTTemplate, User
+from nictbw.workflows import create_and_issue_nft, register_user
 
 
 class DummyClient(ChainClient):
@@ -104,6 +104,96 @@ class RegisterUserWorkflowTestCase(unittest.TestCase):
 
         self.assertEqual(len(client.calls), 1)
         self.assertEqual(client.calls[0]["username"], "fallback-user")
+
+
+class CreateAndIssueNFTWorkflowTestCase(unittest.TestCase):
+    def setUp(self):
+        self.engine = create_engine("sqlite+pysqlite:///:memory:", future=True)
+        Base.metadata.create_all(self.engine)
+        self.Session = sessionmaker(
+            bind=self.engine, future=True, expire_on_commit=False
+        )
+
+    def tearDown(self):
+        self.engine.dispose()
+
+    def test_returns_instance_for_definition_input(self):
+        with self.Session.begin() as session:
+            admin = Admin(email="wf-admin@example.com", password_hash="x")
+            user = User(in_app_id="wf-user", paymail="wf-user@wallet")
+            session.add_all([admin, user])
+            session.flush()
+            definition = NFTDefinition(
+                prefix="WF",
+                shared_key="wf-key",
+                name="WF NFT",
+                nft_type="default",
+                created_by_admin_id=admin.id,
+            )
+            session.add(definition)
+            session.flush()
+
+            instance = create_and_issue_nft(
+                session=session,
+                user=user,
+                shared_key=None,
+                definition_or_template=definition,
+            )
+
+            self.assertIsInstance(instance, NFTInstance)
+            self.assertEqual(instance.user_id, user.id)
+            self.assertEqual(instance.nft_id, definition.id)
+            self.assertEqual(len(user.nfts), 1)
+            self.assertEqual(user.nfts[0].id, instance.id)
+
+    def test_template_input_requires_shared_key(self):
+        with self.Session.begin() as session:
+            admin = Admin(email="wf-admin-template@example.com", password_hash="x")
+            user = User(in_app_id="wf-user-template", paymail="wf-user-template@wallet")
+            session.add_all([admin, user])
+            session.flush()
+            template = NFTTemplate(
+                prefix="WFT",
+                name="WF Template",
+                category="event",
+                created_by_admin_id=admin.id,
+            )
+            session.add(template)
+            session.flush()
+
+            with self.assertRaises(ValueError):
+                create_and_issue_nft(
+                    session=session,
+                    user=user,
+                    shared_key=None,
+                    definition_or_template=template,
+                )
+
+    def test_template_input_returns_instance(self):
+        with self.Session.begin() as session:
+            admin = Admin(email="wf-admin-template2@example.com", password_hash="x")
+            user = User(in_app_id="wf-user-template2", paymail="wf-user-template2@wallet")
+            session.add_all([admin, user])
+            session.flush()
+            template = NFTTemplate(
+                prefix="WFT2",
+                name="WF Template 2",
+                category="event",
+                created_by_admin_id=admin.id,
+            )
+            session.add(template)
+            session.flush()
+
+            instance = create_and_issue_nft(
+                session=session,
+                user=user,
+                shared_key="wf-shared-key",
+                definition_or_template=template,
+            )
+
+            self.assertIsInstance(instance, NFTInstance)
+            self.assertEqual(instance.user_id, user.id)
+            self.assertEqual(instance.nft.template_id, template.id)
 
 
 if __name__ == "__main__":
