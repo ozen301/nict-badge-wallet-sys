@@ -273,7 +273,7 @@ class RaffleEntry(Base):
 
 
 class PrizeDrawResult(Base):
-    """Immutable record of evaluating an NFTDefinition for a given draw."""
+    """Immutable record of evaluating an NFT instance for a given draw."""
 
     __tablename__ = "prize_draw_results"
 
@@ -303,20 +303,20 @@ class PrizeDrawResult(Base):
     user_id: Mapped[int] = mapped_column(
         ID_TYPE, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    """User who owned the NFTDefinition at evaluation time."""
+    """User who owned the evaluated NFT instance at evaluation time."""
 
     nft_id: Mapped[int] = mapped_column(
         ID_TYPE, ForeignKey("nfts.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    """NFTDefinition evaluated during the draw."""
+    """NFT definition associated with the evaluated NFT instance."""
 
     ownership_id: Mapped[Optional[int]] = mapped_column(
         ID_TYPE, ForeignKey("user_nft_ownership.id", ondelete="SET NULL"), nullable=True
     )
-    """Snapshot of the ownership record to preserve historical association."""
+    """Primary reference to the evaluated NFT instance."""
 
     draw_number: Mapped[str] = mapped_column(String(255), nullable=False)
-    """Draw number derived from the NFTDefinition origin."""
+    """Draw number derived from the evaluated NFT instance origin."""
 
     similarity_score: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     """Computed similarity score (0.0-1.0) comparing the draw number to the winning number."""
@@ -355,12 +355,12 @@ class PrizeDrawResult(Base):
     """Relationship to the user evaluated."""
 
     nft: Mapped["NFTDefinition"] = relationship(back_populates="prize_draw_results")
-    """Relationship to the NFTDefinition evaluated."""
+    """Relationship to the NFT definition associated with the evaluated instance."""
 
     ownership: Mapped[Optional["NFTInstance"]] = relationship(
         back_populates="prize_draw_results"
     )
-    """Relationship to the ownership snapshot for historical tracking."""
+    """Relationship to the evaluated NFT instance."""
 
     __table_args__ = (
         UniqueConstraint("nft_id", "draw_type_id", name="uq_prize_draw_result_unique"),

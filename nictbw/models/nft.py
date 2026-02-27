@@ -223,8 +223,8 @@ class NFTDefinition(Base):
             unique_nft_id = generate_unique_nft_id(self.prefix, session=session)
 
         ownership = NFTInstance(
-            user_id=user.id,
-            nft_id=self.id,
+            user=user,
+            nft=self,
             serial_number=serial_number,
             unique_nft_id=unique_nft_id,
             acquired_at=acquired_at or datetime.now(timezone.utc),
@@ -235,7 +235,6 @@ class NFTDefinition(Base):
         self.minted_count += 1
 
         if hasattr(user, "ownerships"):
-            user.ownerships.append(ownership)
             try:
                 user.unlock_bingo_cells(session, ownership)
             except Exception:
@@ -293,31 +292,62 @@ class NFTTemplate(Base):
 
     def instantiate_nft(
         self,
+        session: Session,
+        user: "User",
         *,
         shared_key: str,
         override_name: Optional[str] = None,
         override_description: Optional[str] = None,
         override_created_by_admin_id: Optional[int] = None,
-    ) -> NFTDefinition:
-        """Instantiate an NFT definition based on this template."""
+        unique_nft_id: Optional[str] = None,
+        serial_number: Optional[int] = None,
+        acquired_at: Optional[datetime] = None,
+        status: str = "succeeded",
+        **ownership_fields,
+    ) -> "NFTInstance":
+        """Instantiate an NFT instance from this template for ``user``.
 
-        nft = NFTDefinition(
-            template_id=self.id,
-            prefix=self.prefix,
-            shared_key=shared_key,
-            name=override_name or self.name,
-            nft_type="default",
-            category=self.category,
-            subcategory=self.subcategory,
-            description=override_description or self.description,
-            image_url=self.image_url,
-            condition_id=self.default_condition_id,
-            max_supply=self.max_supply,
-            status=self.status,
-            triggers_bingo_card=self.triggers_bingo_card,
-            created_by_admin_id=override_created_by_admin_id or self.created_by_admin_id,
+        The method reuses an existing definition row for this template when
+        available; otherwise it creates one and then issues an instance.
+        """
+
+        from .ownership import NFTInstance
+
+        definition = session.scalar(
+            select(NFTDefinition).where(
+                (NFTDefinition.template_id == self.id) | (NFTDefinition.prefix == self.prefix)
+            )
         )
-        return nft
+        if definition is None:
+            definition = NFTDefinition(
+                template_id=self.id,
+                prefix=self.prefix,
+                shared_key=shared_key,
+                name=override_name or self.name,
+                nft_type="default",
+                category=self.category,
+                subcategory=self.subcategory,
+                description=override_description or self.description,
+                image_url=self.image_url,
+                condition_id=self.default_condition_id,
+                max_supply=self.max_supply,
+                status=self.status,
+                triggers_bingo_card=self.triggers_bingo_card,
+                created_by_admin_id=override_created_by_admin_id or self.created_by_admin_id,
+            )
+            session.add(definition)
+            session.flush()
+
+        instance: NFTInstance = definition.issue_dbwise_to_user(
+            session,
+            user,
+            unique_nft_id=unique_nft_id,
+            serial_number=serial_number,
+            acquired_at=acquired_at,
+            status=status,
+            **ownership_fields,
+        )
+        return instance
 
     @classmethod
     def get_by_prefix(cls, session: Session, prefix: str) -> Optional["NFTTemplate"]:

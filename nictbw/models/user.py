@@ -195,9 +195,9 @@ class User(Base):
         return session.scalar(select(cls).where(cls.on_chain_id == on_chain_id))
 
     @property
-    def nfts(self) -> list[NFTDefinition]:
-        """Get a list of NFTs owned by this user."""
-        return [o.nft for o in self.ownerships]
+    def nfts(self) -> list[NFTInstance]:
+        """Get NFT instances owned by this user."""
+        return list(self.ownerships)
 
     def bingo_cards_json(self, *, compact: bool = False) -> list[dict[str, Any]]:
         """Return a list of this user's bingo cards as JSON-serializable dicts.

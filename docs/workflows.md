@@ -35,6 +35,7 @@ This is wrapped up in the `nictbw.workflows.create_and_issue_nft` function.
 1. Retrieve the desired `NFTDefinition` definition via its unique `prefix`, and the target `User` typically via the `in_app_id` or `paymail`.
 2. Associate the NFT definition with the recipient `User` using `NFTDefinition.issue_dbwise_to_user`, which creates a `NFTInstance` record.
 3. If the minting workflow provides chain metadata, populate the ownership fields (e.g. `nft_origin`).
+4. The workflow returns the created `NFTInstance`.
 
 ## NFT Synchronization from the Blockchain
 This is wrapped up in the `User.sync_nfts_from_chain` method, which reconciles the local database with the
@@ -109,17 +110,17 @@ This is wrapped up in the `nictbw.workflows.submit_winning_number` helper.
 This is wrapped up in the `nictbw.workflows.run_prize_draw` and `nictbw.workflows.run_prize_draw_batch` helpers, which delegate to
 the `PrizeDrawEngine` service.
 
-1. Derive the deterministic draw number from the ownership `nft_origin`.
-2. Run the scoring algorithm (when a winning number is provided) and
+1. Evaluate specific `NFTInstance` records.
+2. Derive the deterministic draw number from `NFTInstance.nft_origin`.
+3. Persist `PrizeDrawResult` with `ownership_id` set to the evaluated instance.
+4. Run the scoring algorithm (when a winning number is provided) and
    save the result (in "win", "lose", or "pending" string format) expected by the database model.
-3. Upsert the `PrizeDrawResult` row, including the 10-digit summaries of the hashed
-   draw number and winning number for user-facing comparison.
-4. Return the result wrapped in a `PrizeDrawEvaluation` object.
+5. Return the result wrapped in a `PrizeDrawEvaluation` object.
 
-Re-running the workflow for the same `(nft, draw_type, winning_number)` combination will overwrite the previous
+Re-running the workflow for the same `(instance, draw_type, winning_number)` combination will overwrite the previous
    result as designed.
 
-When `run_prize_draw_batch` is called without explicitly passing `nfts`, it automatically collects NFTs that sit on completed bingo lines and evaluates only those candidates.
+When `run_prize_draw_batch` is called without explicitly passing `instances`, it automatically collects `NFTInstance`s that sit on completed bingo lines and evaluates only those candidates.
 
 ### Bingo Prize Draw (Completed Bingo Lines)
 Use `nictbw.workflows.run_bingo_prize_draw` to evaluate only NFTs that are part of completed bingo lines. The helper:
@@ -130,7 +131,7 @@ Use `nictbw.workflows.run_bingo_prize_draw` to evaluate only NFTs that are part 
 ### Final-Day Attendance Prize Draw
 Use `nictbw.workflows.run_final_attendance_prize_draw` to evaluate only the final-day attendance stamp NFTs. The helper:
 1. Requires `attendance_template_id` (the final-day attendance template).
-2. Selects NFTs minted from that template that have ownership.
+2. Selects `NFTInstance`s minted from that definition.
 3. Evaluates and ranks them, returning ties at the cutoff when `limit` is set.
 
 ## Prize Draw Ranking

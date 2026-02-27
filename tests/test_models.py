@@ -21,6 +21,7 @@ from nictbw.models import (
     User,
     Admin,
     NFTDefinition,
+    NFTTemplate,
     NFTInstance,
     BingoCard,
     BingoCell,
@@ -189,6 +190,69 @@ class DBTestCase(unittest.TestCase):
             self.assertEqual(ownership.serial_number, 0)
             self.assertEqual(ownership.unique_nft_id, "ABC-1234567890ab")
             self.assertEqual(ownership.acquired_at, nft.created_at)
+
+    def test_user_nfts_returns_instances(self):
+        now = datetime.now(timezone.utc)
+        with self.Session() as session:
+            admin = Admin(email="nfts-admin@example.com", password_hash="x")
+            user = User(in_app_id="u-nfts", paymail="wallet-nfts")
+            session.add_all([admin, user])
+            session.flush()
+
+            nft = NFTDefinition(
+                prefix="USR",
+                shared_key="shared",
+                name="User NFT",
+                nft_type="default",
+                created_by_admin_id=admin.id,
+                created_at=now,
+                updated_at=now,
+            )
+            session.add(nft)
+            session.flush()
+
+            ownership = nft.issue_dbwise_to_user(session, user, nft_origin="origin-user")
+            session.flush()
+
+            self.assertEqual(len(user.nfts), 1)
+            self.assertIsInstance(user.nfts[0], NFTInstance)
+            self.assertEqual(user.nfts[0].id, ownership.id)
+
+    def test_template_instantiate_nft_creates_instance(self):
+        now = datetime.now(timezone.utc)
+        with self.Session() as session:
+            admin = Admin(email="template-admin@example.com", password_hash="x")
+            user = User(in_app_id="tpl-user", paymail="tpl-wallet")
+            session.add_all([admin, user])
+            session.flush()
+
+            template = NFTTemplate(
+                prefix="TPL-ONE",
+                name="Template One",
+                category="event",
+                subcategory="shop",
+                description="template desc",
+                created_by_admin_id=admin.id,
+                created_at=now,
+                updated_at=now,
+            )
+            session.add(template)
+            session.flush()
+
+            instance = template.instantiate_nft(
+                session,
+                user,
+                shared_key="tpl-shared",
+                acquired_at=now,
+                nft_origin="tpl-origin",
+            )
+            session.flush()
+
+            self.assertIsInstance(instance, NFTInstance)
+            self.assertEqual(instance.user_id, user.id)
+            self.assertEqual(instance.nft.template_id, template.id)
+            self.assertEqual(instance.nft.prefix, template.prefix)
+            self.assertEqual(instance.nft_origin, "tpl-origin")
 
     def test_coupon_template_redeemed_count_and_max_redeem(self):
         with self.Session() as session:
