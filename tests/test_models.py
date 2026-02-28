@@ -214,7 +214,7 @@ class DBTestCase(unittest.TestCase):
             self.assertEqual(ownership.user_id, user.id)
             self.assertEqual(ownership.definition_id, nft.id)
             self.assertEqual(ownership.serial_number, 0)
-            self.assertEqual(ownership.unique_nft_id, "ABC-1234567890ab")
+            self.assertEqual(ownership.unique_instance_id, "ABC-1234567890ab")
             self.assertEqual(ownership.acquired_at, nft.created_at)
 
     def test_user_nft_instances_returns_instances(self):
@@ -546,7 +546,7 @@ class DBTestCase(unittest.TestCase):
                 user_id=user.id,
                 definition_id=nft.id,
                 serial_number=0,
-                unique_nft_id="COL-AAAAAAAAAAAA",
+                unique_instance_id="COL-AAAAAAAAAAAA",
                 acquired_at=now,
             )
             session.add(ownership)
@@ -563,6 +563,15 @@ class DBTestCase(unittest.TestCase):
                 generated = model_utils.generate_unique_instance_id("COL", session=session)
 
             self.assertEqual(generated, "COL-BBBBBBBBBBBB")
+
+            with self.assertRaises(TypeError):
+                NFTInstance(
+                    user_id=user.id,
+                    definition_id=nft.id,
+                    serial_number=1,
+                    unique_nft_id="COL-CCCCCCCCCCCC",
+                    acquired_at=now,
+                )
 
     def test_template_max_supply_enforced(self):
         now = datetime.now(timezone.utc)
@@ -656,7 +665,7 @@ class DBTestCase(unittest.TestCase):
                 user_id=user.id,
                 definition_id=definition.id,
                 serial_number=0,
-                unique_nft_id="ISSUE-TASK-AAAAAAAAAAAA",
+                unique_instance_id="ISSUE-TASK-AAAAAAAAAAAA",
                 acquired_at=now,
             )
             session.add(ownership)
@@ -666,21 +675,21 @@ class DBTestCase(unittest.TestCase):
                 user_id=user.id,
                 center_definition_id=definition.id,
                 ownership_id=ownership.id,
-                unique_instance_ref=ownership.unique_nft_id,
+                unique_instance_ref=ownership.unique_instance_id,
             )
             session.add(task)
             session.commit()
 
             reloaded = session.get(BingoCardIssueTask, task.id)
             assert reloaded is not None
-            self.assertEqual(reloaded.unique_instance_ref, ownership.unique_nft_id)
+            self.assertEqual(reloaded.unique_instance_ref, ownership.unique_instance_id)
 
             with self.assertRaises(TypeError):
                 BingoCardIssueTask(
                     user_id=user.id,
                     center_definition_id=definition.id,
                     ownership_id=ownership.id,
-                    unique_nft_ref=ownership.unique_nft_id,
+                    unique_nft_ref=ownership.unique_instance_id,
                 )
 
     def test_bingo_completed_lines(self):
@@ -998,7 +1007,7 @@ class DBTestCase(unittest.TestCase):
             ownership = nft_unlock.issue_dbwise_to_user(
                 session,
                 user,
-                unique_nft_id=f"{nft_unlock.prefix}-A1B2C3D4E5F6",
+                unique_instance_id=f"{nft_unlock.prefix}-A1B2C3D4E5F6",
                 acquired_at=now,
             )
 
@@ -1136,7 +1145,7 @@ class DBTestCase(unittest.TestCase):
             assert ownership is not None
             self.assertEqual(ownership.definition_id, nft.id)
             self.assertEqual(ownership.serial_number, 0)
-            self.assertEqual(ownership.unique_nft_id, "CHAINPFX-AAAAAAAAAAAA")
+            self.assertEqual(ownership.unique_instance_id, "CHAINPFX-AAAAAAAAAAAA")
             self.assertEqual(ownership.nft_origin, "origin-123")
             self.assertEqual(ownership.current_nft_location, "chain-vault")
             self.assertEqual(ownership.blockchain_nft_id, 99)
@@ -1213,7 +1222,7 @@ class DBTestCase(unittest.TestCase):
                 user_id=user.id,
                 definition_id=nft.id,
                 serial_number=0,
-                unique_nft_id="TPL-AAAAAAAAAAAA",
+                unique_instance_id="TPL-AAAAAAAAAAAA",
                 acquired_at=datetime(2024, 1, 10, 9, 0, tzinfo=timezone.utc),
                 other_meta=json.dumps({"old": "meta"}),
                 nft_origin="origin-xyz",
@@ -1250,7 +1259,7 @@ class DBTestCase(unittest.TestCase):
 
             refreshed_ownership = session.get(NFTInstance, ownership.id)
             assert refreshed_ownership is not None
-            self.assertEqual(refreshed_ownership.unique_nft_id, "TPL-BBBBBBBBBBBB")
+            self.assertEqual(refreshed_ownership.unique_instance_id, "TPL-BBBBBBBBBBBB")
             self.assertEqual(refreshed_ownership.nft_origin, "origin-xyz")
             self.assertEqual(refreshed_ownership.current_nft_location, "new-location")
             self.assertEqual(

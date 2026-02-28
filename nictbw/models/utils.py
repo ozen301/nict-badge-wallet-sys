@@ -19,7 +19,7 @@ def generate_unique_instance_id(
     """Return a unique NFT-instance identifier using base62 random characters.
 
     When a session is provided, the helper retries if the generated value is
-    already present (or pending) in ``NFTInstance.unique_nft_id``.
+    already present (or pending) in ``NFTInstance.unique_instance_id``.
     """
 
     ownership_cls = None
@@ -39,7 +39,7 @@ def generate_unique_instance_id(
         if session is not None and ownership_cls is not None and select_stmt is not None:
             collision = False
             for obj in session.new:
-                if isinstance(obj, ownership_cls) and getattr(obj, "unique_nft_id", None) == candidate:
+                if isinstance(obj, ownership_cls) and getattr(obj, "unique_instance_id", None) == candidate:
                     collision = True
                     break
             if collision:
@@ -47,7 +47,7 @@ def generate_unique_instance_id(
                 continue
 
             exists = session.scalar(
-                select_stmt(ownership_cls.id).where(ownership_cls.unique_nft_id == candidate)
+                select_stmt(ownership_cls.id).where(ownership_cls.unique_instance_id == candidate)
             )
             if exists is not None:
                 attempts += 1

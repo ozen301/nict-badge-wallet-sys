@@ -24,6 +24,8 @@ Core semantics in `v1.0.0`:
 - `User.nfts` -> `User.nft_instances`
 - `NFTTemplate.instantiate_nft(...)` -> `NFTTemplate.instantiate_instance(...)`
 - `generate_unique_nft_id(...)` -> `generate_unique_instance_id(...)`
+- `NFTDefinition.issue_dbwise_to_user(..., unique_nft_id=...)` -> `NFTDefinition.issue_dbwise_to_user(..., unique_instance_id=...)`
+- `NFTTemplate.instantiate_instance(..., unique_nft_id=...)` -> `NFTTemplate.instantiate_instance(..., unique_instance_id=...)`
 
 ### ChainClient API changes
 - `ChainClient.nfts` -> `ChainClient.nft_instances`
@@ -35,6 +37,7 @@ Core semantics in `v1.0.0`:
 ### NFTInstance API changes
 - `NFTInstance.nft_id` -> `NFTInstance.definition_id`
 - `NFTInstance.nft` -> `NFTInstance.definition`
+- `NFTInstance.unique_nft_id` -> `NFTInstance.unique_instance_id`
 
 ### NFTCouponBinding API changes
 - `NFTCouponBinding.nft_id` -> `NFTCouponBinding.definition_id`

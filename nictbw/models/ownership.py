@@ -33,7 +33,9 @@ class NFTInstance(Base):
         index=True,
     )
     serial_number: Mapped[int] = mapped_column(Integer, nullable=False)
-    unique_nft_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    unique_instance_id: Mapped[str] = mapped_column(
+        "unique_nft_id", String(255), nullable=False
+    )
     acquired_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )

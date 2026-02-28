@@ -590,22 +590,22 @@ class User(Base):
             provided_unique_id = item.get("unique_nft_id")
             if ownership is None:
                 if provided_unique_id:
-                    unique_nft_id = str(provided_unique_id)[:255]
+                    unique_instance_id = str(provided_unique_id)[:255]
                 else:
-                    unique_nft_id = generate_unique_instance_id(prefix, session=session)
+                    unique_instance_id = generate_unique_instance_id(prefix, session=session)
 
                 ownership = NFTInstance(
                     user_id=self.id,
                     definition_id=definition.id,
                     serial_number=definition.minted_count,
-                    unique_nft_id=unique_nft_id,
+                    unique_instance_id=unique_instance_id,
                     acquired_at=created_at,
                     status="succeeded",
                 )
                 session.add(ownership)
                 definition.minted_count += 1
             elif provided_unique_id:
-                ownership.unique_nft_id = str(provided_unique_id)[:255]
+                ownership.unique_instance_id = str(provided_unique_id)[:255]
 
             ownership.acquired_at = created_at
             ownership.blockchain_nft_id = item.get("nft_id")

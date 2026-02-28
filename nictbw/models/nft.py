@@ -200,7 +200,7 @@ class NFTDefinition(Base):
         session: Session,
         user: "User",
         *,
-        unique_nft_id: Optional[str] = None,
+        unique_instance_id: Optional[str] = None,
         serial_number: Optional[int] = None,
         acquired_at: Optional[datetime] = None,
         status: str = "succeeded",
@@ -223,14 +223,14 @@ class NFTDefinition(Base):
 
         if serial_number is None:
             serial_number = self.minted_count
-        if unique_nft_id is None:
-            unique_nft_id = generate_unique_instance_id(self.prefix, session=session)
+        if unique_instance_id is None:
+            unique_instance_id = generate_unique_instance_id(self.prefix, session=session)
 
         ownership = NFTInstance(
             user=user,
             definition=self,
             serial_number=serial_number,
-            unique_nft_id=unique_nft_id,
+            unique_instance_id=unique_instance_id,
             acquired_at=acquired_at or datetime.now(timezone.utc),
             status=status,
             **ownership_fields,
@@ -307,7 +307,7 @@ class NFTTemplate(Base):
         override_name: Optional[str] = None,
         override_description: Optional[str] = None,
         override_created_by_admin_id: Optional[int] = None,
-        unique_nft_id: Optional[str] = None,
+        unique_instance_id: Optional[str] = None,
         serial_number: Optional[int] = None,
         acquired_at: Optional[datetime] = None,
         status: str = "succeeded",
@@ -349,7 +349,7 @@ class NFTTemplate(Base):
         instance: NFTInstance = definition.issue_dbwise_to_user(
             session,
             user,
-            unique_nft_id=unique_nft_id,
+            unique_instance_id=unique_instance_id,
             serial_number=serial_number,
             acquired_at=acquired_at,
             status=status,
