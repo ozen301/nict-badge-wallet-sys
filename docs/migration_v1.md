@@ -25,6 +25,12 @@ Core semantics in `v1.0.0`:
 - `NFTInstance.nft_id` -> `NFTInstance.definition_id`
 - `NFTInstance.nft` -> `NFTInstance.definition`
 
+### NFTCouponBinding API changes
+- `NFTCouponBinding.nft_id` -> `NFTCouponBinding.definition_id`
+- `NFTCouponBinding.nft` -> `NFTCouponBinding.definition`
+- `NFTCouponBinding.get_active_for_nft(session, definition_id)` keeps method name, but now expects `definition_id`.
+- `NFTCouponBinding.get_binding(session, definition_id, template_id)` now expects `definition_id`.
+
 ### Workflow signature changes
 - `create_and_issue_nft(..., nft_template=...)` -> `create_and_issue_nft(..., definition_or_template=...)`
 - `create_and_issue_nft(...)` return type:

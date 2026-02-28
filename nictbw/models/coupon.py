@@ -125,7 +125,9 @@ class NFTCouponBinding(Base):
     id: Mapped[int] = mapped_column(
         ID_TYPE, primary_key=True, index=True, autoincrement=True
     )
-    nft_id: Mapped[int] = mapped_column(ID_TYPE, ForeignKey("nfts.id"), nullable=False)
+    definition_id: Mapped[int] = mapped_column(
+        "nft_id", ID_TYPE, ForeignKey("nfts.id"), nullable=False
+    )
     template_id: Mapped[int] = mapped_column(
         ID_TYPE, ForeignKey("coupon_templates.id"), nullable=False
     )
@@ -136,25 +138,25 @@ class NFTCouponBinding(Base):
     )
 
     template: Mapped["CouponTemplate"] = relationship(back_populates="bindings")
-    nft: Mapped["NFTDefinition"] = relationship()
+    definition: Mapped["NFTDefinition"] = relationship()
 
     @classmethod
     def get_active_for_nft(
-        cls, session: Session, nft_id: int
+        cls, session: Session, definition_id: int
     ) -> list["NFTCouponBinding"]:
         stmt = (
             select(cls)
-            .where(cls.nft_id == nft_id, cls.active.is_(True))
+            .where(cls.definition_id == definition_id, cls.active.is_(True))
             .order_by(cls.id)
         )
         return list(session.scalars(stmt))
 
     @classmethod
     def get_binding(
-        cls, session: Session, nft_id: int, template_id: int
+        cls, session: Session, definition_id: int, template_id: int
     ) -> Optional["NFTCouponBinding"]:
         stmt = select(cls).where(
-            cls.nft_id == nft_id,
+            cls.definition_id == definition_id,
             cls.template_id == template_id,
         )
         return session.scalar(stmt)
