@@ -39,7 +39,7 @@ This is wrapped up in the `nictbw.workflows.create_and_issue_instance` function.
 4. The workflow returns the created `NFTInstance`.
 
 ## NFT Synchronization from the Blockchain
-This is wrapped up in the `User.sync_instances_from_chain` method, which reconciles the local database with the
+This is wrapped up in the `User.sync_nft_instances_from_chain` method, which reconciles the local database with the
 blockchain state for a specific user. Use this workflow when NFTs may have been
 minted or transferred on-chain without corresponding local records.
 

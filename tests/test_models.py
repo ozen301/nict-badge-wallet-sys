@@ -988,7 +988,7 @@ class DBTestCase(unittest.TestCase):
             assert ownership2 is not None
             self.assertEqual(ownership2.id, ownership.id)
 
-    def test_sync_instances_from_chain_requires_on_chain_id(self):
+    def test_sync_nft_instances_from_chain_requires_on_chain_id(self):
         with self.Session() as session:
             user = User(in_app_id="u-sync-none", paymail="wallet-none")
             session.add(user)
@@ -999,9 +999,9 @@ class DBTestCase(unittest.TestCase):
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore", UserWarning)
                 with self.assertRaises(ValueError):
-                    user.sync_instances_from_chain(session, client=client)
+                    user.sync_nft_instances_from_chain(session, client=client)
 
-    def test_sync_instances_from_chain_creates_local_records(self):
+    def test_sync_nft_instances_from_chain_creates_local_records(self):
         created_at = datetime(2024, 1, 1, 12, 0, tzinfo=timezone.utc)
         updated_at = datetime(2024, 1, 2, 13, 0, tzinfo=timezone.utc)
         chain_items = [
@@ -1049,7 +1049,7 @@ class DBTestCase(unittest.TestCase):
             ):
                 with warnings.catch_warnings():
                     warnings.simplefilter("ignore", UserWarning)
-                    user.sync_instances_from_chain(session, client=client)
+                    user.sync_nft_instances_from_chain(session, client=client)
 
             self.assertEqual(client_stub.requested_usernames, ["chain-user"])
 
@@ -1092,7 +1092,7 @@ class DBTestCase(unittest.TestCase):
             self.assertEqual(meta["shared_key"], "chain-shared")
             self.assertEqual(meta["image_url"], "https://example.com/image.png")
 
-    def test_sync_instances_from_chain_updates_existing_records(self):
+    def test_sync_nft_instances_from_chain_updates_existing_records(self):
         original_created = datetime(2024, 1, 5, 9, 0, tzinfo=timezone.utc)
         original_updated = datetime(2024, 1, 5, 10, 0, tzinfo=timezone.utc)
         chain_created = datetime(2024, 1, 1, 9, 30, tzinfo=timezone.utc)
@@ -1169,7 +1169,7 @@ class DBTestCase(unittest.TestCase):
 
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore", UserWarning)
-                user.sync_instances_from_chain(session, client=client)
+                user.sync_nft_instances_from_chain(session, client=client)
 
             self.assertEqual(client_stub.requested_usernames, ["chain-update"])
 
