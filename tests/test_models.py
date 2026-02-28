@@ -26,6 +26,7 @@ from nictbw.models import (
     BingoCard,
     BingoCell,
     CouponTemplate,
+    CouponStore,
     CouponInstance,
     PrizeDrawType,
     PrizeDrawWinningNumber,
@@ -284,6 +285,74 @@ class DBTestCase(unittest.TestCase):
             self.assertEqual(reloaded.max_redeem, 3)
             self.assertEqual(reloaded.redeemed_count, 1)
             self.assertEqual(reloaded.remaining_redeem, 2)
+
+    def test_coupon_template_default_display_definition_id(self):
+        now = datetime.now(timezone.utc)
+        with self.Session() as session:
+            admin = Admin(email="coupon-admin@example.com", password_hash="x")
+            session.add(admin)
+            session.flush()
+
+            definition = NFTDefinition(
+                prefix="CPN-DISP",
+                shared_key="coupon-display",
+                name="Coupon Display",
+                nft_type="default",
+                created_by_admin_id=admin.id,
+                created_at=now,
+                updated_at=now,
+            )
+            session.add(definition)
+            session.flush()
+
+            template = CouponTemplate(
+                prefix="CPN-DISP-TPL",
+                default_display_definition_id=definition.id,
+            )
+            session.add(template)
+            session.commit()
+
+            reloaded = session.get(CouponTemplate, template.id)
+            assert reloaded is not None
+            self.assertEqual(reloaded.default_display_definition_id, definition.id)
+
+            with self.assertRaises(TypeError):
+                CouponTemplate(prefix="CPN-OLD", default_display_nft_id=definition.id)
+
+    def test_coupon_store_definition_fields(self):
+        now = datetime.now(timezone.utc)
+        with self.Session() as session:
+            admin = Admin(email="coupon-store-admin@example.com", password_hash="x")
+            session.add(admin)
+            session.flush()
+
+            definition = NFTDefinition(
+                prefix="CPN-STORE",
+                shared_key="coupon-store",
+                name="Coupon Store",
+                nft_type="default",
+                created_by_admin_id=admin.id,
+                created_at=now,
+                updated_at=now,
+            )
+            session.add(definition)
+            session.flush()
+
+            store = CouponStore(
+                name="postcard-store-1",
+                store_name="Postcard Store 1",
+                definition_id=definition.id,
+            )
+            session.add(store)
+            session.commit()
+
+            reloaded = session.get(CouponStore, store.id)
+            assert reloaded is not None
+            self.assertEqual(reloaded.definition_id, definition.id)
+            self.assertEqual(reloaded.definition.id, definition.id)
+
+            with self.assertRaises(TypeError):
+                CouponStore(name="legacy-store", store_name="Legacy Store", nft_id=definition.id)
 
     def test_generate_unique_id_retries_on_collision(self):
         now = datetime.now(timezone.utc)

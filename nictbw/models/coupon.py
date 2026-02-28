@@ -57,7 +57,8 @@ class CouponTemplate(Base):
     available_stores: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     usage_restrictions: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     image_url: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
-    default_display_nft_id: Mapped[Optional[int]] = mapped_column(
+    default_display_definition_id: Mapped[Optional[int]] = mapped_column(
+        "default_display_nft_id",
         ID_TYPE,
         ForeignKey("nfts.id", ondelete="SET NULL"),
         nullable=True,
@@ -279,7 +280,8 @@ class CouponStore(Base):
         ID_TYPE, primary_key=True, index=True, autoincrement=True
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
-    nft_id: Mapped[int] = mapped_column(
+    definition_id: Mapped[int] = mapped_column(
+        "nft_id",
         ID_TYPE, ForeignKey("nfts.id", ondelete="CASCADE"), nullable=False, unique=True, index=True
     )
     usage_restrictions: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
@@ -291,7 +293,7 @@ class CouponStore(Base):
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
 
-    nft: Mapped["NFTDefinition"] = relationship()
+    definition: Mapped["NFTDefinition"] = relationship()
 
     __table_args__ = (
         UniqueConstraint("name", name="uq_coupon_stores_name"),

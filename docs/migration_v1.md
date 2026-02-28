@@ -37,6 +37,11 @@ Core semantics in `v1.0.0`:
 - `CouponInstance.nft` -> `CouponInstance.definition`
 - `CouponInstance.display_nft` -> `CouponInstance.display_definition`
 
+### CouponTemplate and CouponStore API changes
+- `CouponTemplate.default_display_nft_id` -> `CouponTemplate.default_display_definition_id`
+- `CouponStore.nft_id` -> `CouponStore.definition_id`
+- `CouponStore.nft` -> `CouponStore.definition`
+
 ### Workflow signature changes
 - `create_and_issue_nft(..., nft_template=...)` -> `create_and_issue_nft(..., definition_or_template=...)`
 - `create_and_issue_nft(...)` return type:
