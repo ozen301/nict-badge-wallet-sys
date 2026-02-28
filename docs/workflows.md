@@ -118,7 +118,7 @@ the `PrizeDrawEngine` service.
    save the result (in "win", "lose", or "pending" string format) expected by the database model.
 5. Return the result wrapped in a `PrizeDrawEvaluation` object.
 
-Re-running the workflow for the same `(instance, draw_type, winning_number)` combination will overwrite the previous
+Re-running the workflow for the same `(nft_instance, draw_type, winning_number)` combination will overwrite the previous
    result as designed.
 
 When `run_prize_draw_batch` is called without explicitly passing `nft_instances`, it automatically collects `NFTInstance`s that sit on completed bingo lines and evaluates only those candidates.

@@ -868,6 +868,57 @@ class DBTestCase(unittest.TestCase):
             self.assertEqual(cell.state, "unlocked")
             self.assertEqual(cell.matched_nft_instance_id, user.nft_instances[0].id)
 
+    def test_user_unlock_bingo_cells_keyword_hard_break(self):
+        now = datetime.now(timezone.utc)
+        with self.Session() as session:
+            admin = Admin(email="unlock-cells-admin@example.com", password_hash="x")
+            user = User(in_app_id="unlock-cells-user", paymail="unlock-cells-wallet")
+            session.add_all([admin, user])
+            session.flush()
+
+            definition = NFTDefinition(
+                prefix="UNLOCK-CELLS",
+                shared_key="unlock-cells-shared",
+                name="Unlock Cells",
+                nft_type="default",
+                created_by_admin_id=admin.id,
+                created_at=now,
+                updated_at=now,
+            )
+            session.add(definition)
+            session.flush()
+
+            card = BingoCard(user_id=user.id, issued_at=now, state="active")
+            session.add(card)
+            session.flush()
+
+            cell = BingoCell(
+                bingo_card_id=card.id,
+                idx=0,
+                target_definition_id=definition.id,
+                state="locked",
+            )
+            session.add(cell)
+            session.flush()
+
+            nft_instance = NFTInstance(
+                user_id=user.id,
+                definition_id=definition.id,
+                serial_number=0,
+                unique_instance_id="UNLOCK-CELLS-AAAAAAAAAAAA",
+                acquired_at=now,
+            )
+            session.add(nft_instance)
+            session.flush()
+
+            unlocked = user.unlock_bingo_cells(session, nft_instance=nft_instance)
+            self.assertTrue(unlocked)
+            self.assertEqual(cell.state, "unlocked")
+            self.assertEqual(cell.matched_nft_instance_id, nft_instance.id)
+
+            with self.assertRaises(TypeError):
+                user.unlock_bingo_cells(session, instance=nft_instance)
+
     def test_bingocard_generate_for_user(self):
         now = datetime.now(timezone.utc)
         rng = random.Random(0)

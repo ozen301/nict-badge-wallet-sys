@@ -208,14 +208,14 @@ class User(Base):
 
         return json.dumps(self.bingo_cards_json(compact=compact), ensure_ascii=False)
 
-    def unlock_bingo_cells(self, session: Session, instance: NFTInstance) -> bool:
+    def unlock_bingo_cells(self, session: Session, nft_instance: NFTInstance) -> bool:
         """Unlock bingo cells on this user's active cards.
 
         Parameters
         ----------
         session : Session
             Active SQLAlchemy session.
-        instance : NFTInstance
+        nft_instance : NFTInstance
             Newly created NFT instance to match against bingo cells.
 
         Returns
@@ -234,7 +234,7 @@ class User(Base):
             )
         ).all()
         for card in cards:
-            if card.unlock_cells_for_nft_instance(session, instance):
+            if card.unlock_cells_for_nft_instance(session, nft_instance):
                 unlocked_any = True
 
         return unlocked_any
@@ -261,15 +261,15 @@ class User(Base):
         def _to_id(n: int | NFTDefinition) -> int:
             return n if isinstance(n, int) else n.id
 
-        instance = NFTInstance.get_by_user_and_definition(
+        nft_instance = NFTInstance.get_by_user_and_definition(
             session, self.id, _to_id(definition)
         )
-        if instance is None:
+        if nft_instance is None:
             return False
 
         # Reload bingo cards to ensure newly created cards are considered
         session.expire(self, ["bingo_cards"])
-        return self.unlock_bingo_cells(session, instance)
+        return self.unlock_bingo_cells(session, nft_instance)
 
     def ensure_bingo_cards(self, session: Session) -> int:
         """Create bingo cards for owned definitions that trigger them.

@@ -240,7 +240,7 @@ class NFTDefinition(Base):
 
         if hasattr(user, "nft_instances"):
             try:
-                user.unlock_bingo_cells(session, instance)
+                user.unlock_bingo_cells(session, nft_instance=instance)
             except Exception:
                 pass
 

@@ -20,6 +20,7 @@ Core semantics in `v1.0.0`:
 - `NFT.count_nfts_by_prefix(...)` -> `NFTDefinition.count_instances_by_prefix(...)`
 - `UserNFTOwnership.get_by_user_and_nft(...)` -> `NFTInstance.get_by_user_and_definition(...)`
 - `User.unlock_cells_for_nft(...)` -> `User.unlock_cells_for_definition(...)`
+- `User.unlock_bingo_cells(..., instance=...)` -> `User.unlock_bingo_cells(..., nft_instance=...)`
 - `User.sync_nfts_from_chain(...)` -> `User.sync_nft_instances_from_chain(...)`
 - `User.nfts` -> `User.nft_instances`
 - `NFTTemplate.instantiate_nft(...)` -> `NFTTemplate.instantiate_instance(...)`
