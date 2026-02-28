@@ -415,8 +415,12 @@ class BingoCardIssueTask(Base):
     user_id: Mapped[int] = mapped_column(
         ID_TYPE, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    center_nft_id: Mapped[int] = mapped_column(
-        ID_TYPE, ForeignKey("nfts.id", ondelete="CASCADE"), nullable=False, index=True
+    center_definition_id: Mapped[int] = mapped_column(
+        "center_nft_id",
+        ID_TYPE,
+        ForeignKey("nfts.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     ownership_id: Mapped[int] = mapped_column(
         ID_TYPE,
@@ -569,8 +573,10 @@ class PreGeneratedBingoCard(Base):
 
     id: Mapped[int] = mapped_column(ID_TYPE, primary_key=True, index=True, autoincrement=True)
     period_id: Mapped[int] = mapped_column(Integer, ForeignKey("bingo_periods.id"), nullable=False)
-    center_nft_id: Mapped[int] = mapped_column(ID_TYPE, ForeignKey("nfts.id"), nullable=False)
-    cell_nft_ids: Mapped[list] = mapped_column(JSON, nullable=False)
+    center_definition_id: Mapped[int] = mapped_column(
+        "center_nft_id", ID_TYPE, ForeignKey("nfts.id"), nullable=False
+    )
+    cell_definition_ids: Mapped[list] = mapped_column("cell_nft_ids", JSON, nullable=False)
     status: Mapped[str] = mapped_column(String(20), default="available", index=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)

@@ -50,6 +50,9 @@ Core semantics in `v1.0.0`:
   - `center_template` -> `center_definition`
   - `included_templates` -> `included_definitions`
   - `excluded_templates` -> `excluded_definitions`
+- `BingoCardIssueTask.center_nft_id` -> `BingoCardIssueTask.center_definition_id`
+- `PreGeneratedBingoCard.center_nft_id` -> `PreGeneratedBingoCard.center_definition_id`
+- `PreGeneratedBingoCard.cell_nft_ids` -> `PreGeneratedBingoCard.cell_definition_ids`
 
 ## Behavioral Changes
 
