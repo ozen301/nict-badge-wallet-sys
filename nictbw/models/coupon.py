@@ -187,7 +187,8 @@ class CouponInstance(Base):
     user_id: Mapped[Optional[int]] = mapped_column(
         ID_TYPE, ForeignKey("users.id"), nullable=True
     )
-    ownership_id: Mapped[Optional[int]] = mapped_column(
+    instance_id: Mapped[Optional[int]] = mapped_column(
+        "ownership_id",
         ID_TYPE, ForeignKey("user_nft_ownership.id"), nullable=True
     )
     serial_number: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -225,7 +226,7 @@ class CouponInstance(Base):
         "NFTDefinition", foreign_keys=[display_definition_id]
     )
     user: Mapped[Optional["User"]] = relationship(back_populates="coupons")
-    ownership: Mapped[Optional["NFTInstance"]] = relationship(
+    instance: Mapped[Optional["NFTInstance"]] = relationship(
         back_populates="coupon_instances"
     )
 

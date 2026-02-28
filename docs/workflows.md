@@ -35,7 +35,7 @@ This is wrapped up in the `nictbw.workflows.create_and_issue_instance` function.
 
 1. Retrieve the desired `NFTDefinition` definition via its unique `prefix`, and the target `User` typically via the `in_app_id` or `paymail`.
 2. Associate the NFT definition with the recipient `User` using `NFTDefinition.issue_dbwise_to_user`, which creates a `NFTInstance` record.
-3. If the minting workflow provides chain metadata, populate the ownership fields (e.g. `nft_origin`).
+3. If the minting workflow provides chain metadata, populate the instance fields (e.g. `nft_origin`).
 4. The workflow returns the created `NFTInstance`.
 
 ## NFT Synchronization from the Blockchain
@@ -113,7 +113,7 @@ the `PrizeDrawEngine` service.
 
 1. Evaluate specific `NFTInstance` records.
 2. Derive the deterministic draw number from `NFTInstance.nft_origin`.
-3. Persist `PrizeDrawResult` with `ownership_id` set to the evaluated instance.
+3. Persist `PrizeDrawResult` with `instance_id` set to the evaluated instance.
 4. Run the scoring algorithm (when a winning number is provided) and
    save the result (in "win", "lose", or "pending" string format) expected by the database model.
 5. Return the result wrapped in a `PrizeDrawEvaluation` object.
@@ -124,7 +124,7 @@ Re-running the workflow for the same `(instance, draw_type, winning_number)` com
 When `run_prize_draw_batch` is called without explicitly passing `instances`, it automatically collects `NFTInstance`s that sit on completed bingo lines and evaluates only those candidates.
 
 Current schema limitation:
-`prize_draw_results` is still unique on `(nft_id, draw_type_id)`, so the workflow cannot persist separate results for multiple instances that share the same NFT definition. In that case, the workflow raises `ValueError` until the schema is migrated to ownership-based uniqueness.
+`prize_draw_results` is still unique on `(nft_id, draw_type_id)`, so the workflow cannot persist separate results for multiple instances that share the same NFT definition. In that case, the workflow raises `ValueError` until the schema is migrated to instance-based uniqueness.
 
 ### Bingo Prize Draw (Completed Bingo Lines)
 Use `nictbw.workflows.run_bingo_prize_draw` to evaluate only NFT instances that are part of completed bingo lines. The helper:

@@ -131,20 +131,20 @@ def create_and_issue_instance(
     if isinstance(definition_or_template, NFTTemplate):
         if shared_key is None:
             raise ValueError("shared_key is required when instantiating from a template")
-        ownership = definition_or_template.instantiate_instance(
+        instance = definition_or_template.instantiate_instance(
             session,
             user,
             shared_key=shared_key,
         )
     else:
-        ownership = definition_or_template.issue_dbwise_to_user(session, user)
+        instance = definition_or_template.issue_dbwise_to_user(session, user)
 
-    definition = ownership.definition
+    definition = instance.definition
     if definition.triggers_bingo_card:
         BingoCard.generate_for_user(session, user, definition)
 
     session.flush()
-    return ownership
+    return instance
 
 
 def update_user_bingo_info(session: Session, user: User) -> None:
@@ -318,13 +318,13 @@ def _instances_in_completed_bingo_lines(session: Session) -> list["NFTInstance"]
         for line in completed_lines:
             for idx in line:
                 cell = cells_by_idx.get(idx)
-                if cell is not None and cell.matched_ownership is not None:
-                    eligible.append(cell.matched_ownership)
+                if cell is not None and cell.matched_instance is not None:
+                    eligible.append(cell.matched_instance)
 
     return _unique_instances_preserve_insertion(eligible)
 
 
-def _instances_for_definition_with_ownership(
+def _instances_for_definition(
     session: Session,
     definition_id: int,
 ) -> list["NFTInstance"]:
@@ -516,7 +516,7 @@ def run_final_attendance_prize_draw(
     if attendance_definition_id is None:
         raise ValueError("attendance_definition_id is required")
 
-    eligible_instances = _instances_for_definition_with_ownership(
+    eligible_instances = _instances_for_definition(
         session, attendance_definition_id
     )
     if not eligible_instances:

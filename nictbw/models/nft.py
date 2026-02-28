@@ -131,7 +131,7 @@ class NFTDefinition(Base):
     )
 
     prize_draw_results = relationship("PrizeDrawResult", back_populates="definition")
-    ownerships = relationship("NFTInstance", back_populates="definition")
+    instances = relationship("NFTInstance", back_populates="definition")
     template = relationship("NFTTemplate")
     bingo_period = relationship("BingoPeriod")
 
@@ -183,7 +183,7 @@ class NFTDefinition(Base):
 
     @classmethod
     def count_instances_by_prefix(cls, session: Session, prefix: str) -> int:
-        """Count ownership records for NFT definitions sharing the given prefix."""
+        """Count NFT-instance records for NFT definitions sharing the given prefix."""
 
         from .ownership import NFTInstance
 
@@ -204,9 +204,9 @@ class NFTDefinition(Base):
         serial_number: Optional[int] = None,
         acquired_at: Optional[datetime] = None,
         status: str = "succeeded",
-        **ownership_fields,
+        **instance_fields,
     ) -> "NFTInstance":
-        """Assign ownership of this NFT definition to a user in the database."""
+        """Issue an NFT instance of this definition to a user in the database."""
 
         from .ownership import NFTInstance
 
@@ -226,26 +226,26 @@ class NFTDefinition(Base):
         if unique_instance_id is None:
             unique_instance_id = generate_unique_instance_id(self.prefix, session=session)
 
-        ownership = NFTInstance(
+        instance = NFTInstance(
             user=user,
             definition=self,
             serial_number=serial_number,
             unique_instance_id=unique_instance_id,
             acquired_at=acquired_at or datetime.now(timezone.utc),
             status=status,
-            **ownership_fields,
+            **instance_fields,
         )
-        session.add(ownership)
+        session.add(instance)
         self.minted_count += 1
 
-        if hasattr(user, "ownerships"):
+        if hasattr(user, "nft_instances"):
             try:
-                user.unlock_bingo_cells(session, ownership)
+                user.unlock_bingo_cells(session, instance)
             except Exception:
                 pass
 
         session.flush()
-        return ownership
+        return instance
 
 
 class NFTTemplate(Base):
@@ -311,7 +311,7 @@ class NFTTemplate(Base):
         serial_number: Optional[int] = None,
         acquired_at: Optional[datetime] = None,
         status: str = "succeeded",
-        **ownership_fields,
+        **instance_fields,
     ) -> "NFTInstance":
         """Instantiate an NFT instance from this template for ``user``.
 
@@ -353,7 +353,7 @@ class NFTTemplate(Base):
             serial_number=serial_number,
             acquired_at=acquired_at,
             status=status,
-            **ownership_fields,
+            **instance_fields,
         )
         return instance
 

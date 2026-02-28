@@ -99,7 +99,9 @@ Core semantics in `v1.0.0`:
   - `included_templates` -> `included_definitions`
   - `excluded_templates` -> `excluded_definitions`
 - `BingoCardIssueTask.center_nft_id` -> `BingoCardIssueTask.center_definition_id`
+- `BingoCardIssueTask.ownership_id` -> `BingoCardIssueTask.instance_id`
 - `BingoCardIssueTask.unique_nft_ref` -> `BingoCardIssueTask.unique_instance_ref`
+- `BingoCell.matched_ownership_id` -> `BingoCell.matched_instance_id`
 - `PreGeneratedBingoCard.center_nft_id` -> `PreGeneratedBingoCard.center_definition_id`
 - `PreGeneratedBingoCard.cell_nft_ids` -> `PreGeneratedBingoCard.cell_definition_ids`
 
@@ -111,7 +113,7 @@ Core semantics in `v1.0.0`:
 
 ### Prize draw evaluation
 - Draw number is derived from `NFTInstance.nft_origin` on the supplied instance.
-- `PrizeDrawResult.ownership_id` is the primary semantic reference to the evaluated instance.
+- `PrizeDrawResult.instance_id` is the primary semantic reference to the evaluated instance.
 
 ### Temporary schema guard (important)
 Schema is intentionally unchanged in this release. Because `prize_draw_results` is still unique on `(nft_id, draw_type_id)`, evaluating multiple instances of the same definition in the same draw cannot be stored independently yet.
@@ -133,7 +135,7 @@ from nictbw.models import NFT, UserNFTOwnership
 from nictbw.models import NFTDefinition, NFTInstance
 ```
 
-### Issue and retrieve ownership
+### Issue and retrieve instance
 ```python
 # before
 nft = NFT.get_by_prefix(session, "ABC")

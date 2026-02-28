@@ -196,7 +196,7 @@ class DBTestCase(unittest.TestCase):
 
             # Pre-condition
             self.assertEqual(nft.minted_count, 0)
-            self.assertEqual(len(user.ownerships), 0)
+            self.assertEqual(len(user.nft_instances), 0)
 
             # Act
             with patch(
@@ -209,8 +209,8 @@ class DBTestCase(unittest.TestCase):
             # Verify minted_count incremented
             self.assertEqual(nft.minted_count, 1)
             # Ownership created and linked
-            self.assertEqual(len(user.ownerships), 1)
-            ownership: NFTInstance = user.ownerships[0]
+            self.assertEqual(len(user.nft_instances), 1)
+            ownership: NFTInstance = user.nft_instances[0]
             self.assertEqual(ownership.user_id, user.id)
             self.assertEqual(ownership.definition_id, nft.id)
             self.assertEqual(ownership.serial_number, 0)
@@ -674,7 +674,7 @@ class DBTestCase(unittest.TestCase):
             task = BingoCardIssueTask(
                 user_id=user.id,
                 center_definition_id=definition.id,
-                ownership_id=ownership.id,
+                instance_id=ownership.id,
                 unique_instance_ref=ownership.unique_instance_id,
             )
             session.add(task)
@@ -688,8 +688,15 @@ class DBTestCase(unittest.TestCase):
                 BingoCardIssueTask(
                     user_id=user.id,
                     center_definition_id=definition.id,
-                    ownership_id=ownership.id,
+                    instance_id=ownership.id,
                     unique_nft_ref=ownership.unique_instance_id,
+                )
+            with self.assertRaises(TypeError):
+                BingoCardIssueTask(
+                    user_id=user.id,
+                    center_definition_id=definition.id,
+                    ownership_id=ownership.id,
+                    unique_instance_ref=ownership.unique_instance_id,
                 )
 
     def test_bingo_completed_lines(self):
@@ -783,7 +790,7 @@ class DBTestCase(unittest.TestCase):
             self.assertEqual(card.state, "completed")
             self.assertIsNotNone(card.completed_at)
             self.assertTrue(all(c.state == "unlocked" for c in card.cells))
-            self.assertTrue(all(c.matched_ownership_id is not None for c in card.cells))
+            self.assertTrue(all(c.matched_instance_id is not None for c in card.cells))
 
     def test_user_unlock_cells_for_definition(self):
         now = datetime.now(timezone.utc)
@@ -846,18 +853,18 @@ class DBTestCase(unittest.TestCase):
             result = user.unlock_cells_for_definition(session, nft_main)
             self.assertTrue(result)
             self.assertEqual(cell.state, "unlocked")
-            self.assertEqual(cell.matched_ownership_id, user.ownerships[0].id)
+            self.assertEqual(cell.matched_instance_id, user.nft_instances[0].id)
 
             # Reset and test using the NFTDefinition's ID
             cell.state = "locked"
             cell.definition_id = None
-            cell.matched_ownership_id = None
+            cell.matched_instance_id = None
             session.flush()
 
             result = user.unlock_cells_for_definition(session, nft_main.id)
             self.assertTrue(result)
             self.assertEqual(cell.state, "unlocked")
-            self.assertEqual(cell.matched_ownership_id, user.ownerships[0].id)
+            self.assertEqual(cell.matched_instance_id, user.nft_instances[0].id)
 
     def test_bingocard_generate_for_user(self):
         now = datetime.now(timezone.utc)
@@ -1016,7 +1023,7 @@ class DBTestCase(unittest.TestCase):
             self.assertEqual(unlocked, 0)
             self.assertEqual(cell.state, "unlocked")
             self.assertEqual(cell.definition_id, nft_unlock.id)
-            self.assertEqual(cell.matched_ownership_id, ownership.id)
+            self.assertEqual(cell.matched_instance_id, ownership.id)
 
     def test_ownership_get_by_user_and_definition(self):
         now = datetime.now(timezone.utc)
@@ -1321,7 +1328,7 @@ class DBTestCase(unittest.TestCase):
                 winning_number_id=winning_number.id,
                 user_id=user.id,
                 definition_id=nft.id,
-                ownership_id=ownership.id,
+                instance_id=ownership.id,
                 draw_number="101000",
                 similarity_score=0.66,
                 threshold_used=3.0,
@@ -1332,6 +1339,7 @@ class DBTestCase(unittest.TestCase):
 
             retrieved = session.get(PrizeDrawResult, result.id)
             assert retrieved is not None
+            self.assertFalse(hasattr(PrizeDrawResult, "ownership_id"))
             self.assertEqual(retrieved.draw_type_id, draw_type.id)
             self.assertEqual(retrieved.winning_number_id, winning_number.id)
             self.assertEqual(retrieved.outcome, "lose")

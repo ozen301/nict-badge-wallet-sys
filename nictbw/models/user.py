@@ -126,7 +126,7 @@ class User(Base):
     login_mail = synonym("email")
 
     # relationships
-    ownerships: Mapped[list["NFTInstance"]] = relationship(
+    nft_instances: Mapped[list["NFTInstance"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
     bingo_cards: Mapped[list["BingoCard"]] = relationship(
@@ -194,11 +194,6 @@ class User(Base):
 
         return session.scalar(select(cls).where(cls.on_chain_id == on_chain_id))
 
-    @property
-    def nft_instances(self) -> list[NFTInstance]:
-        """Get NFT instances owned by this user."""
-        return list(self.ownerships)
-
     def bingo_cards_json(self, *, compact: bool = False) -> list[dict[str, Any]]:
         """Return a list of this user's bingo cards as JSON-serializable dicts.
 
@@ -213,15 +208,15 @@ class User(Base):
 
         return json.dumps(self.bingo_cards_json(compact=compact), ensure_ascii=False)
 
-    def unlock_bingo_cells(self, session: Session, ownership: NFTInstance) -> bool:
+    def unlock_bingo_cells(self, session: Session, instance: NFTInstance) -> bool:
         """Unlock bingo cells on this user's active cards.
 
         Parameters
         ----------
         session : Session
             Active SQLAlchemy session.
-        ownership : NFTInstance
-            Newly created ownership to match against bingo cells.
+        instance : NFTInstance
+            Newly created NFT instance to match against bingo cells.
 
         Returns
         -------
@@ -239,7 +234,7 @@ class User(Base):
             )
         ).all()
         for card in cards:
-            if card.unlock_cells_for_ownership(session, ownership):
+            if card.unlock_cells_for_instance(session, instance):
                 unlocked_any = True
 
         return unlocked_any
@@ -266,15 +261,15 @@ class User(Base):
         def _to_id(n: int | NFTDefinition) -> int:
             return n if isinstance(n, int) else n.id
 
-        ownership = NFTInstance.get_by_user_and_definition(
+        instance = NFTInstance.get_by_user_and_definition(
             session, self.id, _to_id(definition)
         )
-        if ownership is None:
+        if instance is None:
             return False
 
         # Reload bingo cards to ensure newly created cards are considered
         session.expire(self, ["bingo_cards"])
-        return self.unlock_bingo_cells(session, ownership)
+        return self.unlock_bingo_cells(session, instance)
 
     def ensure_bingo_cards(self, session: Session) -> int:
         """Create bingo cards for owned definitions that trigger them.
@@ -331,16 +326,16 @@ class User(Base):
         from .ownership import NFTInstance
         from .nft import NFTDefinition
 
-        # Reload relationships to capture newly created cards or ownerships
-        session.expire(self, ["bingo_cards", "ownerships"])
+        # Reload relationships to capture newly created cards or instances
+        session.expire(self, ["bingo_cards", "nft_instances"])
 
-        # Map definition_id -> ownership for quick lookup
-        ownerships = session.scalars(
+        # Map definition_id -> instance for quick lookup
+        instances = session.scalars(
             select(NFTInstance)
             .join(NFTDefinition)
             .where(NFTInstance.user_id == self.id)
         ).all()
-        ownership_map = {o.definition_id: o for o in ownerships}
+        instance_map = {inst.definition_id: inst for inst in instances}
 
         unlocked = 0
         for card in self.bingo_cards:
@@ -349,10 +344,10 @@ class User(Base):
             card_unlocked = False
             for cell in card.cells:
                 if cell.state == "locked":
-                    ownership = ownership_map.get(cell.target_definition_id)
-                    if ownership is not None:
-                        cell.definition_id = ownership.definition_id
-                        cell.matched_ownership_id = ownership.id
+                    instance = instance_map.get(cell.target_definition_id)
+                    if instance is not None:
+                        cell.definition_id = instance.definition_id
+                        cell.matched_instance_id = instance.id
                         cell.state = "unlocked"
                         cell.unlocked_at = datetime.now(timezone.utc)
                         unlocked += 1
@@ -393,7 +388,7 @@ class User(Base):
     def sync_nft_instances_from_chain(
         self, session: Session, client: Optional["ChainClient"] = None
     ) -> None:
-        """Refresh this user's NFT ownership using the blockchain API.
+        """Refresh this user's NFT instances using the blockchain API.
 
         Parameters
         ----------
@@ -584,17 +579,17 @@ class User(Base):
             meta_json = json.dumps(metadata, ensure_ascii=False) if metadata else None
             current_location = item.get("current_nft_location") or origin
 
-            ownership = NFTInstance.get_by_user_and_definition(
+            instance = NFTInstance.get_by_user_and_definition(
                 session, self.id, definition.id
             )
             provided_unique_id = item.get("unique_nft_id")
-            if ownership is None:
+            if instance is None:
                 if provided_unique_id:
                     unique_instance_id = str(provided_unique_id)[:255]
                 else:
                     unique_instance_id = generate_unique_instance_id(prefix, session=session)
 
-                ownership = NFTInstance(
+                instance = NFTInstance(
                     user_id=self.id,
                     definition_id=definition.id,
                     serial_number=definition.minted_count,
@@ -602,23 +597,23 @@ class User(Base):
                     acquired_at=created_at,
                     status="succeeded",
                 )
-                session.add(ownership)
+                session.add(instance)
                 definition.minted_count += 1
             elif provided_unique_id:
-                ownership.unique_instance_id = str(provided_unique_id)[:255]
+                instance.unique_instance_id = str(provided_unique_id)[:255]
 
-            ownership.acquired_at = created_at
-            ownership.blockchain_nft_id = item.get("nft_id")
-            ownership.nft_origin = origin
-            ownership.current_nft_location = current_location
-            ownership.blockchain_name = item.get("name")
-            ownership.sub_type = item.get("sub_type") or metadata.get("sub_type")
-            ownership.blockchain_created_at = _parse_datetime(item.get("created_at"))
-            ownership.blockchain_updated_at = _parse_datetime(item.get("updated_at"))
-            ownership.transaction_id = item.get("transaction_id") or origin
-            ownership.contract_address = item.get("contract_address")
-            ownership.token_id = item.get("token_id")
-            ownership.other_meta = meta_json
+            instance.acquired_at = created_at
+            instance.blockchain_nft_id = item.get("nft_id")
+            instance.nft_origin = origin
+            instance.current_nft_location = current_location
+            instance.blockchain_name = item.get("name")
+            instance.sub_type = item.get("sub_type") or metadata.get("sub_type")
+            instance.blockchain_created_at = _parse_datetime(item.get("created_at"))
+            instance.blockchain_updated_at = _parse_datetime(item.get("updated_at"))
+            instance.transaction_id = item.get("transaction_id") or origin
+            instance.contract_address = item.get("contract_address")
+            instance.token_id = item.get("token_id")
+            instance.other_meta = meta_json
 
         for definition_id in touched_definition_ids:
             definition_obj = session.get(NFTDefinition, definition_id)

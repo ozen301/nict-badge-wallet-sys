@@ -48,7 +48,8 @@ class NFTClaimRequest(Base):
     attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     next_run_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    ownership_id: Mapped[Optional[int]] = mapped_column(
+    instance_id: Mapped[Optional[int]] = mapped_column(
+        "ownership_id",
         ID_TYPE, ForeignKey("user_nft_ownership.id"), nullable=True
     )
     transaction_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
@@ -74,7 +75,7 @@ class NFTClaimRequest(Base):
 
     user = relationship("User")
     definition = relationship("NFTDefinition")
-    ownership = relationship("NFTInstance", foreign_keys=[ownership_id])
+    instance = relationship("NFTInstance", foreign_keys=[instance_id])
 
     __table_args__ = (
         UniqueConstraint("tmp_id", name="uq_nft_claim_tmp_id"),

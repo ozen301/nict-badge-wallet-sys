@@ -59,19 +59,19 @@ class NFTInstance(Base):
     other_meta: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
-    user: Mapped["User"] = relationship(back_populates="ownerships")
-    definition: Mapped["NFTDefinition"] = relationship(back_populates="ownerships")
+    user: Mapped["User"] = relationship(back_populates="nft_instances")
+    definition: Mapped["NFTDefinition"] = relationship(back_populates="instances")
     prize_draw_results: Mapped[list["PrizeDrawResult"]] = relationship(
         "PrizeDrawResult",
-        back_populates="ownership",
+        back_populates="instance",
     )
     raffle_entries: Mapped[list["RaffleEntry"]] = relationship(
         "RaffleEntry",
-        back_populates="ownership",
+        back_populates="instance",
     )
     coupon_instances: Mapped[list["CouponInstance"]] = relationship(
         "CouponInstance",
-        back_populates="ownership",
+        back_populates="instance",
     )
 
     __table_args__ = (
@@ -85,7 +85,7 @@ class NFTInstance(Base):
         user: "User | int",
         definition: "NFTDefinition | int",
     ) -> Optional["NFTInstance"]:
-        """Retrieve ownership record linking ``user`` to ``definition``."""
+        """Retrieve the NFT-instance record linking ``user`` to ``definition``."""
 
         def _to_id(obj: "int | User | NFTDefinition") -> int:
             return obj if isinstance(obj, int) else obj.id
