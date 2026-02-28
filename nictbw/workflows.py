@@ -200,7 +200,7 @@ def submit_winning_number(
 
 def run_prize_draw(
     session: Session,
-    instance: "NFTInstance",
+    nft_instance: "NFTInstance",
     draw_type: PrizeDrawType,
     winning_number: Optional[PrizeDrawWinningNumber] = None,
     *,
@@ -220,7 +220,7 @@ def run_prize_draw(
     ----------
     session : Session
         Active session used for persistence and queries.
-    instance : NFTInstance
+    nft_instance : NFTInstance
         The NFT instance to evaluate.
     draw_type : PrizeDrawType
         Draw configuration that determines algorithm and thresholds.
@@ -248,7 +248,7 @@ def run_prize_draw(
     winning_number = winning_number or draw_type.latest_winning_number(session)
 
     evaluation = engine.evaluate(
-        nft_instance=instance,
+        nft_instance=nft_instance,
         draw_type=draw_type,
         winning_number=winning_number,
         threshold=threshold,
@@ -392,14 +392,14 @@ def run_prize_draw_batch(
     draw_type: PrizeDrawType,
     *,
     winning_number: Optional[PrizeDrawWinningNumber] = None,
-    instances: Optional[Sequence[NFTInstance]] = None,
+    nft_instances: Optional[Sequence[NFTInstance]] = None,
     threshold: Optional[float] = None,
     registry: Optional[AlgorithmRegistry] = None,
 ) -> list[PrizeDrawResult]:
     """Evaluate multiple NFT instances for ``draw_type`` and return their results.
 
-    The helper is suitable for both ad-hoc reruns (``instances`` is provided) and
-    full-batch evaluations (``instances`` omitted). It always resolves a winning
+    The helper is suitable for both ad-hoc reruns (``nft_instances`` is provided) and
+    full-batch evaluations (``nft_instances`` omitted). It always resolves a winning
     number before calling into the engine so that downstream logic does not have
     to duplicate the lookup behaviour.
 
@@ -413,7 +413,7 @@ def run_prize_draw_batch(
     winning_number : Optional[PrizeDrawWinningNumber], default: None
         Overriding winning number applied to all instances. If omitted, the latest stored
         winning number is resolved.
-    instances : Optional[Sequence[NFTInstance]], default: None
+    nft_instances : Optional[Sequence[NFTInstance]], default: None
         Optional subset of NFT instances to evaluate. When omitted, all eligible
         instances on completed bingo lines are processed.
     threshold : Optional[float], default: None
@@ -439,11 +439,11 @@ def run_prize_draw_batch(
     if resolved_winning_number is None:
         raise ValueError("No winning number is available for the supplied draw type")
 
-    if instances is None:
+    if nft_instances is None:
         instances_to_evaluate = _instances_in_completed_bingo_lines(session)
 
     else:
-        instances_to_evaluate = list(instances)
+        instances_to_evaluate = list(nft_instances)
         if not instances_to_evaluate:
             return []
 
@@ -453,7 +453,7 @@ def run_prize_draw_batch(
     for instance in instances_to_evaluate:
         result = run_prize_draw(
             session=session,
-            instance=instance,
+            nft_instance=instance,
             draw_type=draw_type,
             winning_number=resolved_winning_number,
             threshold=threshold,
@@ -489,7 +489,7 @@ def run_bingo_prize_draw(
         session,
         draw_type,
         winning_number=winning_number,
-        instances=eligible_instances,
+        nft_instances=eligible_instances,
         threshold=threshold,
         registry=registry,
     )
@@ -526,7 +526,7 @@ def run_final_attendance_prize_draw(
         session,
         draw_type,
         winning_number=winning_number,
-        instances=eligible_instances,
+        nft_instances=eligible_instances,
         threshold=threshold,
         registry=registry,
     )

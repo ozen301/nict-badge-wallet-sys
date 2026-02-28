@@ -81,8 +81,8 @@ Core semantics in `v1.0.0`:
   - old mental model: definition-like
   - `v1.0.0`: returns `NFTInstance`
 
-- `run_prize_draw(session, nft=..., ...)` -> `run_prize_draw(session, instance=..., ...)`
-- `run_prize_draw_batch(..., nfts=[...])` -> `run_prize_draw_batch(..., instances=[...])`
+- `run_prize_draw(session, nft=..., ...)` -> `run_prize_draw(session, nft_instance=..., ...)`
+- `run_prize_draw_batch(..., nfts=[...])` -> `run_prize_draw_batch(..., nft_instances=[...])`
 - `run_final_attendance_prize_draw(..., attendance_template_id=...)` ->
   `run_final_attendance_prize_draw(..., attendance_definition_id=...)`
 
@@ -169,11 +169,11 @@ instance = NFTInstance.get_by_user_and_definition(session, user, definition)
 result = run_prize_draw(session, nft, draw_type)
 
 # after
-result = run_prize_draw(session, instance, draw_type)
+result = run_prize_draw(session, nft_instance=instance, draw_type=draw_type)
 ```
 
 ## Upgrade Checklist
 1. Update imports and renamed method calls.
-2. Update workflow names/arguments (`create_and_issue_instance`, `definition_or_template`, `instances`, `attendance_definition_id`).
+2. Update workflow names/arguments (`create_and_issue_instance`, `definition_or_template`, `nft_instance`/`nft_instances`, `attendance_definition_id`).
 3. Update bingo JSON consumers (`target_definition` key).
 4. Re-run your integration tests against `v1.0.0`.
