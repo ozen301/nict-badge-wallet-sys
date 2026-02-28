@@ -22,6 +22,12 @@ Core semantics in `v1.0.0`:
 - `User.unlock_cells_for_nft(...)` -> `User.unlock_cells_for_definition(...)`
 - `User.sync_nfts_from_chain(...)` -> `User.sync_instances_from_chain(...)`
 
+### ChainClient API changes
+- `ChainClient.nfts` -> `ChainClient.nft_instances`
+- `ChainClient.get_user_nfts(username)` -> `ChainClient.get_user_nft_instances(username)`
+- `ChainClient.get_sorted_user_nfts(...)` -> `ChainClient.get_sorted_user_nft_instances(...)`
+- `ChainClient.create_nft(...)` -> `ChainClient.create_nft_instance(...)`
+
 ### NFTInstance API changes
 - `NFTInstance.nft_id` -> `NFTInstance.definition_id`
 - `NFTInstance.nft` -> `NFTInstance.definition`

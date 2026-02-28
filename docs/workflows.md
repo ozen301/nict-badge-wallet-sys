@@ -45,7 +45,7 @@ minted or transferred on-chain without corresponding local records.
 
 1. Ensure the target `User` has an `on_chain_id`. The call will raise a
    `ValueError` if the identifier is missing.
-2. Obtain a configured `ChainClient` so the system can call `ChainClient.get_user_nfts` for the user.
+2. Obtain a configured `ChainClient` so the system can call `ChainClient.get_user_nft_instances` for the user.
 3. For each NFT payload returned from the chain, the method:
    - Extracts the embedded metadata (including `metadata.MAP.subTypeData`) and
      maps common aliases (`sharedKey`, `imageUrl`, etc.) to the local schema.

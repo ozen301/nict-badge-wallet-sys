@@ -409,7 +409,7 @@ class User(Base):
 
         Notes
         -----
-        - Fetches NFTs from the chain for ``on_chain_id`` and ensures matching
+        - Fetches NFT instances from the chain for ``on_chain_id`` and ensures matching
           ``NFTDefinition`` and ``NFTInstance`` records exist locally.
         - Newly seen on-chain NFTs are created in the DB using the metadata
           embedded in the chain records, with fallbacks only when information is
@@ -425,7 +425,7 @@ class User(Base):
 
             client = ChainClient()
 
-        chain_items = client.get_user_nfts(self.on_chain_id) or []
+        chain_items = client.get_user_nft_instances(self.on_chain_id) or []
 
         from .admin import Admin
         from .nft import NFTDefinition

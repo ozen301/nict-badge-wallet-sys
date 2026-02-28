@@ -44,7 +44,7 @@ class DummyChainClient:
         self._items = items
         self.requested_usernames: list[str] = []
 
-    def get_user_nfts(self, username: str) -> list[dict]:
+    def get_user_nft_instances(self, username: str) -> list[dict]:
         self.requested_usernames.append(username)
         return self._items
 
