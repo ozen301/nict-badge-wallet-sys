@@ -31,6 +31,7 @@ from nictbw.models import (
     CouponTemplate,
     CouponStore,
     CouponInstance,
+    NFTCouponBinding,
     NFTClaimRequest,
     PrizeDrawType,
     PrizeDrawWinningNumber,
@@ -351,6 +352,55 @@ class DBTestCase(unittest.TestCase):
             self.assertEqual(reloaded.max_redeem, 3)
             self.assertEqual(reloaded.redeemed_count, 1)
             self.assertEqual(reloaded.remaining_redeem, 2)
+
+    def test_coupon_binding_definition_method_renames(self):
+        now = datetime.now(timezone.utc)
+        with self.Session() as session:
+            admin = Admin(email="binding-admin@example.com", password_hash="x")
+            session.add(admin)
+            session.flush()
+
+            definition = NFTDefinition(
+                prefix="BIND-DEF",
+                shared_key="binding-shared",
+                name="Binding Definition",
+                nft_type="default",
+                created_by_admin_id=admin.id,
+                created_at=now,
+                updated_at=now,
+            )
+            template = CouponTemplate(prefix="BIND-TPL")
+            session.add_all([definition, template])
+            session.flush()
+
+            active_binding = NFTCouponBinding(
+                definition_id=definition.id,
+                template_id=template.id,
+                active=True,
+            )
+            inactive_binding = NFTCouponBinding(
+                definition_id=definition.id,
+                template_id=template.id,
+                active=False,
+            )
+            session.add_all([active_binding, inactive_binding])
+            session.commit()
+
+            active_bindings = NFTCouponBinding.get_active_for_definition(
+                session, definition.id
+            )
+            self.assertEqual([b.id for b in active_bindings], [active_binding.id])
+
+            binding = NFTCouponBinding.get_by_definition_and_template(
+                session, definition.id, template.id
+            )
+            self.assertIsNotNone(binding)
+            assert binding is not None
+            self.assertEqual(binding.definition_id, definition.id)
+            self.assertEqual(binding.template_id, template.id)
+
+            self.assertFalse(hasattr(NFTCouponBinding, "get_active_for_nft"))
+            self.assertFalse(hasattr(NFTCouponBinding, "get_binding"))
 
     def test_coupon_template_default_display_definition_id(self):
         now = datetime.now(timezone.utc)

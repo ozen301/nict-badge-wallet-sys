@@ -28,8 +28,8 @@ Core semantics in `v1.0.0`:
 ### NFTCouponBinding API changes
 - `NFTCouponBinding.nft_id` -> `NFTCouponBinding.definition_id`
 - `NFTCouponBinding.nft` -> `NFTCouponBinding.definition`
-- `NFTCouponBinding.get_active_for_nft(session, definition_id)` keeps method name, but now expects `definition_id`.
-- `NFTCouponBinding.get_binding(session, definition_id, template_id)` now expects `definition_id`.
+- `NFTCouponBinding.get_active_for_nft(session, definition_id)` -> `NFTCouponBinding.get_active_for_definition(session, definition_id)`
+- `NFTCouponBinding.get_binding(session, definition_id, template_id)` -> `NFTCouponBinding.get_by_definition_and_template(session, definition_id, template_id)`
 
 ### CouponInstance API changes
 - `CouponInstance.nft_id` -> `CouponInstance.definition_id`

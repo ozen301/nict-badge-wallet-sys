@@ -142,7 +142,7 @@ class NFTCouponBinding(Base):
     definition: Mapped["NFTDefinition"] = relationship()
 
     @classmethod
-    def get_active_for_nft(
+    def get_active_for_definition(
         cls, session: Session, definition_id: int
     ) -> list["NFTCouponBinding"]:
         stmt = (
@@ -153,7 +153,7 @@ class NFTCouponBinding(Base):
         return list(session.scalars(stmt))
 
     @classmethod
-    def get_binding(
+    def get_by_definition_and_template(
         cls, session: Session, definition_id: int, template_id: int
     ) -> Optional["NFTCouponBinding"]:
         stmt = select(cls).where(
