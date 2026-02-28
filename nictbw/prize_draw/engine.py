@@ -117,8 +117,8 @@ class PrizeDrawEngine:
             raise ValueError("Draw type must be persisted before running a prize draw")
         if nft_instance.user_id is None:
             raise ValueError("NFT instance must have a user_id")
-        if nft_instance.nft_id is None:
-            raise ValueError("NFT instance must have an nft_id")
+        if nft_instance.definition_id is None:
+            raise ValueError("NFT instance must have a definition_id")
         if nft_instance.nft_origin is None:
             raise ValueError("NFT instance must have an nft_origin before running a prize draw")
 
@@ -286,7 +286,7 @@ class PrizeDrawEngine:
         )
         result_by_definition = self._session.scalar(
             select(PrizeDrawResult).where(
-                PrizeDrawResult.definition_id == nft_instance.nft_id,
+                PrizeDrawResult.definition_id == nft_instance.definition_id,
                 PrizeDrawResult.draw_type_id == draw_type.id,
             )
         )
@@ -310,7 +310,7 @@ class PrizeDrawEngine:
                     winning_number.id if winning_number is not None else None
                 ),
                 user_id=nft_instance.user_id,
-                definition_id=nft_instance.nft_id,
+                definition_id=nft_instance.definition_id,
                 ownership_id=nft_instance.id,
                 draw_number=draw_number,
                 similarity_score=similarity_score,
@@ -326,7 +326,7 @@ class PrizeDrawEngine:
                 winning_number.id if winning_number is not None else None
             )
             result.user_id = nft_instance.user_id
-            result.definition_id = nft_instance.nft_id
+            result.definition_id = nft_instance.definition_id
             result.ownership_id = nft_instance.id
             result.draw_number = draw_number
             result.similarity_score = similarity_score

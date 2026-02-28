@@ -21,6 +21,10 @@ Core semantics in `v1.0.0`:
 - `UserNFTOwnership.get_by_user_and_nft(...)` -> `NFTInstance.get_by_user_and_definition(...)`
 - `User.unlock_cells_for_nft(...)` -> `User.unlock_cells_for_definition(...)`
 
+### NFTInstance API changes
+- `NFTInstance.nft_id` -> `NFTInstance.definition_id`
+- `NFTInstance.nft` -> `NFTInstance.definition`
+
 ### Workflow signature changes
 - `create_and_issue_nft(..., nft_template=...)` -> `create_and_issue_nft(..., definition_or_template=...)`
 - `create_and_issue_nft(...)` return type:
@@ -51,7 +55,7 @@ Core semantics in `v1.0.0`:
 
 ### User holdings
 - `User.nfts` now returns NFT instances (`list[NFTInstance]`), not definitions.
-- Access definition fields via `instance.nft`.
+- Access definition fields via `instance.definition`.
 
 ### Prize draw evaluation
 - Draw number is derived from `NFTInstance.nft_origin` on the supplied instance.

@@ -142,7 +142,7 @@ class CreateAndIssueNFTWorkflowTestCase(unittest.TestCase):
 
             self.assertIsInstance(instance, NFTInstance)
             self.assertEqual(instance.user_id, user.id)
-            self.assertEqual(instance.nft_id, definition.id)
+            self.assertEqual(instance.definition_id, definition.id)
             self.assertEqual(len(user.nfts), 1)
             self.assertEqual(user.nfts[0].id, instance.id)
 
@@ -193,7 +193,7 @@ class CreateAndIssueNFTWorkflowTestCase(unittest.TestCase):
 
             self.assertIsInstance(instance, NFTInstance)
             self.assertEqual(instance.user_id, user.id)
-            self.assertEqual(instance.nft.template_id, template.id)
+            self.assertEqual(instance.definition.template_id, template.id)
 
 
 if __name__ == "__main__":

@@ -301,7 +301,7 @@ class BingoCard(Base):
                 NFTDefinition.id.in_(definition_ids_needed),
             )
         ).all()
-        ownership_map = {o.nft_id: o for o in ownerships}
+        ownership_map = {o.definition_id: o for o in ownerships}
 
         # Helper to build a cell
         def build_cell(idx: int, definition_id: int) -> "BingoCell":
@@ -312,7 +312,7 @@ class BingoCard(Base):
                     bingo_card_id=card.id,
                     idx=idx,
                     target_definition_id=definition_id,
-                    nft_id=ownership.nft_id,
+                    nft_id=ownership.definition_id,
                     matched_ownership_id=ownership.id,
                     state="unlocked",
                     unlocked_at=datetime.now(timezone.utc),
@@ -389,10 +389,10 @@ class BingoCard(Base):
         """
 
         unlocked_any = False
-        definition_id = ownership.nft_id
+        definition_id = ownership.definition_id
         for cell in self.cells:
             if cell.state == "locked" and cell.target_definition_id == definition_id:
-                cell.nft_id = ownership.nft_id
+                cell.nft_id = ownership.definition_id
                 cell.matched_ownership_id = ownership.id
                 cell.state = "unlocked"
                 cell.unlocked_at = datetime.now(timezone.utc)

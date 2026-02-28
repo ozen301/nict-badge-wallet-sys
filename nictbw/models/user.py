@@ -340,7 +340,7 @@ class User(Base):
             .join(NFTDefinition)
             .where(NFTInstance.user_id == self.id)
         ).all()
-        ownership_map = {o.nft_id: o for o in ownerships}
+        ownership_map = {o.definition_id: o for o in ownerships}
 
         unlocked = 0
         for card in self.bingo_cards:
@@ -351,7 +351,7 @@ class User(Base):
                 if cell.state == "locked":
                     ownership = ownership_map.get(cell.target_definition_id)
                     if ownership is not None:
-                        cell.nft_id = ownership.nft_id
+                        cell.nft_id = ownership.definition_id
                         cell.matched_ownership_id = ownership.id
                         cell.state = "unlocked"
                         cell.unlocked_at = datetime.now(timezone.utc)
@@ -592,7 +592,7 @@ class User(Base):
 
                 ownership = NFTInstance(
                     user_id=self.id,
-                    nft_id=nft.id,
+                    definition_id=nft.id,
                     serial_number=nft.minted_count,
                     unique_nft_id=unique_nft_id,
                     acquired_at=created_at,
@@ -621,7 +621,7 @@ class User(Base):
             if nft_obj is None:
                 continue
             count = session.scalar(
-                select(func.count()).where(NFTInstance.nft_id == nft_id)
+                select(func.count()).where(NFTInstance.definition_id == nft_id)
             )
             nft_obj.minted_count = int(count or 0)
             updated_at = nft_updated_at_map.get(nft_id)

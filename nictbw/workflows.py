@@ -139,7 +139,7 @@ def create_and_issue_nft(
     else:
         ownership = definition_or_template.issue_dbwise_to_user(session, user)
 
-    definition = ownership.nft
+    definition = ownership.definition
     if definition.triggers_bingo_card:
         BingoCard.generate_for_user(session, user, definition)
 
@@ -284,12 +284,14 @@ def _validate_instances_compatible_with_result_uniqueness(
     for instance in instances:
         if instance.id is None:
             raise ValueError("NFT instance must be persisted before running a prize draw")
-        if instance.nft_id is None:
-            raise ValueError("NFT instance must have an nft_id before running a prize draw")
+        if instance.definition_id is None:
+            raise ValueError(
+                "NFT instance must have a definition_id before running a prize draw"
+            )
 
-        prior_instance_id = first_instance_per_definition.get(instance.nft_id)
+        prior_instance_id = first_instance_per_definition.get(instance.definition_id)
         if prior_instance_id is None:
-            first_instance_per_definition[instance.nft_id] = instance.id
+            first_instance_per_definition[instance.definition_id] = instance.id
             continue
 
         if prior_instance_id != instance.id:
@@ -328,7 +330,7 @@ def _instances_for_definition_with_ownership(
 ) -> list["NFTInstance"]:
     """Return instances for the supplied NFT definition id."""
 
-    stmt = select(NFTInstance).where(NFTInstance.nft_id == definition_id).order_by(
+    stmt = select(NFTInstance).where(NFTInstance.definition_id == definition_id).order_by(
         NFTInstance.id.asc()
     )
     return _unique_instances_preserve_insertion(session.scalars(stmt).all())

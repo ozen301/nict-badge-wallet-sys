@@ -186,7 +186,7 @@ class DBTestCase(unittest.TestCase):
             self.assertEqual(len(user.ownerships), 1)
             ownership: NFTInstance = user.ownerships[0]
             self.assertEqual(ownership.user_id, user.id)
-            self.assertEqual(ownership.nft_id, nft.id)
+            self.assertEqual(ownership.definition_id, nft.id)
             self.assertEqual(ownership.serial_number, 0)
             self.assertEqual(ownership.unique_nft_id, "ABC-1234567890ab")
             self.assertEqual(ownership.acquired_at, nft.created_at)
@@ -250,8 +250,8 @@ class DBTestCase(unittest.TestCase):
 
             self.assertIsInstance(instance, NFTInstance)
             self.assertEqual(instance.user_id, user.id)
-            self.assertEqual(instance.nft.template_id, template.id)
-            self.assertEqual(instance.nft.prefix, template.prefix)
+            self.assertEqual(instance.definition.template_id, template.id)
+            self.assertEqual(instance.definition.prefix, template.prefix)
             self.assertEqual(instance.nft_origin, "tpl-origin")
 
     def test_coupon_template_redeemed_count_and_max_redeem(self):
@@ -310,7 +310,7 @@ class DBTestCase(unittest.TestCase):
 
             ownership = NFTInstance(
                 user_id=user.id,
-                nft_id=nft.id,
+                definition_id=nft.id,
                 serial_number=0,
                 unique_nft_id="COL-AAAAAAAAAAAA",
                 acquired_at=now,
@@ -712,7 +712,7 @@ class DBTestCase(unittest.TestCase):
             self.assertIsNotNone(ownership)
             assert ownership is not None
             self.assertEqual(ownership.user_id, user.id)
-            self.assertEqual(ownership.nft_id, nft.id)
+            self.assertEqual(ownership.definition_id, nft.id)
 
             # Also verify lookup works with IDs
             ownership2 = NFTInstance.get_by_user_and_definition(session, user.id, nft.id)
@@ -808,7 +808,7 @@ class DBTestCase(unittest.TestCase):
             )
             self.assertIsNotNone(ownership)
             assert ownership is not None
-            self.assertEqual(ownership.nft_id, nft.id)
+            self.assertEqual(ownership.definition_id, nft.id)
             self.assertEqual(ownership.serial_number, 0)
             self.assertEqual(ownership.unique_nft_id, "CHAINPFX-AAAAAAAAAAAA")
             self.assertEqual(ownership.nft_origin, "origin-123")
@@ -885,7 +885,7 @@ class DBTestCase(unittest.TestCase):
 
             ownership = NFTInstance(
                 user_id=user.id,
-                nft_id=nft.id,
+                definition_id=nft.id,
                 serial_number=0,
                 unique_nft_id="TPL-AAAAAAAAAAAA",
                 acquired_at=datetime(2024, 1, 10, 9, 0, tzinfo=timezone.utc),

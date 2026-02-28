@@ -379,7 +379,7 @@ class PrizeDrawWorkflowSelectionTests(unittest.TestCase):
                     definition.issue_dbwise_to_user(session, user, nft_origin=f"origin-{i}")
                 )
 
-            ownership_by_nft = {o.nft_id: o for o in user.ownerships}
+            ownership_by_nft = {o.definition_id: o for o in user.ownerships}
 
             card = BingoCard(
                 user_id=user.id,
@@ -392,7 +392,7 @@ class PrizeDrawWorkflowSelectionTests(unittest.TestCase):
             cells: list[BingoCell] = []
             for idx in range(9):
                 unlocked = idx in (0, 1, 2)
-                nft_id = instances[idx].nft_id if unlocked else None
+                nft_id = instances[idx].definition_id if unlocked else None
                 ownership_id = (
                     ownership_by_nft[nft_id].id if unlocked and nft_id is not None else None
                 )

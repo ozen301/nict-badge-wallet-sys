@@ -23,7 +23,9 @@ class NFTInstance(Base):
 
     id: Mapped[int] = mapped_column(ID_TYPE, primary_key=True, index=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(ID_TYPE, ForeignKey("users.id"), nullable=False)
-    nft_id: Mapped[int] = mapped_column(ID_TYPE, ForeignKey("nfts.id"), nullable=False)
+    definition_id: Mapped[int] = mapped_column(
+        "nft_id", ID_TYPE, ForeignKey("nfts.id"), nullable=False
+    )
     bingo_period_id: Mapped[Optional[int]] = mapped_column(
         Integer,
         ForeignKey("bingo_periods.id", ondelete="SET NULL"),
@@ -56,7 +58,7 @@ class NFTInstance(Base):
     error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     user: Mapped["User"] = relationship(back_populates="ownerships")
-    nft: Mapped["NFTDefinition"] = relationship(back_populates="ownerships")
+    definition: Mapped["NFTDefinition"] = relationship(back_populates="ownerships")
     prize_draw_results: Mapped[list["PrizeDrawResult"]] = relationship(
         "PrizeDrawResult",
         back_populates="ownership",
@@ -79,15 +81,15 @@ class NFTInstance(Base):
         cls,
         session,
         user: "User | int",
-        nft: "NFTDefinition | int",
+        definition: "NFTDefinition | int",
     ) -> Optional["NFTInstance"]:
-        """Retrieve ownership record linking ``user`` to ``nft``."""
+        """Retrieve ownership record linking ``user`` to ``definition``."""
 
         def _to_id(obj: "int | User | NFTDefinition") -> int:
             return obj if isinstance(obj, int) else obj.id
 
         user_id = _to_id(user)
-        nft_id = _to_id(nft)
+        definition_id = _to_id(definition)
         return session.query(cls).filter(
-            cls.user_id == user_id, cls.nft_id == nft_id
+            cls.user_id == user_id, cls.definition_id == definition_id
         ).one_or_none()

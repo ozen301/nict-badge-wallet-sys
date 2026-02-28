@@ -127,7 +127,7 @@ class NFTDefinition(Base):
     )
 
     prize_draw_results = relationship("PrizeDrawResult", back_populates="definition")
-    ownerships = relationship("NFTInstance", back_populates="nft")
+    ownerships = relationship("NFTInstance", back_populates="definition")
     template = relationship("NFTTemplate")
     bingo_period = relationship("BingoPeriod")
 
@@ -186,7 +186,7 @@ class NFTDefinition(Base):
         stmt = (
             select(func.count())
             .select_from(NFTInstance)
-            .join(cls, cls.id == NFTInstance.nft_id)
+            .join(cls, cls.id == NFTInstance.definition_id)
             .where(cls.prefix == prefix)
         )
         return int(session.scalar(stmt) or 0)
@@ -224,7 +224,7 @@ class NFTDefinition(Base):
 
         ownership = NFTInstance(
             user=user,
-            nft=self,
+            definition=self,
             serial_number=serial_number,
             unique_nft_id=unique_nft_id,
             acquired_at=acquired_at or datetime.now(timezone.utc),
