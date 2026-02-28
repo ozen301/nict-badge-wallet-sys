@@ -390,7 +390,7 @@ class User(Base):
 
         return self.password_hash is not None and self.password_hash == password_hash
 
-    def sync_nfts_from_chain(
+    def sync_instances_from_chain(
         self, session: Session, client: Optional["ChainClient"] = None
     ) -> None:
         """Refresh this user's NFT ownership using the blockchain API.
