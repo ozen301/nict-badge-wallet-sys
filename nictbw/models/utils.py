@@ -10,13 +10,13 @@ from sqlalchemy.orm import Session
 BASE62_ALPHABET = string.digits + string.ascii_uppercase + string.ascii_lowercase
 
 
-def generate_unique_nft_id(
+def generate_unique_instance_id(
     prefix: str,
     session: Optional[Session] = None,
     length: int = 12,
     max_attempts: int = 32,
 ) -> str:
-    """Return a unique NFT identifier using base62 random characters.
+    """Return a unique NFT-instance identifier using base62 random characters.
 
     When a session is provided, the helper retries if the generated value is
     already present (or pending) in ``NFTInstance.unique_nft_id``.
@@ -55,4 +55,6 @@ def generate_unique_nft_id(
 
         return candidate
 
-    raise RuntimeError("Unable to generate a unique NFT identifier after multiple attempts")
+    raise RuntimeError(
+        "Unable to generate a unique NFT-instance identifier after multiple attempts"
+    )

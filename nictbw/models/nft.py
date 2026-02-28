@@ -23,7 +23,7 @@ from sqlalchemy.orm import Mapped, Session, mapped_column, relationship
 from ..db.utils import dt_iso
 from .base import Base
 from .id_type import ID_TYPE
-from .utils import generate_unique_nft_id
+from .utils import generate_unique_instance_id
 
 if TYPE_CHECKING:
     from .ownership import NFTInstance
@@ -224,7 +224,7 @@ class NFTDefinition(Base):
         if serial_number is None:
             serial_number = self.minted_count
         if unique_nft_id is None:
-            unique_nft_id = generate_unique_nft_id(self.prefix, session=session)
+            unique_nft_id = generate_unique_instance_id(self.prefix, session=session)
 
         ownership = NFTInstance(
             user=user,

@@ -26,6 +26,7 @@ from nictbw.models import (
     NFTInstance,
     BingoPeriod,
     BingoPeriodReward,
+    BingoCardIssueTask,
     BingoCard,
     BingoCell,
     CouponTemplate,
@@ -199,7 +200,7 @@ class DBTestCase(unittest.TestCase):
 
             # Act
             with patch(
-                "nictbw.models.nft.generate_unique_nft_id",
+                "nictbw.models.nft.generate_unique_instance_id",
                 return_value="ABC-1234567890ab",
             ):
                 nft.issue_dbwise_to_user(session, user, acquired_at=nft.created_at)
@@ -518,7 +519,7 @@ class DBTestCase(unittest.TestCase):
                     shared_key=definition.shared_key,
                 )
 
-    def test_generate_unique_id_retries_on_collision(self):
+    def test_generate_unique_instance_id_retries_on_collision(self):
         now = datetime.now(timezone.utc)
         with self.Session() as session:
             admin = Admin(email="collision@admin.com", password_hash="x")
@@ -551,13 +552,15 @@ class DBTestCase(unittest.TestCase):
             session.add(ownership)
             session.flush()
 
-            from nictbw.models.utils import generate_unique_nft_id
+            from nictbw.models import utils as model_utils
+
+            self.assertFalse(hasattr(model_utils, "generate_unique_nft_id"))
 
             with patch(
                 "nictbw.models.utils.secrets.choice",
                 side_effect=list("A" * 12 + "B" * 12),
             ):
-                generated = generate_unique_nft_id("COL", session=session)
+                generated = model_utils.generate_unique_instance_id("COL", session=session)
 
             self.assertEqual(generated, "COL-BBBBBBBBBBBB")
 
@@ -628,6 +631,57 @@ class DBTestCase(unittest.TestCase):
 
             with self.assertRaises(TypeError):
                 BingoPeriodReward(period_id=period.id, reward_nft_id=definition.id)
+
+    def test_bingo_card_issue_task_unique_instance_ref(self):
+        now = datetime.now(timezone.utc)
+        with self.Session() as session:
+            admin = Admin(email="issue-task-admin@example.com", password_hash="x")
+            user = User(in_app_id="issue-task-user", paymail="issue-task-wallet")
+            session.add_all([admin, user])
+            session.flush()
+
+            definition = NFTDefinition(
+                prefix="ISSUE-TASK",
+                shared_key="issue-task-shared",
+                name="Issue Task Definition",
+                nft_type="default",
+                created_by_admin_id=admin.id,
+                created_at=now,
+                updated_at=now,
+            )
+            session.add(definition)
+            session.flush()
+
+            ownership = NFTInstance(
+                user_id=user.id,
+                definition_id=definition.id,
+                serial_number=0,
+                unique_nft_id="ISSUE-TASK-AAAAAAAAAAAA",
+                acquired_at=now,
+            )
+            session.add(ownership)
+            session.flush()
+
+            task = BingoCardIssueTask(
+                user_id=user.id,
+                center_definition_id=definition.id,
+                ownership_id=ownership.id,
+                unique_instance_ref=ownership.unique_nft_id,
+            )
+            session.add(task)
+            session.commit()
+
+            reloaded = session.get(BingoCardIssueTask, task.id)
+            assert reloaded is not None
+            self.assertEqual(reloaded.unique_instance_ref, ownership.unique_nft_id)
+
+            with self.assertRaises(TypeError):
+                BingoCardIssueTask(
+                    user_id=user.id,
+                    center_definition_id=definition.id,
+                    ownership_id=ownership.id,
+                    unique_nft_ref=ownership.unique_nft_id,
+                )
 
     def test_bingo_completed_lines(self):
         card = BingoCard(user_id=1, issued_at=datetime.now(timezone.utc))
@@ -1048,7 +1102,7 @@ class DBTestCase(unittest.TestCase):
             client = cast(ChainClient, client_stub)
 
             with patch(
-                "nictbw.models.utils.generate_unique_nft_id",
+                "nictbw.models.utils.generate_unique_instance_id",
                 return_value="CHAINPFX-AAAAAAAAAAAA",
             ):
                 with warnings.catch_warnings():

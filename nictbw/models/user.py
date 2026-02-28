@@ -430,7 +430,7 @@ class User(Base):
         from .admin import Admin
         from .nft import NFTDefinition
         from .ownership import NFTInstance
-        from .utils import generate_unique_nft_id
+        from .utils import generate_unique_instance_id
 
         def _parse_datetime(value: Any) -> datetime:
             if isinstance(value, datetime):
@@ -592,7 +592,7 @@ class User(Base):
                 if provided_unique_id:
                     unique_nft_id = str(provided_unique_id)[:255]
                 else:
-                    unique_nft_id = generate_unique_nft_id(prefix, session=session)
+                    unique_nft_id = generate_unique_instance_id(prefix, session=session)
 
                 ownership = NFTInstance(
                     user_id=self.id,

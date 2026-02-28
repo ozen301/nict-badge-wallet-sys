@@ -428,7 +428,9 @@ class BingoCardIssueTask(Base):
         ForeignKey("user_nft_ownership.id", ondelete="CASCADE"),
         nullable=False,
     )
-    unique_nft_ref: Mapped[str] = mapped_column(String(255), nullable=False)
+    unique_instance_ref: Mapped[str] = mapped_column(
+        "unique_nft_ref", String(255), nullable=False
+    )
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
     attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     next_run_at: Mapped[datetime] = mapped_column(

@@ -23,6 +23,7 @@ Core semantics in `v1.0.0`:
 - `User.sync_nfts_from_chain(...)` -> `User.sync_nft_instances_from_chain(...)`
 - `User.nfts` -> `User.nft_instances`
 - `NFTTemplate.instantiate_nft(...)` -> `NFTTemplate.instantiate_instance(...)`
+- `generate_unique_nft_id(...)` -> `generate_unique_instance_id(...)`
 
 ### ChainClient API changes
 - `ChainClient.nfts` -> `ChainClient.nft_instances`
@@ -95,6 +96,7 @@ Core semantics in `v1.0.0`:
   - `included_templates` -> `included_definitions`
   - `excluded_templates` -> `excluded_definitions`
 - `BingoCardIssueTask.center_nft_id` -> `BingoCardIssueTask.center_definition_id`
+- `BingoCardIssueTask.unique_nft_ref` -> `BingoCardIssueTask.unique_instance_ref`
 - `PreGeneratedBingoCard.center_nft_id` -> `PreGeneratedBingoCard.center_definition_id`
 - `PreGeneratedBingoCard.cell_nft_ids` -> `PreGeneratedBingoCard.cell_definition_ids`
 
