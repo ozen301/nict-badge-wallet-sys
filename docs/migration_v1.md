@@ -46,6 +46,12 @@ Core semantics in `v1.0.0`:
 - `NFTClaimRequest.nft_id` -> `NFTClaimRequest.definition_id`
 - `NFTClaimRequest.nft` -> `NFTClaimRequest.definition`
 
+### NFTCondition and NFTTemplate API changes
+- `NFTCondition.required_nft_id` -> `NFTCondition.required_definition_id`
+- `NFTCondition.prohibited_nft_id` -> `NFTCondition.prohibited_definition_id`
+- `NFTTemplate.required_nft_id` -> `NFTTemplate.required_definition_id`
+- `NFTTemplate.prohibited_nft_id` -> `NFTTemplate.prohibited_definition_id`
+
 ### Workflow signature changes
 - `create_and_issue_nft(..., nft_template=...)` -> `create_and_issue_nft(..., definition_or_template=...)`
 - `create_and_issue_nft(...)` return type:

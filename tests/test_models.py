@@ -20,6 +20,7 @@ from nictbw.models import (
     Base,
     User,
     Admin,
+    NFTCondition,
     NFTDefinition,
     NFTTemplate,
     NFTInstance,
@@ -149,6 +150,25 @@ class DBTestCase(unittest.TestCase):
             self.assertEqual(refreshed.prefix, "P")
             self.assertEqual(refreshed.minted_count, 2)
 
+    def test_nft_condition_definition_constraint_fields(self):
+        with self.Session() as session:
+            cond = NFTCondition(
+                required_definition_id=101,
+                prohibited_definition_id=202,
+            )
+            session.add(cond)
+            session.commit()
+
+            reloaded = session.get(NFTCondition, cond.id)
+            assert reloaded is not None
+            self.assertEqual(reloaded.required_definition_id, 101)
+            self.assertEqual(reloaded.prohibited_definition_id, 202)
+
+            with self.assertRaises(TypeError):
+                NFTCondition(required_nft_id=1)
+            with self.assertRaises(TypeError):
+                NFTCondition(prohibited_nft_id=2)
+
     def test_user_issue_nft_creates_ownership_and_increments(self):
         now = datetime.now(timezone.utc)
         with self.Session() as session:
@@ -257,6 +277,49 @@ class DBTestCase(unittest.TestCase):
             self.assertEqual(instance.definition.template_id, template.id)
             self.assertEqual(instance.definition.prefix, template.prefix)
             self.assertEqual(instance.nft_origin, "tpl-origin")
+
+    def test_template_definition_constraint_fields(self):
+        now = datetime.now(timezone.utc)
+        with self.Session() as session:
+            admin = Admin(email="template-constraint-admin@example.com", password_hash="x")
+            session.add(admin)
+            session.flush()
+
+            template = NFTTemplate(
+                prefix="TPL-CONSTRAINT",
+                name="Template Constraint",
+                required_definition_id=303,
+                prohibited_definition_id=404,
+                created_by_admin_id=admin.id,
+                created_at=now,
+                updated_at=now,
+            )
+            session.add(template)
+            session.commit()
+
+            reloaded = session.get(NFTTemplate, template.id)
+            assert reloaded is not None
+            self.assertEqual(reloaded.required_definition_id, 303)
+            self.assertEqual(reloaded.prohibited_definition_id, 404)
+
+            with self.assertRaises(TypeError):
+                NFTTemplate(
+                    prefix="TPL-LEGACY-REQ",
+                    name="Legacy Required",
+                    required_nft_id=1,
+                    created_by_admin_id=admin.id,
+                    created_at=now,
+                    updated_at=now,
+                )
+            with self.assertRaises(TypeError):
+                NFTTemplate(
+                    prefix="TPL-LEGACY-PRO",
+                    name="Legacy Prohibited",
+                    prohibited_nft_id=2,
+                    created_by_admin_id=admin.id,
+                    created_at=now,
+                    updated_at=now,
+                )
 
     def test_coupon_template_redeemed_count_and_max_redeem(self):
         with self.Session() as session:

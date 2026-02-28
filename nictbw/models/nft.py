@@ -41,8 +41,12 @@ class NFTCondition(Base):
     latitude: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     longitude: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     radius: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-    required_nft_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
-    prohibited_nft_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
+    required_definition_id: Mapped[Optional[int]] = mapped_column(
+        "required_nft_id", BigInteger, nullable=True
+    )
+    prohibited_definition_id: Mapped[Optional[int]] = mapped_column(
+        "prohibited_nft_id", BigInteger, nullable=True
+    )
     other_conditions: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
@@ -267,8 +271,12 @@ class NFTTemplate(Base):
     latitude: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     longitude: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     radius: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-    required_nft_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
-    prohibited_nft_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
+    required_definition_id: Mapped[Optional[int]] = mapped_column(
+        "required_nft_id", BigInteger, nullable=True
+    )
+    prohibited_definition_id: Mapped[Optional[int]] = mapped_column(
+        "prohibited_nft_id", BigInteger, nullable=True
+    )
     other_conditions: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     triggers_bingo_card: Mapped[bool] = mapped_column(Boolean, default=False)
     is_public: Mapped[bool] = mapped_column(
