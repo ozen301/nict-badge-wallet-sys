@@ -59,7 +59,7 @@ class NFTCondition(Base):
 
 
 class NFTDefinition(Base):
-    """NFT definition model (acts as template data in current API schema)."""
+    """NFT definition model stored in the ``nfts`` table."""
 
     __tablename__ = "nfts"
 
@@ -183,7 +183,7 @@ class NFTDefinition(Base):
 
     @classmethod
     def count_instances_by_prefix(cls, session: Session, prefix: str) -> int:
-        """Count ownership records for NFTs sharing the given prefix."""
+        """Count ownership records for NFT definitions sharing the given prefix."""
 
         from .ownership import NFTInstance
 
