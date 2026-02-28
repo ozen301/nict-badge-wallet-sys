@@ -68,7 +68,7 @@ However, normally it is not necessary to call these methods directly, as the bin
 
 1. Query for the `NFTDefinition` definitions that have the `triggers_bingo_card` flag set to
    `True` and owned by the user.
-2. For each such template, check if the corresponding `BingoCard` is created for the user;
+2. For each such definition, check if the corresponding `BingoCard` is created for the user;
    if not, create it. This ensures that the user has the correct number of bingo cards.
 3. Query for the `NFTDefinition` definitions owned by the user.
 4. For each such definition, check if the corresponding `BingoCell` is unlocked for the user;

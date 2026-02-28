@@ -148,7 +148,7 @@ class SerializationTestCase(unittest.TestCase):
             self.assertIsInstance(d["issued_at"], str)
             # Should have 9 cells
             self.assertEqual(len(d["cells"]), 9)
-            # Ensure each cell has a template embedded
+            # Ensure each cell has a definition embedded
             for i, cell_d in enumerate(d["cells"]):
                 self.assertEqual(cell_d["idx"], i)
                 self.assertIn("target_definition", cell_d)

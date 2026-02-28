@@ -319,7 +319,7 @@ class User(Base):
         return created
 
     def ensure_bingo_cells(self, session: Session) -> int:
-        """Unlock bingo cells for NFTs already owned by this user.
+        """Unlock bingo cells for NFT instances already owned by this user.
 
         Returns
         -------

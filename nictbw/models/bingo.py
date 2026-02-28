@@ -79,7 +79,7 @@ class BingoCard(Base):
     """Bingo card assigned to a user.
 
     Represents a 3x3 grid of :class:`BingoCell` objects that can be unlocked by
-    collecting NFTs matching predefined templates.
+    collecting NFT instances that match predefined NFT definitions.
     """
 
     def __init__(
@@ -277,9 +277,9 @@ class BingoCard(Base):
         candidate_definition_ids -= excluded_definition_ids
 
         if len(candidate_definition_ids) < 8:
-            raise ValueError("Not enough NFTs to populate bingo card")
+            raise ValueError("Not enough NFT definitions to populate bingo card")
 
-        # Randomly pick 8 distinct templates for the non-centre cells, then
+        # Randomly pick 8 distinct definitions for the non-centre cells, then
         # shuffle the destination positions (excluding the centre at 4).
         selected_definition_ids = rng.sample(list(candidate_definition_ids), 8)
         positions = [0, 1, 2, 3, 5, 6, 7, 8]
@@ -530,7 +530,7 @@ class BingoCell(Base):
     def to_json(self, *, compact: bool = False) -> dict[str, Any]:
         """Return a JSON (dict) for this BingoCell.
 
-        When compact is True, keep only essential fields and a compact template.
+        When compact is True, keep only essential fields and a compact definition.
         """
         definition_obj = (
             self.target_definition.to_json(compact=compact)
