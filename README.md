@@ -9,6 +9,8 @@ nict-badge-wallet-sys/
 ├─ alembic/             # Alembic env + migration scripts
 ├─ docs/
 │  ├─ code_examples.ipynb  # Jupyter notebook with code examples
+│  ├─ migration_v1.md      # v1.0.0 breaking-change migration guide
+│  ├─ schema_followup_memo.md # Planned DB schema follow-up tasks
 │  ├─ workflows.md         # Common workflows documentation
 ├─ nictbw/
 │  ├─ blockchain/       # Blockchain API interaction
@@ -112,7 +114,7 @@ This repository is the source of truth for the database schema used by the trans
 When updating the schema:
 1. Update the ORM models and add an Alembic migration in this repo.
 2. Run tests and `python scripts/check_schema_drift.py`.
-3. Bump `pyproject.toml` version and tag a release (e.g., `v0.2.0`).
+3. Bump `pyproject.toml` version and tag a release (e.g., `v1.0.0`).
 4. Apply the migration to production from this repo.
 
 When the API needs a schema update:
@@ -122,12 +124,14 @@ When the API needs a schema update:
 ---
 
 ## Documentation and Examples
+If you are upgrading from pre-`v1.0.0` APIs, read [docs/migration_v1.md](./docs/migration_v1.md) first.
+
 See [docs/workflows.md](./docs/workflows.md) for common workflows. The workflows encapsulate typical sequences of operations using the models defined in this project.
 
 Check the Jupyter notebook [docs/code_examples.ipynb](./docs/code_examples.ipynb) for practical usage of these workflows. The notebook provides runnable examples including:
 - Setting up the database engine and models
 - Basic CRUD with SQLAlchemy 2.0
-- Using the models defined in this project to create users, NFTs, etc.
+- Using the models defined in this project to create users, NFT definitions/instances, etc.
 - Common workflows such as user registration, NFT issuance, prize draw operations, etc.
 
 ---

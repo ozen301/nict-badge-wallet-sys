@@ -24,8 +24,8 @@ from .id_type import ID_TYPE
 
 if TYPE_CHECKING:
     from .user import User
-    from .nft import NFT
-    from .ownership import UserNFTOwnership
+    from .nft import NFTDefinition
+    from .ownership import NFTInstance
     from .prize_draw import RaffleEntry
 
 
@@ -47,7 +47,7 @@ class BingoPeriod(Base):
 
 
 class BingoPeriodReward(Base):
-    """Reward NFT configuration for a bingo period."""
+    """Reward NFTDefinition configuration for a bingo period."""
 
     __tablename__ = "bingo_period_rewards"
 
@@ -55,7 +55,8 @@ class BingoPeriodReward(Base):
     period_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("bingo_periods.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    reward_nft_id: Mapped[int] = mapped_column(
+    reward_definition_id: Mapped[int] = mapped_column(
+        "reward_nft_id",
         ID_TYPE, ForeignKey("nfts.id", ondelete="RESTRICT"), nullable=False, index=True
     )
     enabled: Mapped[bool] = mapped_column(
@@ -66,7 +67,7 @@ class BingoPeriodReward(Base):
     )
 
     period: Mapped["BingoPeriod"] = relationship(back_populates="rewards")
-    reward_nft: Mapped["NFT"] = relationship("NFT")
+    reward_definition: Mapped["NFTDefinition"] = relationship("NFTDefinition")
 
     __table_args__ = (
         UniqueConstraint("period_id", name="uq_bingo_period_rewards_period"),
@@ -78,7 +79,7 @@ class BingoCard(Base):
     """Bingo card assigned to a user.
 
     Represents a 3x3 grid of :class:`BingoCell` objects that can be unlocked by
-    collecting NFTs matching predefined templates.
+    collecting NFT instances that match predefined NFT definitions.
     """
 
     def __init__(
@@ -203,17 +204,17 @@ class BingoCard(Base):
         cls,
         session: Session,
         user: "User",
-        center_template: "NFT",
+        center_definition: "NFTDefinition",
         *,
-        excluded_templates: Optional[Iterable["int | NFT"]] = None,
-        included_templates: Optional[Iterable["int | NFT"]] = None,
+        excluded_definitions: Optional[Iterable["int | NFTDefinition"]] = None,
+        included_definitions: Optional[Iterable["int | NFTDefinition"]] = None,
         issued_at: Optional[datetime] = None,
         state: str = "active",
         rng: Optional[random.Random] = None,
     ) -> "BingoCard":
         """Generate and persist a bingo card for a user.
 
-        Creates a 3x3 BingoCard (centre at index 4) populated with NFT templates.
+        Creates a 3x3 BingoCard (centre at index 4) populated with NFT definitions.
         The card is added to and flushed on the provided SQLAlchemy session
         before being returned.
 
@@ -223,16 +224,16 @@ class BingoCard(Base):
             Active SQLAlchemy session.
         user : User
             Recipient of the card.
-        center_template : NFT
-            NFT definition assigned to the centre cell (index 4).
-        excluded_templates : iterable[int | NFT], optional
+        center_definition : NFTDefinition
+            NFTDefinition assigned to the centre cell (index 4).
+        excluded_definitions : iterable[int | NFTDefinition], optional
             Definitions that must not appear on the card. Can be specified as a list of
-            `NFT` objects or their integer primary keys.
-        included_templates : iterable[int | NFT], optional
+            `NFTDefinition` objects or their integer primary keys.
+        included_definitions : iterable[int | NFTDefinition], optional
             If provided, the method will select non-centre definitions only from
-            this set (after removing any excluded_templates). If omitted or
-            empty, definitions are chosen from all available NFT records.
-            Can be specified as a list of `NFT` objects or their integer primary keys.
+            this set (after removing any excluded_definitions). If omitted or
+            empty, definitions are chosen from all available NFTDefinition records.
+            Can be specified as a list of `NFTDefinition` objects or their integer primary keys.
         issued_at : datetime, optional
             Timestamp for card issuance. Defaults to the current UTC time.
         state : str, optional
@@ -251,36 +252,36 @@ class BingoCard(Base):
         -------
         BingoCard
             The newly created BingoCard (already added to the session). Cells
-            for which the user already owns a matching NFT will be created in
-            the "unlocked" state and linked to that ownership.
+            for which the user already owns a matching NFTDefinition will be created in
+            the "unlocked" state and linked to that NFT instance.
         """
 
-        from .ownership import UserNFTOwnership
-        from .nft import NFT
+        from .ownership import NFTInstance
+        from .nft import NFTDefinition
 
-        def _to_id(t: int | NFT) -> int:
+        def _to_id(t: int | NFTDefinition) -> int:
             return t if isinstance(t, int) else t.id
 
         rng = rng or random.Random()
 
-        # Convert include/exclude inputs into sets of template IDs
-        excluded_ids = {_to_id(t) for t in (excluded_templates or [])}
-        included_ids = {_to_id(t) for t in (included_templates or [])}
+        # Convert include/exclude inputs into sets of NFT definition IDs.
+        excluded_definition_ids = {_to_id(t) for t in (excluded_definitions or [])}
+        included_definition_ids = {_to_id(t) for t in (included_definitions or [])}
 
-        if included_ids:
-            candidate_ids = set(included_ids)
+        if included_definition_ids:
+            candidate_definition_ids = set(included_definition_ids)
         else:
-            candidate_ids = set(session.scalars(select(NFT.id)))
+            candidate_definition_ids = set(session.scalars(select(NFTDefinition.id)))
 
-        candidate_ids.discard(center_template.id)
-        candidate_ids -= excluded_ids
+        candidate_definition_ids.discard(center_definition.id)
+        candidate_definition_ids -= excluded_definition_ids
 
-        if len(candidate_ids) < 8:
-            raise ValueError("Not enough NFTs to populate bingo card")
+        if len(candidate_definition_ids) < 8:
+            raise ValueError("Not enough NFT definitions to populate bingo card")
 
-        # Randomly pick 8 distinct templates for the non-centre cells, then
+        # Randomly pick 8 distinct definitions for the non-centre cells, then
         # shuffle the destination positions (excluding the centre at 4).
-        selected_ids = rng.sample(list(candidate_ids), 8)
+        selected_definition_ids = rng.sample(list(candidate_definition_ids), 8)
         positions = [0, 1, 2, 3, 5, 6, 7, 8]
         rng.shuffle(positions)
 
@@ -290,30 +291,30 @@ class BingoCard(Base):
         session.add(card)
         session.flush()
 
-        # Fetch any existing UserNFTOwnerships for the selected templates.
+        # Fetch any existing instance records for selected definitions.
         # Matching cells will be created as unlocked, typically including the centre.
-        template_ids_needed = set(selected_ids) | {center_template.id}
-        ownerships = session.scalars(
-            select(UserNFTOwnership)
-            .join(NFT)
+        definition_ids_needed = set(selected_definition_ids) | {center_definition.id}
+        instances = session.scalars(
+            select(NFTInstance)
+            .join(NFTDefinition)
             .where(
-                UserNFTOwnership.user_id == user.id,
-                NFT.id.in_(template_ids_needed),
+                NFTInstance.user_id == user.id,
+                NFTDefinition.id.in_(definition_ids_needed),
             )
         ).all()
-        ownership_map = {o.nft_id: o for o in ownerships}
+        instance_map = {inst.definition_id: inst for inst in instances}
 
         # Helper to build a cell
-        def build_cell(idx: int, template_id: int) -> "BingoCell":
-            ownership = ownership_map.get(template_id)
-            # If the user already owns this NFT, build the cell as unlocked
-            if ownership is not None:
+        def build_cell(idx: int, definition_id: int) -> "BingoCell":
+            instance = instance_map.get(definition_id)
+            # If the user already owns this NFTDefinition, build the cell as unlocked
+            if instance is not None:
                 return BingoCell(
                     bingo_card_id=card.id,
                     idx=idx,
-                    target_template_id=template_id,
-                    nft_id=ownership.nft_id,
-                    matched_ownership_id=ownership.id,
+                    target_definition_id=definition_id,
+                    definition_id=instance.definition_id,
+                    matched_nft_instance_id=instance.id,
                     state="unlocked",
                     unlocked_at=datetime.now(timezone.utc),
                 )
@@ -321,12 +322,12 @@ class BingoCard(Base):
             return BingoCell(
                 bingo_card_id=card.id,
                 idx=idx,
-                target_template_id=template_id,
+                target_definition_id=definition_id,
             )
 
         # Build the centre cell first, then the others
-        cells = [build_cell(4, center_template.id)]
-        for idx, tid in zip(positions, selected_ids):
+        cells = [build_cell(4, center_definition.id)]
+        for idx, tid in zip(positions, selected_definition_ids):
             cells.append(build_cell(idx, tid))
 
         # Add cells to the card and flush
@@ -370,17 +371,17 @@ class BingoCard(Base):
                 result.append((a, b, c))
         return result
 
-    def unlock_cells_for_ownership(
-        self, session: Session, ownership: "UserNFTOwnership"
+    def unlock_cells_for_nft_instance(
+        self, session: Session, nft_instance: "NFTInstance"
     ) -> bool:
-        """Unlock cells matched by the given ownership.
+        """Unlock cells matched by the given NFT instance.
 
         Parameters
         ----------
         session : Session
             Active SQLAlchemy session (unused but kept for API symmetry).
-        ownership : UserNFTOwnership
-            Ownership to match against locked cells.
+        nft_instance : NFTInstance
+            NFT instance to match against locked cells.
 
         Returns
         -------
@@ -389,11 +390,11 @@ class BingoCard(Base):
         """
 
         unlocked_any = False
-        template_id = ownership.nft_id
+        definition_id = nft_instance.definition_id
         for cell in self.cells:
-            if cell.state == "locked" and cell.target_template_id == template_id:
-                cell.nft_id = ownership.nft_id
-                cell.matched_ownership_id = ownership.id
+            if cell.state == "locked" and cell.target_definition_id == definition_id:
+                cell.definition_id = nft_instance.definition_id
+                cell.matched_nft_instance_id = nft_instance.id
                 cell.state = "unlocked"
                 cell.unlocked_at = datetime.now(timezone.utc)
                 unlocked_any = True
@@ -415,15 +416,22 @@ class BingoCardIssueTask(Base):
     user_id: Mapped[int] = mapped_column(
         ID_TYPE, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    center_nft_id: Mapped[int] = mapped_column(
-        ID_TYPE, ForeignKey("nfts.id", ondelete="CASCADE"), nullable=False, index=True
+    center_definition_id: Mapped[int] = mapped_column(
+        "center_nft_id",
+        ID_TYPE,
+        ForeignKey("nfts.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
-    ownership_id: Mapped[int] = mapped_column(
+    nft_instance_id: Mapped[int] = mapped_column(
+        "ownership_id",
         ID_TYPE,
         ForeignKey("user_nft_ownership.id", ondelete="CASCADE"),
         nullable=False,
     )
-    unique_nft_ref: Mapped[str] = mapped_column(String(255), nullable=False)
+    unique_instance_ref: Mapped[str] = mapped_column(
+        "unique_nft_ref", String(255), nullable=False
+    )
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
     attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     next_run_at: Mapped[datetime] = mapped_column(
@@ -459,17 +467,17 @@ class BingoCell(Base):
         self,
         bingo_card_id: int,
         idx: int,
-        target_template_id: int,
-        nft_id: Optional[int] = None,
-        matched_ownership_id: Optional[int] = None,
+        target_definition_id: int,
+        definition_id: Optional[int] = None,
+        matched_nft_instance_id: Optional[int] = None,
         state: str = "locked",
         unlocked_at: Optional[datetime] = None,
     ):
         self.bingo_card_id = bingo_card_id
         self.idx = idx
-        self.target_template_id = target_template_id
-        self.nft_id = nft_id
-        self.matched_ownership_id = matched_ownership_id
+        self.target_definition_id = target_definition_id
+        self.definition_id = definition_id
+        self.matched_nft_instance_id = matched_nft_instance_id
         self.state = state
         self.unlocked_at = unlocked_at
 
@@ -480,13 +488,18 @@ class BingoCell(Base):
         ID_TYPE, ForeignKey("bingo_cards.id", ondelete="CASCADE"), nullable=False
     )
     idx: Mapped[int] = mapped_column(Integer, nullable=False)
-    target_template_id: Mapped[int] = mapped_column(
-        ID_TYPE, ForeignKey("nfts.id", ondelete="RESTRICT"), nullable=False, index=True
+    target_definition_id: Mapped[int] = mapped_column(
+        "target_template_id",
+        ID_TYPE,
+        ForeignKey("nfts.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
     )
-    nft_id: Mapped[Optional[int]] = mapped_column(
-        ID_TYPE, ForeignKey("nfts.id", ondelete="SET NULL"), nullable=True, index=True
+    definition_id: Mapped[Optional[int]] = mapped_column(
+        "nft_id", ID_TYPE, ForeignKey("nfts.id", ondelete="SET NULL"), nullable=True, index=True
     )
-    matched_ownership_id: Mapped[Optional[int]] = mapped_column(
+    matched_nft_instance_id: Mapped[Optional[int]] = mapped_column(
+        "matched_ownership_id",
         ID_TYPE, ForeignKey("user_nft_ownership.id", ondelete="SET NULL"), nullable=True
     )
     state: Mapped[str] = mapped_column(String(20), nullable=False, default="locked")
@@ -495,12 +508,14 @@ class BingoCell(Base):
     )
 
     card: Mapped["BingoCard"] = relationship(back_populates="cells")
-    target_template: Mapped["NFT"] = relationship(
-        "NFT", foreign_keys=[target_template_id]
+    target_definition: Mapped["NFTDefinition"] = relationship(
+        "NFTDefinition", foreign_keys=[target_definition_id]
     )
-    nft: Mapped[Optional["NFT"]] = relationship("NFT", foreign_keys=[nft_id])
-    matched_ownership: Mapped[Optional["UserNFTOwnership"]] = relationship(
-        "UserNFTOwnership"
+    definition: Mapped[Optional["NFTDefinition"]] = relationship(
+        "NFTDefinition", foreign_keys=[definition_id]
+    )
+    matched_nft_instance: Mapped[Optional["NFTInstance"]] = relationship(
+        "NFTInstance"
     )
 
     __table_args__ = (
@@ -512,22 +527,26 @@ class BingoCell(Base):
 
     def __repr__(self) -> str:
         return (
-            f"<BingoCell(id={self.id}, idx={self.idx}, target_template_id={self.target_template_id}, "
-            f"nft_id={self.nft_id}, state='{self.state}')>"
+            f"<BingoCell(id={self.id}, idx={self.idx}, target_definition_id={self.target_definition_id}, "
+            f"definition_id={self.definition_id}, state='{self.state}')>"
         )
 
     def to_json(self, *, compact: bool = False) -> dict[str, Any]:
         """Return a JSON (dict) for this BingoCell.
 
-        When compact is True, keep only essential fields and a compact template.
+        When compact is True, keep only essential fields and a compact definition.
         """
-        template_obj = self.target_template.to_json(compact=compact) if self.target_template else None
+        definition_obj = (
+            self.target_definition.to_json(compact=compact)
+            if self.target_definition
+            else None
+        )
 
         # Wildcard cells special handling 
         # (this is required by the transit API's bingo_wildcard.py feature)
         if self.idx in {4, 7}:
-            if self.state == "unlocked" and self.nft is not None:
-                template_obj = self.nft.to_json(compact=compact)
+            if self.state == "unlocked" and self.definition is not None:
+                definition_obj = self.definition.to_json(compact=compact)
 
         full = {
             "id": self.id,
@@ -535,13 +554,13 @@ class BingoCell(Base):
             "idx": self.idx,
             "state": self.state,
             "unlocked_at": dt_iso(self.unlocked_at),
-            "nft_id": self.nft_id,
-            "matched_ownership_id": self.matched_ownership_id,
-            "target_template": template_obj,
+            "definition_id": self.definition_id,
+            "matched_nft_instance_id": self.matched_nft_instance_id,
+            "target_definition": definition_obj,
         }
         if not compact:
             return full
-        keep = {"id", "idx", "state", "unlocked_at", "target_template"}
+        keep = {"id", "idx", "state", "unlocked_at", "target_definition"}
         return {k: v for k, v in full.items() if k in keep}
 
     def to_json_str(self, *, compact: bool = False) -> str:
@@ -561,8 +580,10 @@ class PreGeneratedBingoCard(Base):
 
     id: Mapped[int] = mapped_column(ID_TYPE, primary_key=True, index=True, autoincrement=True)
     period_id: Mapped[int] = mapped_column(Integer, ForeignKey("bingo_periods.id"), nullable=False)
-    center_nft_id: Mapped[int] = mapped_column(ID_TYPE, ForeignKey("nfts.id"), nullable=False)
-    cell_nft_ids: Mapped[list] = mapped_column(JSON, nullable=False)
+    center_definition_id: Mapped[int] = mapped_column(
+        "center_nft_id", ID_TYPE, ForeignKey("nfts.id"), nullable=False
+    )
+    cell_definition_ids: Mapped[list] = mapped_column("cell_nft_ids", JSON, nullable=False)
     status: Mapped[str] = mapped_column(String(20), default="available", index=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)

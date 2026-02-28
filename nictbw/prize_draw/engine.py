@@ -1,10 +1,4 @@
-"""Workflow engine for evaluating prize draws.
-
-The engine focuses on three responsibilities:
-* derive the deterministic draw number for an NFT;
-* compute the similarity/outcome using the pluggable scoring registry; and
-* persist the resulting :class:`PrizeDrawResult` record.
-"""
+"""Workflow engine for evaluating prize draws against NFT instances."""
 
 from __future__ import annotations
 
@@ -18,8 +12,7 @@ from sqlalchemy.orm import Session
 from .draw_number import derive_draw_number
 from .scoring import AlgorithmRegistry, DEFAULT_SCORING_REGISTRY
 from ..models import PrizeDrawResult, PrizeDrawType, PrizeDrawWinningNumber
-from ..models.nft import NFT
-from ..models.ownership import UserNFTOwnership
+from ..models.ownership import NFTInstance
 
 
 @dataclass
@@ -31,7 +24,7 @@ class PrizeDrawEvaluation:
     result : PrizeDrawResult
         The draw outcome stored in the database.
     draw_number : str
-        Normalized draw number derived from the NFT origin.
+        Normalized draw number derived from the NFT instance origin.
     threshold : Optional[float]
         Threshold used when comparing against the winning number.
     similarity : Optional[float]
@@ -70,19 +63,18 @@ class PrizeDrawEngine:
 
     def evaluate(
         self,
-        nft: NFT,
+        nft_instance: NFTInstance,
         draw_type: PrizeDrawType,
         winning_number: Optional[PrizeDrawWinningNumber] = None,
         threshold: Optional[float] = None,
         registry: Optional[AlgorithmRegistry] = None,
     ) -> PrizeDrawEvaluation:
-        """Evaluate ``nft`` against a winning number and persist the result.
+        """Evaluate ``nft_instance`` against a winning number and persist the result.
 
         Parameters
         ----------
-        nft : NFT
-            NFT definition to evaluate. The latest ownership must provide
-            ``nft_origin`` for draw number derivation.
+        nft_instance : NFTInstance
+            NFT instance to evaluate. ``nft_origin`` is required for draw number derivation.
         draw_type : PrizeDrawType
             Draw configuration describing algorithm and default threshold.
         winning_number : Optional[PrizeDrawWinningNumber], default: None
@@ -106,9 +98,8 @@ class PrizeDrawEngine:
         -----
         This evaluation process performs the following steps:
 
-        1. Resolve the most recent :class:`UserNFTOwnership`
-           record to capture which user owned the NFT at evaluation time.
-        2. Derive the deterministic draw number from the ownership's NFT origin.
+        1. Validate the supplied :class:`NFTInstance`.
+        2. Derive the deterministic draw number from the instance's ``nft_origin``.
         3. Run the scoring algorithm (when a winning number is provided) and
            save the result (in "win", "lose", or "pending" string format)
            expected by the database model.
@@ -118,22 +109,20 @@ class PrizeDrawEngine:
         Raises
         ------
         ValueError
-            If the NFT, draw type, or ownership prerequisites are unmet.
+            If the NFT instance or draw type prerequisites are unmet.
         """
-
-        if nft.id is None:
-            raise ValueError("NFT must be persisted before running a prize draw")
+        if nft_instance.id is None:
+            raise ValueError("NFT instance must be persisted before running a prize draw")
         if draw_type.id is None:
             raise ValueError("Draw type must be persisted before running a prize draw")
+        if nft_instance.user_id is None:
+            raise ValueError("NFT instance must have a user_id")
+        if nft_instance.definition_id is None:
+            raise ValueError("NFT instance must have a definition_id")
+        if nft_instance.nft_origin is None:
+            raise ValueError("NFT instance must have an nft_origin before running a prize draw")
 
-        ownership = self._resolve_latest_ownership(nft)
-        if ownership is None:
-            raise ValueError("NFT has no ownership record and cannot be evaluated")
-
-        if ownership.nft_origin is None:
-            raise ValueError("Ownership must have an nft_origin before running a prize draw")
-
-        draw_number = derive_draw_number(ownership.nft_origin)
+        draw_number = derive_draw_number(nft_instance.nft_origin)
 
         threshold_to_use = (
             threshold if threshold is not None else draw_type.default_threshold
@@ -145,7 +134,7 @@ class PrizeDrawEngine:
         outcome = "pending"
 
         # Only run the evaluation if a winning number is provided.  This
-        # allows callers to "pre-register" NFTs for a draw before the winning
+        # allows callers to "pre-register" instances for a draw before the winning
         # number is known.
         if winning_number is not None:
             active_registry = registry or self._registry
@@ -168,11 +157,9 @@ class PrizeDrawEngine:
         # creating a duplicate row.
         now = datetime.now(timezone.utc)
         result = self._upsert_result(
-            nft=nft,
+            nft_instance=nft_instance,
             draw_type=draw_type,
             winning_number=winning_number,
-            user_id=ownership.user_id,
-            ownership_id=ownership.id,
             draw_number=draw_number,
             similarity_score=evaluation_similarity,
             draw_top_digits=evaluation_draw_digits,
@@ -195,23 +182,23 @@ class PrizeDrawEngine:
     def evaluate_batch(
         self,
         *,
-        nfts: Iterable[NFT],
+        instances: Iterable[NFTInstance],
         draw_type: PrizeDrawType,
         winning_number: Optional[PrizeDrawWinningNumber] = None,
         threshold: Optional[float] = None,
         registry: Optional[AlgorithmRegistry] = None,
     ) -> list[PrizeDrawEvaluation]:
-        """Evaluate multiple NFTs with a shared configuration.
+        """Evaluate multiple NFT instances with a shared configuration.
 
         The helper delegates to :meth:`PrizeDrawEngine.evaluate` in a loop,
         collecting the results into a list for the caller. This is primarily useful
-        for batch processing scenarios where multiple NFTs need to be evaluated
+        for batch processing scenarios where multiple instances need to be evaluated
         with the same configuration.
 
         Parameters
         ----------
-        nfts : Iterable[NFT]
-            Collection of NFTs to evaluate against the draw configuration.
+        instances : Iterable[NFTInstance]
+            Collection of NFT instances to evaluate against the draw configuration.
         draw_type : PrizeDrawType
             Draw type applied to every evaluation, which determines the algorithm and
             default threshold.
@@ -226,14 +213,14 @@ class PrizeDrawEngine:
         Returns
         -------
         list[PrizeDrawEvaluation]
-            List containing the evaluation metadata for each NFT processed.
+            List containing the evaluation metadata for each instance processed.
         """
 
         evaluations: list[PrizeDrawEvaluation] = []
-        for nft in nfts:
+        for instance in instances:
             evaluations.append(
                 self.evaluate(
-                    nft=nft,
+                    nft_instance=instance,
                     draw_type=draw_type,
                     winning_number=winning_number,
                     threshold=threshold,
@@ -242,27 +229,12 @@ class PrizeDrawEngine:
             )
         return evaluations
 
-    def _resolve_latest_ownership(self, nft: NFT) -> Optional[UserNFTOwnership]:
-        """Return the newest ownership snapshot for ``nft`` if one exists."""
-
-        # Ordering by ``acquired_at`` (then ``id``) gives us a deterministic
-        # "latest" record even when timestamps collide due to database
-        # precision.
-        stmt = (
-            select(UserNFTOwnership)
-            .where(UserNFTOwnership.nft_id == nft.id)
-            .order_by(UserNFTOwnership.acquired_at.desc(), UserNFTOwnership.id.desc())
-        )
-        return self._session.scalars(stmt).first()
-
     def _upsert_result(
         self,
         *,
-        nft: NFT,
+        nft_instance: NFTInstance,
         draw_type: PrizeDrawType,
         winning_number: Optional[PrizeDrawWinningNumber],
-        user_id: int,
-        ownership_id: int,
         draw_number: str,
         similarity_score: Optional[float],
         draw_top_digits: Optional[str],
@@ -275,19 +247,15 @@ class PrizeDrawEngine:
 
         Parameters
         ----------
-        nft : NFT
-            NFT associated with the evaluation.
+        nft_instance : NFTInstance
+            NFT instance associated with the evaluation.
         draw_type : PrizeDrawType
             `PrizeDrawType` object to be used for the evaluation, which determines
             the scoring algorithm and the default threshold.
         winning_number : Optional[PrizeDrawWinningNumber]
             Winning number applied to the evaluation, if available.
-        user_id : int
-            Id (primary key) of the `User` owning the NFT.
-        ownership_id : int
-            Id (primary key) of the `UserNFTOwnership` record.
         draw_number : str
-            Normalized draw number computed for the NFT.
+            Normalized draw number computed for the NFT instance.
         similarity_score : Optional[float]
             Result of the scoring algorithm, if available.
         draw_top_digits : Optional[str]
@@ -307,25 +275,43 @@ class PrizeDrawEngine:
             The upserted ORM entity with updated fields.
         """
 
-        # The prize draw results table enforces a uniqueness constraint on the
-        # ``(nft_id, draw_type_id)`` tuple.  We emulate the
-        # same lookup here so that re-running a draw simply updates the existing
-        # row rather than attempting to insert a duplicate.
-        stmt = select(PrizeDrawResult).where(
-            PrizeDrawResult.nft_id == nft.id,
-            PrizeDrawResult.draw_type_id == draw_type.id,
+        # Prefer reusing the row for the specific NFT instance. If none exists we
+        # fall back to schema-compatible uniqueness on (nft_id, draw_type_id).
+        # This keeps the write path stable until the DB constraint is updated.
+        result = self._session.scalar(
+            select(PrizeDrawResult).where(
+                PrizeDrawResult.nft_instance_id == nft_instance.id,
+                PrizeDrawResult.draw_type_id == draw_type.id,
+            )
         )
+        result_by_definition = self._session.scalar(
+            select(PrizeDrawResult).where(
+                PrizeDrawResult.definition_id == nft_instance.definition_id,
+                PrizeDrawResult.draw_type_id == draw_type.id,
+            )
+        )
+        if result is None and result_by_definition is not None:
+            if (
+                result_by_definition.nft_instance_id is not None
+                and result_by_definition.nft_instance_id != nft_instance.id
+            ):
+                raise ValueError(
+                    "Cannot persist prize draw results for multiple NFT instances "
+                    "sharing the same definition with the current schema "
+                    "constraint (nft_id, draw_type_id). Migrate to an "
+                    "instance-based uniqueness constraint to evaluate all instances."
+                )
+            result = result_by_definition
 
-        result = self._session.scalars(stmt).first()
         if result is None:
             result = PrizeDrawResult(
                 draw_type_id=draw_type.id,
                 winning_number_id=(
                     winning_number.id if winning_number is not None else None
                 ),
-                user_id=user_id,
-                nft_id=nft.id,
-                ownership_id=ownership_id,
+                user_id=nft_instance.user_id,
+                definition_id=nft_instance.definition_id,
+                nft_instance_id=nft_instance.id,
                 draw_number=draw_number,
                 similarity_score=similarity_score,
                 draw_top_digits=draw_top_digits,
@@ -339,8 +325,9 @@ class PrizeDrawEngine:
             result.winning_number_id = (
                 winning_number.id if winning_number is not None else None
             )
-            result.user_id = user_id
-            result.ownership_id = ownership_id
+            result.user_id = nft_instance.user_id
+            result.definition_id = nft_instance.definition_id
+            result.nft_instance_id = nft_instance.id
             result.draw_number = draw_number
             result.similarity_score = similarity_score
             result.draw_top_digits = draw_top_digits

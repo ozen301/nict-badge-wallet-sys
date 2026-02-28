@@ -23,10 +23,10 @@ from sqlalchemy.orm import Mapped, Session, mapped_column, relationship
 from ..db.utils import dt_iso
 from .base import Base
 from .id_type import ID_TYPE
-from .utils import generate_unique_nft_id
+from .utils import generate_unique_instance_id
 
 if TYPE_CHECKING:
-    from .ownership import UserNFTOwnership
+    from .ownership import NFTInstance
     from .user import User
 
 
@@ -41,8 +41,12 @@ class NFTCondition(Base):
     latitude: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     longitude: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     radius: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-    required_nft_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
-    prohibited_nft_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
+    required_definition_id: Mapped[Optional[int]] = mapped_column(
+        "required_nft_id", BigInteger, nullable=True
+    )
+    prohibited_definition_id: Mapped[Optional[int]] = mapped_column(
+        "prohibited_nft_id", BigInteger, nullable=True
+    )
     other_conditions: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
@@ -54,8 +58,8 @@ class NFTCondition(Base):
     )
 
 
-class NFT(Base):
-    """NFT definition model (acts as the template in current API schema)."""
+class NFTDefinition(Base):
+    """NFT definition model stored in the ``nfts`` table."""
 
     __tablename__ = "nfts"
 
@@ -126,8 +130,8 @@ class NFT(Base):
         UniqueConstraint("prefix", name="nfts_prefix_key"),
     )
 
-    prize_draw_results = relationship("PrizeDrawResult", back_populates="nft")
-    ownerships = relationship("UserNFTOwnership", back_populates="nft")
+    prize_draw_results = relationship("PrizeDrawResult", back_populates="definition")
+    instances = relationship("NFTInstance", back_populates="definition")
     template = relationship("NFTTemplate")
     bingo_period = relationship("BingoPeriod")
 
@@ -178,40 +182,40 @@ class NFT(Base):
         return {k: v for k, v in full.items() if k in keep}
 
     @classmethod
-    def count_nfts_by_prefix(cls, session: Session, prefix: str) -> int:
-        """Count ownership records for NFTs sharing the given prefix."""
+    def count_instances_by_prefix(cls, session: Session, prefix: str) -> int:
+        """Count NFT-instance records for NFT definitions sharing the given prefix."""
 
-        from .ownership import UserNFTOwnership
+        from .ownership import NFTInstance
 
         stmt = (
             select(func.count())
-            .select_from(UserNFTOwnership)
-            .join(cls, cls.id == UserNFTOwnership.nft_id)
+            .select_from(NFTInstance)
+            .join(cls, cls.id == NFTInstance.definition_id)
             .where(cls.prefix == prefix)
         )
         return int(session.scalar(stmt) or 0)
 
-    def issue_dbwise_to(
+    def issue_dbwise_to_user(
         self,
         session: Session,
         user: "User",
         *,
-        unique_nft_id: Optional[str] = None,
+        unique_instance_id: Optional[str] = None,
         serial_number: Optional[int] = None,
         acquired_at: Optional[datetime] = None,
         status: str = "succeeded",
-        **ownership_fields,
-    ) -> "UserNFTOwnership":
-        """Assign ownership of this NFT definition to a user in the database."""
+        **instance_fields,
+    ) -> "NFTInstance":
+        """Issue an NFT instance of this definition to a user in the database."""
 
-        from .ownership import UserNFTOwnership
+        from .ownership import NFTInstance
 
         if self.max_supply is not None and self.minted_count >= self.max_supply:
-            raise ValueError("Max supply for this NFT has been reached")
+            raise ValueError("Max supply for this NFT definition has been reached")
 
-        existing = UserNFTOwnership.get_by_user_and_nft(session, user, self)
+        existing = NFTInstance.get_by_user_and_definition(session, user, self)
         if existing is not None:
-            raise ValueError("User already owns this NFT")
+            raise ValueError("User already owns this NFT definition")
 
         if not inspect(self).persistent:
             session.add(self)
@@ -219,30 +223,29 @@ class NFT(Base):
 
         if serial_number is None:
             serial_number = self.minted_count
-        if unique_nft_id is None:
-            unique_nft_id = generate_unique_nft_id(self.prefix, session=session)
+        if unique_instance_id is None:
+            unique_instance_id = generate_unique_instance_id(self.prefix, session=session)
 
-        ownership = UserNFTOwnership(
-            user_id=user.id,
-            nft_id=self.id,
+        instance = NFTInstance(
+            user=user,
+            definition=self,
             serial_number=serial_number,
-            unique_nft_id=unique_nft_id,
+            unique_instance_id=unique_instance_id,
             acquired_at=acquired_at or datetime.now(timezone.utc),
             status=status,
-            **ownership_fields,
+            **instance_fields,
         )
-        session.add(ownership)
+        session.add(instance)
         self.minted_count += 1
 
-        if hasattr(user, "ownerships"):
-            user.ownerships.append(ownership)
+        if hasattr(user, "nft_instances"):
             try:
-                user.unlock_bingo_cells(session, ownership)
+                user.unlock_bingo_cells(session, nft_instance=instance)
             except Exception:
                 pass
 
         session.flush()
-        return ownership
+        return instance
 
 
 class NFTTemplate(Base):
@@ -268,8 +271,12 @@ class NFTTemplate(Base):
     latitude: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     longitude: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     radius: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-    required_nft_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
-    prohibited_nft_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
+    required_definition_id: Mapped[Optional[int]] = mapped_column(
+        "required_nft_id", BigInteger, nullable=True
+    )
+    prohibited_definition_id: Mapped[Optional[int]] = mapped_column(
+        "prohibited_nft_id", BigInteger, nullable=True
+    )
     other_conditions: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     triggers_bingo_card: Mapped[bool] = mapped_column(Boolean, default=False)
     is_public: Mapped[bool] = mapped_column(
@@ -291,33 +298,64 @@ class NFTTemplate(Base):
         UniqueConstraint("prefix", name="nft_templates_prefix_key"),
     )
 
-    def instantiate_nft(
+    def instantiate_instance(
         self,
+        session: Session,
+        user: "User",
         *,
         shared_key: str,
         override_name: Optional[str] = None,
         override_description: Optional[str] = None,
         override_created_by_admin_id: Optional[int] = None,
-    ) -> NFT:
-        """Instantiate an NFT definition based on this template."""
+        unique_instance_id: Optional[str] = None,
+        serial_number: Optional[int] = None,
+        acquired_at: Optional[datetime] = None,
+        status: str = "succeeded",
+        **instance_fields,
+    ) -> "NFTInstance":
+        """Instantiate an NFT instance from this template for ``user``.
 
-        nft = NFT(
-            template_id=self.id,
-            prefix=self.prefix,
-            shared_key=shared_key,
-            name=override_name or self.name,
-            nft_type="default",
-            category=self.category,
-            subcategory=self.subcategory,
-            description=override_description or self.description,
-            image_url=self.image_url,
-            condition_id=self.default_condition_id,
-            max_supply=self.max_supply,
-            status=self.status,
-            triggers_bingo_card=self.triggers_bingo_card,
-            created_by_admin_id=override_created_by_admin_id or self.created_by_admin_id,
+        The method reuses an existing definition row for this template when
+        available; otherwise it creates one and then issues an instance.
+        """
+
+        from .ownership import NFTInstance
+
+        definition = session.scalar(
+            select(NFTDefinition).where(
+                (NFTDefinition.template_id == self.id) | (NFTDefinition.prefix == self.prefix)
+            )
         )
-        return nft
+        if definition is None:
+            definition = NFTDefinition(
+                template_id=self.id,
+                prefix=self.prefix,
+                shared_key=shared_key,
+                name=override_name or self.name,
+                nft_type="default",
+                category=self.category,
+                subcategory=self.subcategory,
+                description=override_description or self.description,
+                image_url=self.image_url,
+                condition_id=self.default_condition_id,
+                max_supply=self.max_supply,
+                status=self.status,
+                triggers_bingo_card=self.triggers_bingo_card,
+                created_by_admin_id=override_created_by_admin_id or self.created_by_admin_id,
+            )
+            session.add(definition)
+            session.flush()
+
+        instance: NFTInstance = definition.issue_dbwise_to_user(
+            session,
+            user,
+            unique_instance_id=unique_instance_id,
+            serial_number=serial_number,
+            acquired_at=acquired_at,
+            status=status,
+            **instance_fields,
+        )
+        return instance
 
     @classmethod
     def get_by_prefix(cls, session: Session, prefix: str) -> Optional["NFTTemplate"]:
@@ -328,6 +366,3 @@ class NFTTemplate(Base):
     def get_by_name(cls, session: Session, name: str) -> Optional["NFTTemplate"]:
         stmt = select(cls).where(cls.name == name)
         return session.scalar(stmt)
-
-
-NFTDefinition = NFT

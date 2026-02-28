@@ -121,7 +121,7 @@ class ChainClient:
         )
 
     @property
-    def nfts(self) -> list[dict]:
+    def nft_instances(self) -> list[dict]:
         return self._request(
             "GET",
             "/api/v1/user/nfts/info",
@@ -136,11 +136,11 @@ class ChainClient:
             headers=self.auth_headers,
         )
 
-    def get_nft_info(
+    def get_nft_instance_info(
         self, nft_origin: str, data_format: Optional[str] = "binary"
     ) -> Any:
         """
-        Retrieve NFT data by origin.
+        Retrieve NFT instance data by origin.
 
         data_format: "binary" (default) or "base64".
         """
@@ -153,22 +153,22 @@ class ChainClient:
             return_in_json=return_in_json,
         )
 
-    def get_user_nfts(self, username: str) -> list[dict]:
-        """Get NFTs owned by a specific user using admin privileges."""
+    def get_user_nft_instances(self, username: str) -> list[dict]:
+        """Get NFT instances owned by a specific user using admin privileges."""
         return self._request(
             "GET",
             f"/api/v1/admin/nfts/info/{username}",
             headers=self.auth_headers,
         )
 
-    def get_sorted_user_nfts(
+    def get_sorted_user_nft_instances(
         self, username: str, sort_key: str = "created_at", reverse: bool = False
     ) -> list[dict]:
-        """Return user's NFTs sorted by a specific key."""
-        nfts = self.get_user_nfts(username)
-        return sorted(nfts, key=lambda x: x.get(sort_key, ""), reverse=reverse)
+        """Return user's NFT instances sorted by a specific key."""
+        instances = self.get_user_nft_instances(username)
+        return sorted(instances, key=lambda x: x.get(sort_key, ""), reverse=reverse)
 
-    def create_nft(
+    def create_nft_instance(
         self,
         app: str,
         name: str,
@@ -176,14 +176,14 @@ class ChainClient:
         recipient_paymail: Optional[str] = None,
         additional_info: Optional[dict] = None,
     ) -> dict:
-        """Create a new NFT via the blockchain API.
+        """Create (mint) a new NFT instance via the blockchain API.
 
         Parameters
         ----------
         app : str
-            Application identifier to tag the NFT.
+            Application identifier to tag the NFT instance.
         name : str
-            Human-readable name of the NFT.
+            Human-readable name of the NFT instance.
         file_path : str, default: module ``yenpoint_logo.png``
             Path to the file to attach and mint as NFT content.
         recipient_paymail : Optional[str]

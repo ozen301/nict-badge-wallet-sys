@@ -20,15 +20,24 @@ from nictbw.models import (
     Base,
     User,
     Admin,
-    NFT,
-    UserNFTOwnership,
+    NFTCondition,
+    NFTDefinition,
+    NFTTemplate,
+    NFTInstance,
+    BingoPeriod,
+    BingoPeriodReward,
+    BingoCardIssueTask,
     BingoCard,
     BingoCell,
     CouponTemplate,
+    CouponStore,
     CouponInstance,
+    NFTCouponBinding,
+    NFTClaimRequest,
     PrizeDrawType,
     PrizeDrawWinningNumber,
     PrizeDrawResult,
+    RaffleEntry,
 )
 
 
@@ -37,7 +46,7 @@ class DummyChainClient:
         self._items = items
         self.requested_usernames: list[str] = []
 
-    def get_user_nfts(self, username: str) -> list[dict]:
+    def get_user_nft_instances(self, username: str) -> list[dict]:
         self.requested_usernames.append(username)
         return self._items
 
@@ -103,10 +112,10 @@ class DBTestCase(unittest.TestCase):
             session.add(admin)
             session.flush()
 
-            nft_p = NFT(
+            nft_p = NFTDefinition(
                 prefix="P",
                 shared_key="shared-p",
-                name="NFT-P",
+                name="NFTDefinition-P",
                 nft_type="default",
                 category="cat",
                 subcategory="subp",
@@ -114,10 +123,10 @@ class DBTestCase(unittest.TestCase):
                 created_at=now,
                 updated_at=now,
             )
-            nft_q = NFT(
+            nft_q = NFTDefinition(
                 prefix="Q",
                 shared_key="shared-q",
-                name="NFT-Q",
+                name="NFTDefinition-Q",
                 nft_type="default",
                 category="cat",
                 subcategory="subq",
@@ -130,19 +139,38 @@ class DBTestCase(unittest.TestCase):
             session.add_all([nft_p, nft_q, user_one, user_two])
             session.flush()
 
-            nft_p.issue_dbwise_to(session, user_one)
-            nft_p.issue_dbwise_to(session, user_two)
-            nft_q.issue_dbwise_to(session, user_one)
+            nft_p.issue_dbwise_to_user(session, user_one)
+            nft_p.issue_dbwise_to_user(session, user_two)
+            nft_q.issue_dbwise_to_user(session, user_one)
             session.commit()
 
-            count_p = NFT.count_nfts_by_prefix(session, "P")
+            count_p = NFTDefinition.count_instances_by_prefix(session, "P")
             self.assertEqual(count_p, 2)
 
-            refreshed = session.scalar(select(NFT).where(NFT.prefix == "P"))
+            refreshed = session.scalar(select(NFTDefinition).where(NFTDefinition.prefix == "P"))
             self.assertIsNotNone(refreshed)
             assert refreshed is not None
             self.assertEqual(refreshed.prefix, "P")
             self.assertEqual(refreshed.minted_count, 2)
+
+    def test_nft_condition_definition_constraint_fields(self):
+        with self.Session() as session:
+            cond = NFTCondition(
+                required_definition_id=101,
+                prohibited_definition_id=202,
+            )
+            session.add(cond)
+            session.commit()
+
+            reloaded = session.get(NFTCondition, cond.id)
+            assert reloaded is not None
+            self.assertEqual(reloaded.required_definition_id, 101)
+            self.assertEqual(reloaded.prohibited_definition_id, 202)
+
+            with self.assertRaises(TypeError):
+                NFTCondition(required_nft_id=1)
+            with self.assertRaises(TypeError):
+                NFTCondition(prohibited_nft_id=2)
 
     def test_user_issue_nft_creates_ownership_and_increments(self):
         now = datetime.now(timezone.utc)
@@ -151,7 +179,7 @@ class DBTestCase(unittest.TestCase):
             session.add(admin)
             session.flush()
 
-            nft = NFT(
+            nft = NFTDefinition(
                 prefix="ABC",
                 shared_key="shared",
                 name="Token",
@@ -169,26 +197,136 @@ class DBTestCase(unittest.TestCase):
 
             # Pre-condition
             self.assertEqual(nft.minted_count, 0)
-            self.assertEqual(len(user.ownerships), 0)
+            self.assertEqual(len(user.nft_instances), 0)
 
             # Act
             with patch(
-                "nictbw.models.nft.generate_unique_nft_id",
+                "nictbw.models.nft.generate_unique_instance_id",
                 return_value="ABC-1234567890ab",
             ):
-                nft.issue_dbwise_to(session, user, acquired_at=nft.created_at)
+                nft.issue_dbwise_to_user(session, user, acquired_at=nft.created_at)
             session.commit()
 
             # Verify minted_count incremented
             self.assertEqual(nft.minted_count, 1)
             # Ownership created and linked
-            self.assertEqual(len(user.ownerships), 1)
-            ownership: UserNFTOwnership = user.ownerships[0]
+            self.assertEqual(len(user.nft_instances), 1)
+            ownership: NFTInstance = user.nft_instances[0]
             self.assertEqual(ownership.user_id, user.id)
-            self.assertEqual(ownership.nft_id, nft.id)
+            self.assertEqual(ownership.definition_id, nft.id)
             self.assertEqual(ownership.serial_number, 0)
-            self.assertEqual(ownership.unique_nft_id, "ABC-1234567890ab")
+            self.assertEqual(ownership.unique_instance_id, "ABC-1234567890ab")
             self.assertEqual(ownership.acquired_at, nft.created_at)
+
+    def test_user_nft_instances_returns_instances(self):
+        now = datetime.now(timezone.utc)
+        with self.Session() as session:
+            self.assertFalse(hasattr(User, "nfts"))
+
+            admin = Admin(email="nfts-admin@example.com", password_hash="x")
+            user = User(in_app_id="u-nfts", paymail="wallet-nfts")
+            session.add_all([admin, user])
+            session.flush()
+
+            nft = NFTDefinition(
+                prefix="USR",
+                shared_key="shared",
+                name="User NFT",
+                nft_type="default",
+                created_by_admin_id=admin.id,
+                created_at=now,
+                updated_at=now,
+            )
+            session.add(nft)
+            session.flush()
+
+            ownership = nft.issue_dbwise_to_user(session, user, nft_origin="origin-user")
+            session.flush()
+
+            self.assertEqual(len(user.nft_instances), 1)
+            self.assertIsInstance(user.nft_instances[0], NFTInstance)
+            self.assertEqual(user.nft_instances[0].id, ownership.id)
+
+    def test_template_instantiate_instance_creates_instance(self):
+        now = datetime.now(timezone.utc)
+        with self.Session() as session:
+            self.assertFalse(hasattr(NFTTemplate, "instantiate_nft"))
+
+            admin = Admin(email="template-admin@example.com", password_hash="x")
+            user = User(in_app_id="tpl-user", paymail="tpl-wallet")
+            session.add_all([admin, user])
+            session.flush()
+
+            template = NFTTemplate(
+                prefix="TPL-ONE",
+                name="Template One",
+                category="event",
+                subcategory="shop",
+                description="template desc",
+                created_by_admin_id=admin.id,
+                created_at=now,
+                updated_at=now,
+            )
+            session.add(template)
+            session.flush()
+
+            instance = template.instantiate_instance(
+                session,
+                user,
+                shared_key="tpl-shared",
+                acquired_at=now,
+                nft_origin="tpl-origin",
+            )
+            session.flush()
+
+            self.assertIsInstance(instance, NFTInstance)
+            self.assertEqual(instance.user_id, user.id)
+            self.assertEqual(instance.definition.template_id, template.id)
+            self.assertEqual(instance.definition.prefix, template.prefix)
+            self.assertEqual(instance.nft_origin, "tpl-origin")
+
+    def test_template_definition_constraint_fields(self):
+        now = datetime.now(timezone.utc)
+        with self.Session() as session:
+            admin = Admin(email="template-constraint-admin@example.com", password_hash="x")
+            session.add(admin)
+            session.flush()
+
+            template = NFTTemplate(
+                prefix="TPL-CONSTRAINT",
+                name="Template Constraint",
+                required_definition_id=303,
+                prohibited_definition_id=404,
+                created_by_admin_id=admin.id,
+                created_at=now,
+                updated_at=now,
+            )
+            session.add(template)
+            session.commit()
+
+            reloaded = session.get(NFTTemplate, template.id)
+            assert reloaded is not None
+            self.assertEqual(reloaded.required_definition_id, 303)
+            self.assertEqual(reloaded.prohibited_definition_id, 404)
+
+            with self.assertRaises(TypeError):
+                NFTTemplate(
+                    prefix="TPL-LEGACY-REQ",
+                    name="Legacy Required",
+                    required_nft_id=1,
+                    created_by_admin_id=admin.id,
+                    created_at=now,
+                    updated_at=now,
+                )
+            with self.assertRaises(TypeError):
+                NFTTemplate(
+                    prefix="TPL-LEGACY-PRO",
+                    name="Legacy Prohibited",
+                    prohibited_nft_id=2,
+                    created_by_admin_id=admin.id,
+                    created_at=now,
+                    updated_at=now,
+                )
 
     def test_coupon_template_redeemed_count_and_max_redeem(self):
         with self.Session() as session:
@@ -221,7 +359,168 @@ class DBTestCase(unittest.TestCase):
             self.assertEqual(reloaded.redeemed_count, 1)
             self.assertEqual(reloaded.remaining_redeem, 2)
 
-    def test_generate_unique_id_retries_on_collision(self):
+    def test_coupon_binding_definition_method_renames(self):
+        now = datetime.now(timezone.utc)
+        with self.Session() as session:
+            admin = Admin(email="binding-admin@example.com", password_hash="x")
+            session.add(admin)
+            session.flush()
+
+            definition = NFTDefinition(
+                prefix="BIND-DEF",
+                shared_key="binding-shared",
+                name="Binding Definition",
+                nft_type="default",
+                created_by_admin_id=admin.id,
+                created_at=now,
+                updated_at=now,
+            )
+            template = CouponTemplate(prefix="BIND-TPL")
+            session.add_all([definition, template])
+            session.flush()
+
+            active_binding = NFTCouponBinding(
+                definition_id=definition.id,
+                template_id=template.id,
+                active=True,
+            )
+            inactive_binding = NFTCouponBinding(
+                definition_id=definition.id,
+                template_id=template.id,
+                active=False,
+            )
+            session.add_all([active_binding, inactive_binding])
+            session.commit()
+
+            active_bindings = NFTCouponBinding.get_active_for_definition(
+                session, definition.id
+            )
+            self.assertEqual([b.id for b in active_bindings], [active_binding.id])
+
+            binding = NFTCouponBinding.get_by_definition_and_template(
+                session, definition.id, template.id
+            )
+            self.assertIsNotNone(binding)
+            assert binding is not None
+            self.assertEqual(binding.definition_id, definition.id)
+            self.assertEqual(binding.template_id, template.id)
+
+            self.assertFalse(hasattr(NFTCouponBinding, "get_active_for_nft"))
+            self.assertFalse(hasattr(NFTCouponBinding, "get_binding"))
+
+    def test_coupon_template_default_display_definition_id(self):
+        now = datetime.now(timezone.utc)
+        with self.Session() as session:
+            admin = Admin(email="coupon-admin@example.com", password_hash="x")
+            session.add(admin)
+            session.flush()
+
+            definition = NFTDefinition(
+                prefix="CPN-DISP",
+                shared_key="coupon-display",
+                name="Coupon Display",
+                nft_type="default",
+                created_by_admin_id=admin.id,
+                created_at=now,
+                updated_at=now,
+            )
+            session.add(definition)
+            session.flush()
+
+            template = CouponTemplate(
+                prefix="CPN-DISP-TPL",
+                default_display_definition_id=definition.id,
+            )
+            session.add(template)
+            session.commit()
+
+            reloaded = session.get(CouponTemplate, template.id)
+            assert reloaded is not None
+            self.assertEqual(reloaded.default_display_definition_id, definition.id)
+
+            with self.assertRaises(TypeError):
+                CouponTemplate(prefix="CPN-OLD", default_display_nft_id=definition.id)
+
+    def test_coupon_store_definition_fields(self):
+        now = datetime.now(timezone.utc)
+        with self.Session() as session:
+            admin = Admin(email="coupon-store-admin@example.com", password_hash="x")
+            session.add(admin)
+            session.flush()
+
+            definition = NFTDefinition(
+                prefix="CPN-STORE",
+                shared_key="coupon-store",
+                name="Coupon Store",
+                nft_type="default",
+                created_by_admin_id=admin.id,
+                created_at=now,
+                updated_at=now,
+            )
+            session.add(definition)
+            session.flush()
+
+            store = CouponStore(
+                name="postcard-store-1",
+                store_name="Postcard Store 1",
+                definition_id=definition.id,
+            )
+            session.add(store)
+            session.commit()
+
+            reloaded = session.get(CouponStore, store.id)
+            assert reloaded is not None
+            self.assertEqual(reloaded.definition_id, definition.id)
+            self.assertEqual(reloaded.definition.id, definition.id)
+
+            with self.assertRaises(TypeError):
+                CouponStore(name="legacy-store", store_name="Legacy Store", nft_id=definition.id)
+
+    def test_nft_claim_request_definition_fields(self):
+        now = datetime.now(timezone.utc)
+        with self.Session() as session:
+            admin = Admin(email="claim-admin@example.com", password_hash="x")
+            user = User(in_app_id="claim-user", paymail="claim-wallet")
+            session.add_all([admin, user])
+            session.flush()
+
+            definition = NFTDefinition(
+                prefix="CLM-DEF",
+                shared_key="claim-definition",
+                name="Claim Definition",
+                nft_type="default",
+                created_by_admin_id=admin.id,
+                created_at=now,
+                updated_at=now,
+            )
+            session.add(definition)
+            session.flush()
+
+            claim = NFTClaimRequest(
+                tmp_id="tmp-claim-1",
+                user_id=user.id,
+                definition_id=definition.id,
+                prefix=definition.prefix,
+                shared_key=definition.shared_key,
+            )
+            session.add(claim)
+            session.commit()
+
+            reloaded = session.get(NFTClaimRequest, claim.id)
+            assert reloaded is not None
+            self.assertEqual(reloaded.definition_id, definition.id)
+            self.assertEqual(reloaded.definition.id, definition.id)
+
+            with self.assertRaises(TypeError):
+                NFTClaimRequest(
+                    tmp_id="tmp-claim-legacy",
+                    user_id=user.id,
+                    nft_id=definition.id,
+                    prefix=definition.prefix,
+                    shared_key=definition.shared_key,
+                )
+
+    def test_generate_unique_instance_id_retries_on_collision(self):
         now = datetime.now(timezone.utc)
         with self.Session() as session:
             admin = Admin(email="collision@admin.com", password_hash="x")
@@ -232,7 +531,7 @@ class DBTestCase(unittest.TestCase):
             session.add(user)
             session.flush()
 
-            nft = NFT(
+            nft = NFTDefinition(
                 prefix="COL",
                 shared_key="existing",
                 name="Collision",
@@ -244,25 +543,36 @@ class DBTestCase(unittest.TestCase):
             session.add(nft)
             session.flush()
 
-            ownership = UserNFTOwnership(
+            ownership = NFTInstance(
                 user_id=user.id,
-                nft_id=nft.id,
+                definition_id=nft.id,
                 serial_number=0,
-                unique_nft_id="COL-AAAAAAAAAAAA",
+                unique_instance_id="COL-AAAAAAAAAAAA",
                 acquired_at=now,
             )
             session.add(ownership)
             session.flush()
 
-            from nictbw.models.utils import generate_unique_nft_id
+            from nictbw.models import utils as model_utils
+
+            self.assertFalse(hasattr(model_utils, "generate_unique_nft_id"))
 
             with patch(
                 "nictbw.models.utils.secrets.choice",
                 side_effect=list("A" * 12 + "B" * 12),
             ):
-                generated = generate_unique_nft_id("COL", session=session)
+                generated = model_utils.generate_unique_instance_id("COL", session=session)
 
             self.assertEqual(generated, "COL-BBBBBBBBBBBB")
+
+            with self.assertRaises(TypeError):
+                NFTInstance(
+                    user_id=user.id,
+                    definition_id=nft.id,
+                    serial_number=1,
+                    unique_nft_id="COL-CCCCCCCCCCCC",
+                    acquired_at=now,
+                )
 
     def test_template_max_supply_enforced(self):
         now = datetime.now(timezone.utc)
@@ -271,7 +581,7 @@ class DBTestCase(unittest.TestCase):
             session.add(admin)
             session.flush()
 
-            nft = NFT(
+            nft = NFTDefinition(
                 prefix="SUP",
                 shared_key="shared",
                 name="Token",
@@ -288,10 +598,108 @@ class DBTestCase(unittest.TestCase):
             session.add_all([nft, user, user_two])
             session.flush()
 
-            nft.issue_dbwise_to(session, user)
+            nft.issue_dbwise_to_user(session, user)
 
             with self.assertRaises(ValueError):
-                nft.issue_dbwise_to(session, user_two)
+                nft.issue_dbwise_to_user(session, user_two)
+
+    def test_bingo_period_reward_definition_fields(self):
+        now = datetime.now(timezone.utc)
+        with self.Session() as session:
+            admin = Admin(email="period-admin@example.com", password_hash="x")
+            session.add(admin)
+            session.flush()
+
+            definition = NFTDefinition(
+                prefix="BPR-DEF",
+                shared_key="bpr-shared",
+                name="Bingo Reward Definition",
+                nft_type="default",
+                created_by_admin_id=admin.id,
+                created_at=now,
+                updated_at=now,
+            )
+            period = BingoPeriod(
+                name="Period 1",
+                start_time=now,
+                end_time=now,
+            )
+            session.add_all([definition, period])
+            session.flush()
+
+            reward = BingoPeriodReward(
+                period_id=period.id,
+                reward_definition_id=definition.id,
+            )
+            session.add(reward)
+            session.commit()
+
+            reloaded = session.get(BingoPeriodReward, reward.id)
+            assert reloaded is not None
+            self.assertEqual(reloaded.reward_definition_id, definition.id)
+            self.assertEqual(reloaded.reward_definition.id, definition.id)
+
+            with self.assertRaises(TypeError):
+                BingoPeriodReward(period_id=period.id, reward_nft_id=definition.id)
+
+    def test_bingo_card_issue_task_unique_instance_ref(self):
+        now = datetime.now(timezone.utc)
+        with self.Session() as session:
+            admin = Admin(email="issue-task-admin@example.com", password_hash="x")
+            user = User(in_app_id="issue-task-user", paymail="issue-task-wallet")
+            session.add_all([admin, user])
+            session.flush()
+
+            definition = NFTDefinition(
+                prefix="ISSUE-TASK",
+                shared_key="issue-task-shared",
+                name="Issue Task Definition",
+                nft_type="default",
+                created_by_admin_id=admin.id,
+                created_at=now,
+                updated_at=now,
+            )
+            session.add(definition)
+            session.flush()
+
+            ownership = NFTInstance(
+                user_id=user.id,
+                definition_id=definition.id,
+                serial_number=0,
+                unique_instance_id="ISSUE-TASK-AAAAAAAAAAAA",
+                acquired_at=now,
+            )
+            session.add(ownership)
+            session.flush()
+
+            task = BingoCardIssueTask(
+                user_id=user.id,
+                center_definition_id=definition.id,
+                nft_instance_id=ownership.id,
+                unique_instance_ref=ownership.unique_instance_id,
+            )
+            session.add(task)
+            session.commit()
+
+            reloaded = session.get(BingoCardIssueTask, task.id)
+            assert reloaded is not None
+            self.assertEqual(reloaded.unique_instance_ref, ownership.unique_instance_id)
+
+            with self.assertRaises(TypeError):
+                BingoCardIssueTask(
+                    user_id=user.id,
+                    center_definition_id=definition.id,
+                    nft_instance_id=ownership.id,
+                    unique_nft_ref=ownership.unique_instance_id,
+                )
+            with self.assertRaises(TypeError):
+                BingoCardIssueTask(
+                    user_id=user.id,
+                    center_definition_id=definition.id,
+                    ownership_id=ownership.id,
+                    unique_instance_ref=ownership.unique_instance_id,
+                )
+            self.assertFalse(hasattr(BingoCardIssueTask, "ownership_id"))
 
     def test_bingo_completed_lines(self):
         card = BingoCard(user_id=1, issued_at=datetime.now(timezone.utc))
@@ -300,7 +708,7 @@ class DBTestCase(unittest.TestCase):
             cell = BingoCell(
                 bingo_card_id=1,
                 idx=i,
-                target_template_id=1,
+                target_definition_id=1,
                 state="locked",
             )
             card.cells.append(cell)
@@ -331,7 +739,7 @@ class DBTestCase(unittest.TestCase):
             definitions = []
             for prefix in prefixes:
                 definitions.append(
-                    NFT(
+                    NFTDefinition(
                         prefix=prefix,
                         shared_key=f"shared-{prefix}",
                         name=prefix,
@@ -352,16 +760,16 @@ class DBTestCase(unittest.TestCase):
             session.flush()
 
             cells = [
-                BingoCell(bingo_card_id=card.id, idx=0, target_template_id=definitions[0].id),
-                BingoCell(bingo_card_id=card.id, idx=1, target_template_id=definitions[1].id),
-                BingoCell(bingo_card_id=card.id, idx=2, target_template_id=definitions[2].id),
+                BingoCell(bingo_card_id=card.id, idx=0, target_definition_id=definitions[0].id),
+                BingoCell(bingo_card_id=card.id, idx=1, target_definition_id=definitions[1].id),
+                BingoCell(bingo_card_id=card.id, idx=2, target_definition_id=definitions[2].id),
             ]
             for i in range(3, 9):
                 cells.append(
                     BingoCell(
                         bingo_card_id=card.id,
                         idx=i,
-                        target_template_id=definitions[i].id,
+                        target_definition_id=definitions[i].id,
                     )
                 )
             for c in cells:
@@ -369,31 +777,31 @@ class DBTestCase(unittest.TestCase):
                 session.add(c)
             session.flush()
 
-            definitions[0].issue_dbwise_to(session, user)
-            definitions[1].issue_dbwise_to(session, user)
-            definitions[2].issue_dbwise_to(session, user)
+            definitions[0].issue_dbwise_to_user(session, user)
+            definitions[1].issue_dbwise_to_user(session, user)
+            definitions[2].issue_dbwise_to_user(session, user)
             session.commit()
 
             self.assertEqual(card.state, "active")
             self.assertIsNone(card.completed_at)
 
             for i in range(3, 9):
-                definitions[i].issue_dbwise_to(session, user)
+                definitions[i].issue_dbwise_to_user(session, user)
             session.commit()
 
             self.assertEqual(card.state, "completed")
             self.assertIsNotNone(card.completed_at)
             self.assertTrue(all(c.state == "unlocked" for c in card.cells))
-            self.assertTrue(all(c.matched_ownership_id is not None for c in card.cells))
+            self.assertTrue(all(c.matched_nft_instance_id is not None for c in card.cells))
 
-    def test_user_unlock_cells_for_nft(self):
+    def test_user_unlock_cells_for_definition(self):
         now = datetime.now(timezone.utc)
         with self.Session() as session:
             admin = Admin(email="admin@example.com", password_hash="x")
             session.add(admin)
             session.flush()
 
-            nft_main = NFT(
+            nft_main = NFTDefinition(
                 prefix="T",
                 shared_key="shared-t",
                 name="TokenT",
@@ -404,7 +812,7 @@ class DBTestCase(unittest.TestCase):
                 created_at=now,
                 updated_at=now,
             )
-            nft_other = NFT(
+            nft_other = NFTDefinition(
                 prefix="O",
                 shared_key="shared-o",
                 name="Other",
@@ -419,21 +827,21 @@ class DBTestCase(unittest.TestCase):
             session.add_all([nft_main, nft_other, user])
             session.flush()
 
-            nft_main.issue_dbwise_to(session, user)
+            nft_main.issue_dbwise_to_user(session, user)
 
             card = BingoCard(user_id=user.id, issued_at=now)
             session.add(card)
             session.flush()
 
             cells = [
-                BingoCell(bingo_card_id=card.id, idx=0, target_template_id=nft_main.id)
+                BingoCell(bingo_card_id=card.id, idx=0, target_definition_id=nft_main.id)
             ]
             for i in range(1, 9):
                 cells.append(
                     BingoCell(
                         bingo_card_id=card.id,
                         idx=i,
-                        target_template_id=nft_other.id,
+                        target_definition_id=nft_other.id,
                     )
                 )
             for c in cells:
@@ -444,21 +852,72 @@ class DBTestCase(unittest.TestCase):
             cell = cells[0]
             self.assertEqual(cell.state, "locked")
 
-            result = user.unlock_cells_for_nft(session, nft_main)
+            result = user.unlock_cells_for_definition(session, nft_main)
             self.assertTrue(result)
             self.assertEqual(cell.state, "unlocked")
-            self.assertEqual(cell.matched_ownership_id, user.ownerships[0].id)
+            self.assertEqual(cell.matched_nft_instance_id, user.nft_instances[0].id)
 
-            # Reset and test using the NFT's ID
+            # Reset and test using the NFTDefinition's ID
             cell.state = "locked"
-            cell.nft_id = None
-            cell.matched_ownership_id = None
+            cell.definition_id = None
+            cell.matched_nft_instance_id = None
             session.flush()
 
-            result = user.unlock_cells_for_nft(session, nft_main.id)
+            result = user.unlock_cells_for_definition(session, nft_main.id)
             self.assertTrue(result)
             self.assertEqual(cell.state, "unlocked")
-            self.assertEqual(cell.matched_ownership_id, user.ownerships[0].id)
+            self.assertEqual(cell.matched_nft_instance_id, user.nft_instances[0].id)
+
+    def test_user_unlock_bingo_cells_keyword_hard_break(self):
+        now = datetime.now(timezone.utc)
+        with self.Session() as session:
+            admin = Admin(email="unlock-cells-admin@example.com", password_hash="x")
+            user = User(in_app_id="unlock-cells-user", paymail="unlock-cells-wallet")
+            session.add_all([admin, user])
+            session.flush()
+
+            definition = NFTDefinition(
+                prefix="UNLOCK-CELLS",
+                shared_key="unlock-cells-shared",
+                name="Unlock Cells",
+                nft_type="default",
+                created_by_admin_id=admin.id,
+                created_at=now,
+                updated_at=now,
+            )
+            session.add(definition)
+            session.flush()
+
+            card = BingoCard(user_id=user.id, issued_at=now, state="active")
+            session.add(card)
+            session.flush()
+
+            cell = BingoCell(
+                bingo_card_id=card.id,
+                idx=0,
+                target_definition_id=definition.id,
+                state="locked",
+            )
+            session.add(cell)
+            session.flush()
+
+            nft_instance = NFTInstance(
+                user_id=user.id,
+                definition_id=definition.id,
+                serial_number=0,
+                unique_instance_id="UNLOCK-CELLS-AAAAAAAAAAAA",
+                acquired_at=now,
+            )
+            session.add(nft_instance)
+            session.flush()
+
+            unlocked = user.unlock_bingo_cells(session, nft_instance=nft_instance)
+            self.assertTrue(unlocked)
+            self.assertEqual(cell.state, "unlocked")
+            self.assertEqual(cell.matched_nft_instance_id, nft_instance.id)
+
+            with self.assertRaises(TypeError):
+                user.unlock_bingo_cells(session, instance=nft_instance)
 
     def test_bingocard_generate_for_user(self):
         now = datetime.now(timezone.utc)
@@ -469,7 +928,7 @@ class DBTestCase(unittest.TestCase):
             session.flush()
 
             definitions = [
-                NFT(
+                NFTDefinition(
                     prefix=f"T{i}",
                     shared_key=f"shared-{i}",
                     name=f"T{i}",
@@ -487,17 +946,17 @@ class DBTestCase(unittest.TestCase):
             session.add_all(definitions + [user])
             session.flush()
 
-            definitions[0].issue_dbwise_to(session, user)
+            definitions[0].issue_dbwise_to_user(session, user)
             session.commit()
 
             card = BingoCard.generate_for_user(
                 session=session,
                 user=user,
-                center_template=definitions[0],
+                center_definition=definitions[0],
                 rng=rng,
             )
             self.assertEqual(len(card.cells), 9)
-            self.assertEqual(len({c.target_template_id for c in card.cells}), 9)
+            self.assertEqual(len({c.target_definition_id for c in card.cells}), 9)
             center = next(c for c in card.cells if c.idx == 4)
             self.assertEqual(center.state, "unlocked")
 
@@ -508,7 +967,7 @@ class DBTestCase(unittest.TestCase):
             session.add(admin)
             session.flush()
 
-            trigger = NFT(
+            trigger = NFTDefinition(
                 prefix="TR",
                 shared_key="shared-tr",
                 name="Trigger",
@@ -521,7 +980,7 @@ class DBTestCase(unittest.TestCase):
                 triggers_bingo_card=True,
             )
             others = [
-                NFT(
+                NFTDefinition(
                     prefix=f"O{i}",
                     shared_key=f"shared-o{i}",
                     name=f"O{i}",
@@ -538,7 +997,7 @@ class DBTestCase(unittest.TestCase):
             session.add_all([trigger, user] + others)
             session.flush()
 
-            trigger.issue_dbwise_to(session, user)
+            trigger.issue_dbwise_to_user(session, user)
             session.commit()
 
             created = user.ensure_bingo_cards(session)
@@ -553,7 +1012,7 @@ class DBTestCase(unittest.TestCase):
             session.add(admin)
             session.flush()
 
-            nft_trigger = NFT(
+            nft_trigger = NFTDefinition(
                 prefix="TR",
                 shared_key="shared-tr",
                 name="Trigger",
@@ -565,7 +1024,7 @@ class DBTestCase(unittest.TestCase):
                 updated_at=now,
                 triggers_bingo_card=True,
             )
-            nft_unlock = NFT(
+            nft_unlock = NFTDefinition(
                 prefix="UN",
                 shared_key="shared-un",
                 name="Unlock",
@@ -577,7 +1036,7 @@ class DBTestCase(unittest.TestCase):
                 updated_at=now,
             )
             others = [
-                NFT(
+                NFTDefinition(
                     prefix=f"O{i}",
                     shared_key=f"shared-o{i}",
                     name=f"O{i}",
@@ -594,7 +1053,7 @@ class DBTestCase(unittest.TestCase):
             session.add_all([nft_trigger, nft_unlock, user] + others)
             session.flush()
 
-            nft_trigger.issue_dbwise_to(session, user)
+            nft_trigger.issue_dbwise_to_user(session, user)
             session.commit()
 
             created = user.ensure_bingo_cards(session)
@@ -602,13 +1061,13 @@ class DBTestCase(unittest.TestCase):
             self.assertEqual(created, 1)
 
             card = user.bingo_cards[0]
-            cell = next(c for c in card.cells if c.target_template_id == nft_unlock.id)
+            cell = next(c for c in card.cells if c.target_definition_id == nft_unlock.id)
             self.assertEqual(cell.state, "locked")
 
-            ownership = nft_unlock.issue_dbwise_to(
+            ownership = nft_unlock.issue_dbwise_to_user(
                 session,
                 user,
-                unique_nft_id=f"{nft_unlock.prefix}-A1B2C3D4E5F6",
+                unique_instance_id=f"{nft_unlock.prefix}-A1B2C3D4E5F6",
                 acquired_at=now,
             )
 
@@ -616,17 +1075,17 @@ class DBTestCase(unittest.TestCase):
             session.commit()
             self.assertEqual(unlocked, 0)
             self.assertEqual(cell.state, "unlocked")
-            self.assertEqual(cell.nft_id, nft_unlock.id)
-            self.assertEqual(cell.matched_ownership_id, ownership.id)
+            self.assertEqual(cell.definition_id, nft_unlock.id)
+            self.assertEqual(cell.matched_nft_instance_id, ownership.id)
 
-    def test_ownership_get_by_user_and_nft(self):
+    def test_ownership_get_by_user_and_definition(self):
         now = datetime.now(timezone.utc)
         with self.Session() as session:
             admin = Admin(email="admin@example.com", password_hash="x")
             session.add(admin)
             session.flush()
 
-            nft = NFT(
+            nft = NFTDefinition(
                 prefix="T",
                 shared_key="shared-t",
                 name="TokenT",
@@ -641,22 +1100,22 @@ class DBTestCase(unittest.TestCase):
             session.add_all([nft, user])
             session.flush()
 
-            nft.issue_dbwise_to(session, user)
+            nft.issue_dbwise_to_user(session, user)
             session.commit()
 
-            ownership = UserNFTOwnership.get_by_user_and_nft(session, user, nft)
+            ownership = NFTInstance.get_by_user_and_definition(session, user, nft)
             self.assertIsNotNone(ownership)
             assert ownership is not None
             self.assertEqual(ownership.user_id, user.id)
-            self.assertEqual(ownership.nft_id, nft.id)
+            self.assertEqual(ownership.definition_id, nft.id)
 
             # Also verify lookup works with IDs
-            ownership2 = UserNFTOwnership.get_by_user_and_nft(session, user.id, nft.id)
+            ownership2 = NFTInstance.get_by_user_and_definition(session, user.id, nft.id)
             self.assertIsNotNone(ownership2)
             assert ownership2 is not None
             self.assertEqual(ownership2.id, ownership.id)
 
-    def test_sync_nfts_from_chain_requires_on_chain_id(self):
+    def test_sync_nft_instances_from_chain_requires_on_chain_id(self):
         with self.Session() as session:
             user = User(in_app_id="u-sync-none", paymail="wallet-none")
             session.add(user)
@@ -667,9 +1126,9 @@ class DBTestCase(unittest.TestCase):
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore", UserWarning)
                 with self.assertRaises(ValueError):
-                    user.sync_nfts_from_chain(session, client=client)
+                    user.sync_nft_instances_from_chain(session, client=client)
 
-    def test_sync_nfts_from_chain_creates_local_records(self):
+    def test_sync_nft_instances_from_chain_creates_local_records(self):
         created_at = datetime(2024, 1, 1, 12, 0, tzinfo=timezone.utc)
         updated_at = datetime(2024, 1, 2, 13, 0, tzinfo=timezone.utc)
         chain_items = [
@@ -682,7 +1141,7 @@ class DBTestCase(unittest.TestCase):
                             "sharedKey": "chain-shared",
                             "category": "event",
                             "subCategory": "booth-a",
-                            "description": "Chain minted NFT",
+                            "description": "Chain minted NFTDefinition",
                             "imageUrl": "https://example.com/image.png",
                             "name": "Chain Template Name",
                         }
@@ -712,23 +1171,23 @@ class DBTestCase(unittest.TestCase):
             client = cast(ChainClient, client_stub)
 
             with patch(
-                "nictbw.models.utils.generate_unique_nft_id",
+                "nictbw.models.utils.generate_unique_instance_id",
                 return_value="CHAINPFX-AAAAAAAAAAAA",
             ):
                 with warnings.catch_warnings():
                     warnings.simplefilter("ignore", UserWarning)
-                    user.sync_nfts_from_chain(session, client=client)
+                    user.sync_nft_instances_from_chain(session, client=client)
 
             self.assertEqual(client_stub.requested_usernames, ["chain-user"])
 
-            nft = session.scalar(select(NFT).where(NFT.prefix == "CHAINPFX"))
+            nft = session.scalar(select(NFTDefinition).where(NFTDefinition.prefix == "CHAINPFX"))
             self.assertIsNotNone(nft)
             assert nft is not None
             self.assertEqual(nft.shared_key, "chain-shared")
             self.assertEqual(nft.name, "Chain Template Name")
             self.assertEqual(nft.category, "event")
             self.assertEqual(nft.subcategory, "booth-a")
-            self.assertEqual(nft.description, "Chain minted NFT")
+            self.assertEqual(nft.description, "Chain minted NFTDefinition")
             self.assertEqual(nft.image_url, "https://example.com/image.png")
             self.assertEqual(nft.minted_count, 1)
             self.assertEqual(nft.created_by_admin_id, admin.id)
@@ -740,13 +1199,13 @@ class DBTestCase(unittest.TestCase):
             )
 
             ownership = session.scalar(
-                select(UserNFTOwnership).where(UserNFTOwnership.user_id == user.id)
+                select(NFTInstance).where(NFTInstance.user_id == user.id)
             )
             self.assertIsNotNone(ownership)
             assert ownership is not None
-            self.assertEqual(ownership.nft_id, nft.id)
+            self.assertEqual(ownership.definition_id, nft.id)
             self.assertEqual(ownership.serial_number, 0)
-            self.assertEqual(ownership.unique_nft_id, "CHAINPFX-AAAAAAAAAAAA")
+            self.assertEqual(ownership.unique_instance_id, "CHAINPFX-AAAAAAAAAAAA")
             self.assertEqual(ownership.nft_origin, "origin-123")
             self.assertEqual(ownership.current_nft_location, "chain-vault")
             self.assertEqual(ownership.blockchain_nft_id, 99)
@@ -760,7 +1219,7 @@ class DBTestCase(unittest.TestCase):
             self.assertEqual(meta["shared_key"], "chain-shared")
             self.assertEqual(meta["image_url"], "https://example.com/image.png")
 
-    def test_sync_nfts_from_chain_updates_existing_records(self):
+    def test_sync_nft_instances_from_chain_updates_existing_records(self):
         original_created = datetime(2024, 1, 5, 9, 0, tzinfo=timezone.utc)
         original_updated = datetime(2024, 1, 5, 10, 0, tzinfo=timezone.utc)
         chain_created = datetime(2024, 1, 1, 9, 30, tzinfo=timezone.utc)
@@ -777,7 +1236,7 @@ class DBTestCase(unittest.TestCase):
                             "subCategory": "new-sub",
                             "description": "Updated description",
                             "imageUrl": "https://example.com/new.png",
-                            "name": "Updated NFT Name",
+                            "name": "Updated NFTDefinition Name",
                         }
                     }
                 },
@@ -803,10 +1262,10 @@ class DBTestCase(unittest.TestCase):
             session.add(user)
             session.flush()
 
-            nft = NFT(
+            nft = NFTDefinition(
                 prefix="TPL",
                 shared_key="old-shared",
-                name="Old NFT Name",
+                name="Old NFTDefinition Name",
                 nft_type="default",
                 category="old-cat",
                 subcategory="old-sub",
@@ -819,11 +1278,11 @@ class DBTestCase(unittest.TestCase):
             session.add(nft)
             session.flush()
 
-            ownership = UserNFTOwnership(
+            ownership = NFTInstance(
                 user_id=user.id,
-                nft_id=nft.id,
+                definition_id=nft.id,
                 serial_number=0,
-                unique_nft_id="TPL-AAAAAAAAAAAA",
+                unique_instance_id="TPL-AAAAAAAAAAAA",
                 acquired_at=datetime(2024, 1, 10, 9, 0, tzinfo=timezone.utc),
                 other_meta=json.dumps({"old": "meta"}),
                 nft_origin="origin-xyz",
@@ -837,14 +1296,14 @@ class DBTestCase(unittest.TestCase):
 
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore", UserWarning)
-                user.sync_nfts_from_chain(session, client=client)
+                user.sync_nft_instances_from_chain(session, client=client)
 
             self.assertEqual(client_stub.requested_usernames, ["chain-update"])
 
-            refreshed_nft = session.get(NFT, nft.id)
+            refreshed_nft = session.get(NFTDefinition, nft.id)
             assert refreshed_nft is not None
             self.assertEqual(refreshed_nft.shared_key, "new-shared")
-            self.assertEqual(refreshed_nft.name, "Updated NFT Name")
+            self.assertEqual(refreshed_nft.name, "Updated NFTDefinition Name")
             self.assertEqual(refreshed_nft.category, "new-cat")
             self.assertEqual(refreshed_nft.subcategory, "new-sub")
             self.assertEqual(refreshed_nft.description, "Updated description")
@@ -858,9 +1317,9 @@ class DBTestCase(unittest.TestCase):
                 chain_updated.replace(tzinfo=None),
             )
 
-            refreshed_ownership = session.get(UserNFTOwnership, ownership.id)
+            refreshed_ownership = session.get(NFTInstance, ownership.id)
             assert refreshed_ownership is not None
-            self.assertEqual(refreshed_ownership.unique_nft_id, "TPL-BBBBBBBBBBBB")
+            self.assertEqual(refreshed_ownership.unique_instance_id, "TPL-BBBBBBBBBBBB")
             self.assertEqual(refreshed_ownership.nft_origin, "origin-xyz")
             self.assertEqual(refreshed_ownership.current_nft_location, "new-location")
             self.assertEqual(
@@ -880,10 +1339,10 @@ class DBTestCase(unittest.TestCase):
             session.add(admin)
             session.flush()
 
-            nft = NFT(
+            nft = NFTDefinition(
                 prefix="DRW",
                 shared_key="shared",
-                name="Draw NFT",
+                name="Draw NFTDefinition",
                 nft_type="default",
                 category="event",
                 subcategory="game",
@@ -893,7 +1352,7 @@ class DBTestCase(unittest.TestCase):
             session.add_all([nft, user])
             session.flush()
 
-            ownership = nft.issue_dbwise_to(
+            ownership = nft.issue_dbwise_to_user(
                 session, user, nft_origin="origin-seed", acquired_at=now
             )
 
@@ -921,8 +1380,8 @@ class DBTestCase(unittest.TestCase):
                 draw_type_id=draw_type.id,
                 winning_number_id=winning_number.id,
                 user_id=user.id,
-                nft_id=nft.id,
-                ownership_id=ownership.id,
+                definition_id=nft.id,
+                nft_instance_id=ownership.id,
                 draw_number="101000",
                 similarity_score=0.66,
                 threshold_used=3.0,
@@ -933,6 +1392,7 @@ class DBTestCase(unittest.TestCase):
 
             retrieved = session.get(PrizeDrawResult, result.id)
             assert retrieved is not None
+            self.assertFalse(hasattr(PrizeDrawResult, "ownership_id"))
             self.assertEqual(retrieved.draw_type_id, draw_type.id)
             self.assertEqual(retrieved.winning_number_id, winning_number.id)
             self.assertEqual(retrieved.outcome, "lose")
@@ -947,13 +1407,216 @@ class DBTestCase(unittest.TestCase):
                 draw_type_id=draw_type.id,
                 winning_number_id=winning_number.id,
                 user_id=user.id,
-                nft_id=nft.id,
+                definition_id=nft.id,
                 draw_number="101111",
                 outcome="win",
             )
             session.add(duplicate)
             with self.assertRaises(IntegrityError):
                 session.commit()
+
+    def test_removed_legacy_instance_aliases(self):
+        self.assertFalse(hasattr(User, "ownerships"))
+        self.assertFalse(hasattr(NFTDefinition, "ownerships"))
+        self.assertFalse(hasattr(BingoCell, "matched_ownership_id"))
+        self.assertFalse(hasattr(BingoCard, "unlock_cells_for_ownership"))
+        self.assertFalse(hasattr(BingoCard, "unlock_cells_for_instance"))
+        self.assertFalse(hasattr(BingoCardIssueTask, "instance_id"))
+        self.assertFalse(hasattr(BingoCell, "matched_instance_id"))
+        self.assertFalse(hasattr(BingoCell, "matched_instance"))
+        self.assertFalse(hasattr(PrizeDrawResult, "ownership_id"))
+        self.assertFalse(hasattr(PrizeDrawResult, "ownership"))
+        self.assertFalse(hasattr(PrizeDrawResult, "instance_id"))
+        self.assertFalse(hasattr(PrizeDrawResult, "instance"))
+        self.assertFalse(hasattr(CouponInstance, "ownership_id"))
+        self.assertFalse(hasattr(CouponInstance, "ownership"))
+        self.assertFalse(hasattr(CouponInstance, "instance_id"))
+        self.assertFalse(hasattr(CouponInstance, "instance"))
+        self.assertFalse(hasattr(NFTClaimRequest, "ownership_id"))
+        self.assertFalse(hasattr(NFTClaimRequest, "ownership"))
+        self.assertFalse(hasattr(NFTClaimRequest, "instance_id"))
+        self.assertFalse(hasattr(NFTClaimRequest, "instance"))
+        self.assertFalse(hasattr(RaffleEntry, "ownership_id"))
+        self.assertFalse(hasattr(RaffleEntry, "ownership"))
+        self.assertFalse(hasattr(RaffleEntry, "instance_id"))
+        self.assertFalse(hasattr(RaffleEntry, "instance"))
+
+        with self.assertRaises(TypeError):
+            BingoCell(
+                bingo_card_id=1,
+                idx=0,
+                target_definition_id=1,
+                matched_ownership_id=1,
+            )
+        with self.assertRaises(TypeError):
+            BingoCell(
+                bingo_card_id=1,
+                idx=0,
+                target_definition_id=1,
+                matched_instance_id=1,
+            )
+
+        with self.assertRaises(TypeError):
+            PrizeDrawResult(
+                draw_type_id=1,
+                user_id=1,
+                definition_id=1,
+                ownership_id=1,
+                draw_number="x",
+            )
+        with self.assertRaises(TypeError):
+            PrizeDrawResult(
+                draw_type_id=1,
+                user_id=1,
+                definition_id=1,
+                ownership=NFTInstance(
+                    user_id=1,
+                    definition_id=1,
+                    serial_number=1,
+                    unique_instance_id="OLD-AAAAAAAAAAAA",
+                    acquired_at=datetime.now(timezone.utc),
+                ),
+                draw_number="x",
+            )
+        with self.assertRaises(TypeError):
+            PrizeDrawResult(
+                draw_type_id=1,
+                user_id=1,
+                definition_id=1,
+                instance_id=1,
+                draw_number="x",
+            )
+        with self.assertRaises(TypeError):
+            PrizeDrawResult(
+                draw_type_id=1,
+                user_id=1,
+                definition_id=1,
+                instance=NFTInstance(
+                    user_id=1,
+                    definition_id=1,
+                    serial_number=1,
+                    unique_instance_id="OLD-EEEEEEEEEEEE",
+                    acquired_at=datetime.now(timezone.utc),
+                ),
+                draw_number="x",
+            )
+
+        with self.assertRaises(TypeError):
+            CouponInstance(
+                template_id=1,
+                serial_number=1,
+                coupon_code="COUPON-OLD",
+                ownership_id=1,
+            )
+        with self.assertRaises(TypeError):
+            CouponInstance(
+                template_id=1,
+                serial_number=1,
+                coupon_code="COUPON-OLD",
+                ownership=NFTInstance(
+                    user_id=1,
+                    definition_id=1,
+                    serial_number=1,
+                    unique_instance_id="OLD-BBBBBBBBBBBB",
+                    acquired_at=datetime.now(timezone.utc),
+                ),
+            )
+        with self.assertRaises(TypeError):
+            CouponInstance(
+                template_id=1,
+                serial_number=1,
+                coupon_code="COUPON-OLD",
+                instance_id=1,
+            )
+        with self.assertRaises(TypeError):
+            CouponInstance(
+                template_id=1,
+                serial_number=1,
+                coupon_code="COUPON-OLD",
+                instance=NFTInstance(
+                    user_id=1,
+                    definition_id=1,
+                    serial_number=1,
+                    unique_instance_id="OLD-FFFFFFFFFFFF",
+                    acquired_at=datetime.now(timezone.utc),
+                ),
+            )
+
+        with self.assertRaises(TypeError):
+            NFTClaimRequest(
+                tmp_id="tmp-old",
+                user_id=1,
+                definition_id=1,
+                prefix="OLD",
+                shared_key="old-shared",
+                ownership_id=1,
+            )
+        with self.assertRaises(TypeError):
+            NFTClaimRequest(
+                tmp_id="tmp-old",
+                user_id=1,
+                definition_id=1,
+                prefix="OLD",
+                shared_key="old-shared",
+                ownership=NFTInstance(
+                    user_id=1,
+                    definition_id=1,
+                    serial_number=1,
+                    unique_instance_id="OLD-CCCCCCCCCCCC",
+                    acquired_at=datetime.now(timezone.utc),
+                ),
+            )
+        with self.assertRaises(TypeError):
+            NFTClaimRequest(
+                tmp_id="tmp-old",
+                user_id=1,
+                definition_id=1,
+                prefix="OLD",
+                shared_key="old-shared",
+                instance_id=1,
+            )
+        with self.assertRaises(TypeError):
+            NFTClaimRequest(
+                tmp_id="tmp-old",
+                user_id=1,
+                definition_id=1,
+                prefix="OLD",
+                shared_key="old-shared",
+                instance=NFTInstance(
+                    user_id=1,
+                    definition_id=1,
+                    serial_number=1,
+                    unique_instance_id="OLD-GGGGGGGGGGGG",
+                    acquired_at=datetime.now(timezone.utc),
+                ),
+            )
+
+        with self.assertRaises(TypeError):
+            RaffleEntry(user_id=1, ownership_id=1)
+        with self.assertRaises(TypeError):
+            RaffleEntry(
+                user_id=1,
+                ownership=NFTInstance(
+                    user_id=1,
+                    definition_id=1,
+                    serial_number=1,
+                    unique_instance_id="OLD-DDDDDDDDDDDD",
+                    acquired_at=datetime.now(timezone.utc),
+                ),
+            )
+        with self.assertRaises(TypeError):
+            RaffleEntry(user_id=1, instance_id=1)
+        with self.assertRaises(TypeError):
+            RaffleEntry(
+                user_id=1,
+                instance=NFTInstance(
+                    user_id=1,
+                    definition_id=1,
+                    serial_number=1,
+                    unique_instance_id="OLD-HHHHHHHHHHHH",
+                    acquired_at=datetime.now(timezone.utc),
+                ),
+            )
 
 
 if __name__ == "__main__":

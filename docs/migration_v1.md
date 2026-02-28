@@ -1,0 +1,180 @@
+# v1.0.0 Migration Guide
+
+This release is a hard-break semantic refactor.
+
+Core semantics in `v1.0.0`:
+- `NFTDefinition` = definition metadata (row in `nfts`)
+- `NFTInstance` = issued/owned instance (row in `user_nft_ownership`)
+- prize draws evaluate `NFTInstance` records, not definitions
+
+## Breaking API Changes
+
+### Model exports
+- Removed canonical export: `NFT`
+- Removed canonical export: `UserNFTOwnership`
+- Use instead: `NFTDefinition`, `NFTInstance`
+- `NFTTemplate` remains available
+
+### Method renames
+- `NFT.issue_dbwise_to(...)` -> `NFTDefinition.issue_dbwise_to_user(...)`
+- `NFT.count_nfts_by_prefix(...)` -> `NFTDefinition.count_instances_by_prefix(...)`
+- `UserNFTOwnership.get_by_user_and_nft(...)` -> `NFTInstance.get_by_user_and_definition(...)`
+- `User.unlock_cells_for_nft(...)` -> `User.unlock_cells_for_definition(...)`
+- `User.unlock_bingo_cells(..., instance=...)` -> `User.unlock_bingo_cells(..., nft_instance=...)`
+- `User.sync_nfts_from_chain(...)` -> `User.sync_nft_instances_from_chain(...)`
+- `User.nfts` -> `User.nft_instances`
+- `NFTTemplate.instantiate_nft(...)` -> `NFTTemplate.instantiate_instance(...)`
+- `generate_unique_nft_id(...)` -> `generate_unique_instance_id(...)`
+- `NFTDefinition.issue_dbwise_to_user(..., unique_nft_id=...)` -> `NFTDefinition.issue_dbwise_to_user(..., unique_instance_id=...)`
+- `NFTTemplate.instantiate_instance(..., unique_nft_id=...)` -> `NFTTemplate.instantiate_instance(..., unique_instance_id=...)`
+
+### ChainClient API changes
+- `ChainClient.nfts` -> `ChainClient.nft_instances`
+- `ChainClient.get_user_nfts(username)` -> `ChainClient.get_user_nft_instances(username)`
+- `ChainClient.get_sorted_user_nfts(...)` -> `ChainClient.get_sorted_user_nft_instances(...)`
+- `ChainClient.create_nft(...)` -> `ChainClient.create_nft_instance(...)`
+- `ChainClient.get_nft_info(nft_origin, ...)` -> `ChainClient.get_nft_instance_info(nft_origin, ...)`
+
+### NFTInstance API changes
+- `NFTInstance.nft_id` -> `NFTInstance.definition_id`
+- `NFTInstance.nft` -> `NFTInstance.definition`
+- `NFTInstance.unique_nft_id` -> `NFTInstance.unique_instance_id`
+
+### User and NFTDefinition relationship changes
+- `User.ownerships` -> `User.nft_instances`
+- `NFTDefinition.ownerships` -> `NFTDefinition.instances`
+
+### NFTCouponBinding API changes
+- `NFTCouponBinding.nft_id` -> `NFTCouponBinding.definition_id`
+- `NFTCouponBinding.nft` -> `NFTCouponBinding.definition`
+- `NFTCouponBinding.get_active_for_nft(session, definition_id)` -> `NFTCouponBinding.get_active_for_definition(session, definition_id)`
+- `NFTCouponBinding.get_binding(session, definition_id, template_id)` -> `NFTCouponBinding.get_by_definition_and_template(session, definition_id, template_id)`
+
+### CouponInstance API changes
+- `CouponInstance.nft_id` -> `CouponInstance.definition_id`
+- `CouponInstance.display_nft_id` -> `CouponInstance.display_definition_id`
+- `CouponInstance.nft` -> `CouponInstance.definition`
+- `CouponInstance.display_nft` -> `CouponInstance.display_definition`
+- `CouponInstance.ownership_id` -> `CouponInstance.nft_instance_id`
+- `CouponInstance.ownership` -> `CouponInstance.nft_instance`
+
+### CouponTemplate and CouponStore API changes
+- `CouponTemplate.default_display_nft_id` -> `CouponTemplate.default_display_definition_id`
+- `CouponStore.nft_id` -> `CouponStore.definition_id`
+- `CouponStore.nft` -> `CouponStore.definition`
+
+### NFTClaimRequest API changes
+- `NFTClaimRequest.nft_id` -> `NFTClaimRequest.definition_id`
+- `NFTClaimRequest.nft` -> `NFTClaimRequest.definition`
+- `NFTClaimRequest.ownership_id` -> `NFTClaimRequest.nft_instance_id`
+- `NFTClaimRequest.ownership` -> `NFTClaimRequest.nft_instance`
+
+### NFTCondition and NFTTemplate API changes
+- `NFTCondition.required_nft_id` -> `NFTCondition.required_definition_id`
+- `NFTCondition.prohibited_nft_id` -> `NFTCondition.prohibited_definition_id`
+- `NFTTemplate.required_nft_id` -> `NFTTemplate.required_definition_id`
+- `NFTTemplate.prohibited_nft_id` -> `NFTTemplate.prohibited_definition_id`
+
+### Workflow signature changes
+- `create_and_issue_nft(..., nft_template=...)` -> `create_and_issue_instance(..., definition_or_template=...)`
+- `create_and_issue_nft(...)` -> `create_and_issue_instance(...)`
+- `create_and_issue_instance(...)` return type:
+  - old mental model: definition-like
+  - `v1.0.0`: returns `NFTInstance`
+
+- `run_prize_draw(session, nft=..., ...)` -> `run_prize_draw(session, nft_instance=..., ...)`
+- `run_prize_draw_batch(..., nfts=[...])` -> `run_prize_draw_batch(..., nft_instances=[...])`
+- `run_final_attendance_prize_draw(..., attendance_template_id=...)` ->
+  `run_final_attendance_prize_draw(..., attendance_definition_id=...)`
+
+### PrizeDrawResult API changes
+- `PrizeDrawResult.nft_id` -> `PrizeDrawResult.definition_id`
+- `PrizeDrawResult.nft` -> `PrizeDrawResult.definition`
+- `PrizeDrawResult.ownership_id` -> `PrizeDrawResult.nft_instance_id`
+- `PrizeDrawResult.ownership` -> `PrizeDrawResult.nft_instance`
+
+### RaffleEntry API changes
+- `RaffleEntry.ownership_id` -> `RaffleEntry.nft_instance_id`
+- `RaffleEntry.ownership` -> `RaffleEntry.nft_instance`
+
+### Bingo API naming changes
+- `BingoCell.target_template_id` -> `BingoCell.target_definition_id`
+- `BingoCell.target_template` -> `BingoCell.target_definition`
+- `BingoCell.nft_id` -> `BingoCell.definition_id`
+- `BingoCell.nft` -> `BingoCell.definition`
+- `BingoPeriodReward.reward_nft_id` -> `BingoPeriodReward.reward_definition_id`
+- `BingoPeriodReward.reward_nft` -> `BingoPeriodReward.reward_definition`
+- `BingoCell.to_json()` key changed:
+  - old: `nft_id`
+  - new: `definition_id`
+  - old: `target_template`
+  - new: `target_definition`
+- `BingoCard.generate_for_user(...)` args:
+  - `center_template` -> `center_definition`
+  - `included_templates` -> `included_definitions`
+  - `excluded_templates` -> `excluded_definitions`
+- `BingoCardIssueTask.center_nft_id` -> `BingoCardIssueTask.center_definition_id`
+- `BingoCardIssueTask.ownership_id` -> `BingoCardIssueTask.nft_instance_id`
+- `BingoCardIssueTask.unique_nft_ref` -> `BingoCardIssueTask.unique_instance_ref`
+- `BingoCell.matched_ownership_id` -> `BingoCell.matched_nft_instance_id`
+- `BingoCard.unlock_cells_for_ownership(...)` -> `BingoCard.unlock_cells_for_nft_instance(...)`
+- `PreGeneratedBingoCard.center_nft_id` -> `PreGeneratedBingoCard.center_definition_id`
+- `PreGeneratedBingoCard.cell_nft_ids` -> `PreGeneratedBingoCard.cell_definition_ids`
+
+## Behavioral Changes
+
+### User holdings
+- `User.nfts` is removed; use `User.nft_instances` for NFT instances (`list[NFTInstance]`).
+- Access definition fields via `instance.definition`.
+
+### Prize draw evaluation
+- Draw number is derived from `NFTInstance.nft_origin` on the supplied instance.
+- `PrizeDrawResult.nft_instance_id` is the primary semantic reference to the evaluated instance.
+
+### Temporary schema guard (important)
+Schema is intentionally unchanged in this release. Because `prize_draw_results` is still unique on `(nft_id, draw_type_id)`, evaluating multiple instances of the same definition in the same draw cannot be stored independently yet.
+
+Current behavior in `v1.0.0`:
+- The workflow raises `ValueError` instead of silently overwriting rows.
+
+Follow-up schema plan is documented in:
+- [docs/schema_followup_memo.md](./schema_followup_memo.md)
+
+## Quick Before/After
+
+### Imports
+```python
+# before
+from nictbw.models import NFT, UserNFTOwnership
+
+# after
+from nictbw.models import NFTDefinition, NFTInstance
+```
+
+### Issue and retrieve instance
+```python
+# before
+nft = NFT.get_by_prefix(session, "ABC")
+ownership = nft.issue_dbwise_to(session, user)
+ownership = UserNFTOwnership.get_by_user_and_nft(session, user, nft)
+
+# after
+definition = NFTDefinition.get_by_prefix(session, "ABC")
+instance = definition.issue_dbwise_to_user(session, user)
+instance = NFTInstance.get_by_user_and_definition(session, user, definition)
+```
+
+### Run draw
+```python
+# before
+result = run_prize_draw(session, nft, draw_type)
+
+# after
+result = run_prize_draw(session, nft_instance=instance, draw_type=draw_type)
+```
+
+## Upgrade Checklist
+1. Update imports and renamed method calls.
+2. Update workflow names/arguments (`create_and_issue_instance`, `definition_or_template`, `nft_instance`/`nft_instances`, `attendance_definition_id`).
+3. Update bingo JSON consumers (`target_definition` key).
+4. Re-run your integration tests against `v1.0.0`.

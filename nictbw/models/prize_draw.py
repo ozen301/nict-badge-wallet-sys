@@ -27,8 +27,8 @@ from .id_type import ID_TYPE
 if TYPE_CHECKING:
     from .bingo import BingoCard
     from .user import User
-    from .nft import NFT
-    from .ownership import UserNFTOwnership
+    from .nft import NFTDefinition
+    from .ownership import NFTInstance
 
 
 class PrizeDrawType(Base):
@@ -243,7 +243,8 @@ class RaffleEntry(Base):
     bingo_card_id: Mapped[Optional[int]] = mapped_column(
         ID_TYPE, ForeignKey("bingo_cards.id", ondelete="SET NULL"), nullable=True
     )
-    ownership_id: Mapped[Optional[int]] = mapped_column(
+    nft_instance_id: Mapped[Optional[int]] = mapped_column(
+        "ownership_id",
         ID_TYPE, ForeignKey("user_nft_ownership.id", ondelete="SET NULL"), nullable=True
     )
     raffle_event_id: Mapped[Optional[int]] = mapped_column(
@@ -260,8 +261,8 @@ class RaffleEntry(Base):
     bingo_card: Mapped[Optional["BingoCard"]] = relationship(
         "BingoCard", back_populates="raffle_entries"
     )
-    ownership: Mapped[Optional["UserNFTOwnership"]] = relationship(
-        "UserNFTOwnership", back_populates="raffle_entries"
+    nft_instance: Mapped[Optional["NFTInstance"]] = relationship(
+        "NFTInstance", back_populates="raffle_entries"
     )
     raffle_event: Mapped[Optional["RaffleEvent"]] = relationship(
         "RaffleEvent", back_populates="entries"
@@ -273,7 +274,7 @@ class RaffleEntry(Base):
 
 
 class PrizeDrawResult(Base):
-    """Immutable record of evaluating an NFT for a given draw."""
+    """Immutable record of evaluating an NFT instance for a given draw."""
 
     __tablename__ = "prize_draw_results"
 
@@ -303,20 +304,25 @@ class PrizeDrawResult(Base):
     user_id: Mapped[int] = mapped_column(
         ID_TYPE, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    """User who owned the NFT at evaluation time."""
+    """User who owned the evaluated NFT instance at evaluation time."""
 
-    nft_id: Mapped[int] = mapped_column(
-        ID_TYPE, ForeignKey("nfts.id", ondelete="CASCADE"), nullable=False, index=True
+    definition_id: Mapped[int] = mapped_column(
+        "nft_id",
+        ID_TYPE,
+        ForeignKey("nfts.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
-    """NFT evaluated during the draw."""
+    """NFT definition associated with the evaluated NFT instance."""
 
-    ownership_id: Mapped[Optional[int]] = mapped_column(
+    nft_instance_id: Mapped[Optional[int]] = mapped_column(
+        "ownership_id",
         ID_TYPE, ForeignKey("user_nft_ownership.id", ondelete="SET NULL"), nullable=True
     )
-    """Snapshot of the ownership record to preserve historical association."""
+    """Primary reference to the evaluated NFT instance."""
 
     draw_number: Mapped[str] = mapped_column(String(255), nullable=False)
-    """Draw number derived from the NFT origin."""
+    """Draw number derived from the evaluated NFT instance origin."""
 
     similarity_score: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     """Computed similarity score (0.0-1.0) comparing the draw number to the winning number."""
@@ -354,13 +360,13 @@ class PrizeDrawResult(Base):
     user: Mapped["User"] = relationship(back_populates="prize_draw_results")
     """Relationship to the user evaluated."""
 
-    nft: Mapped["NFT"] = relationship(back_populates="prize_draw_results")
-    """Relationship to the NFT evaluated."""
+    definition: Mapped["NFTDefinition"] = relationship(back_populates="prize_draw_results")
+    """Relationship to the NFT definition associated with the evaluated instance."""
 
-    ownership: Mapped[Optional["UserNFTOwnership"]] = relationship(
+    nft_instance: Mapped[Optional["NFTInstance"]] = relationship(
         back_populates="prize_draw_results"
     )
-    """Relationship to the ownership snapshot for historical tracking."""
+    """Relationship to the evaluated NFT instance."""
 
     __table_args__ = (
         UniqueConstraint("nft_id", "draw_type_id", name="uq_prize_draw_result_unique"),
@@ -378,10 +384,10 @@ class PrizeDrawResult(Base):
         winning_number_id: Optional[int] = None,
         user: Optional["User"] = None,
         user_id: Optional[int] = None,
-        nft: Optional["NFT"] = None,
-        nft_id: Optional[int] = None,
-        ownership: Optional["UserNFTOwnership"] = None,
-        ownership_id: Optional[int] = None,
+        definition: Optional["NFTDefinition"] = None,
+        definition_id: Optional[int] = None,
+        nft_instance: Optional["NFTInstance"] = None,
+        nft_instance_id: Optional[int] = None,
         draw_number: str,
         similarity_score: Optional[float] = None,
         draw_top_digits: Optional[str] = None,
@@ -406,14 +412,14 @@ class PrizeDrawResult(Base):
             self.user = user
         if user_id is not None:
             self.user_id = user_id
-        if nft is not None:
-            self.nft = nft
-        if nft_id is not None:
-            self.nft_id = nft_id
-        if ownership is not None:
-            self.ownership = ownership
-        if ownership_id is not None:
-            self.ownership_id = ownership_id
+        if definition is not None:
+            self.definition = definition
+        if definition_id is not None:
+            self.definition_id = definition_id
+        if nft_instance is not None:
+            self.nft_instance = nft_instance
+        if nft_instance_id is not None:
+            self.nft_instance_id = nft_instance_id
         self.draw_number = draw_number
         self.similarity_score = similarity_score
         self.draw_top_digits = draw_top_digits
@@ -424,10 +430,10 @@ class PrizeDrawResult(Base):
             self.evaluated_at = evaluated_at
 
     def __repr__(self) -> str:  # pragma: no cover - repr is trivial
-        return "<PrizeDrawResult(id={id}, draw_type_id={dt}, nft_id={nft}, user_id={user_id}, similarity_score={similarity_score}, outcome={outcome})>".format(
+        return "<PrizeDrawResult(id={id}, draw_type_id={dt}, definition_id={definition}, user_id={user_id}, similarity_score={similarity_score}, outcome={outcome})>".format(
             id=self.id,
             dt=self.draw_type_id,
-            nft=self.nft_id,
+            definition=self.definition_id,
             user_id=self.user_id,
             similarity_score=self.similarity_score,
             outcome=self.outcome,

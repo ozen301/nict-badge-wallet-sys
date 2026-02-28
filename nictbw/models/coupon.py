@@ -25,8 +25,8 @@ from .base import Base
 from .id_type import ID_TYPE
 
 if TYPE_CHECKING:
-    from .nft import NFT
-    from .ownership import UserNFTOwnership
+    from .nft import NFTDefinition
+    from .ownership import NFTInstance
     from .user import User
 
 
@@ -57,7 +57,8 @@ class CouponTemplate(Base):
     available_stores: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     usage_restrictions: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     image_url: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
-    default_display_nft_id: Mapped[Optional[int]] = mapped_column(
+    default_display_definition_id: Mapped[Optional[int]] = mapped_column(
+        "default_display_nft_id",
         ID_TYPE,
         ForeignKey("nfts.id", ondelete="SET NULL"),
         nullable=True,
@@ -118,14 +119,16 @@ class CouponTemplate(Base):
 
 
 class NFTCouponBinding(Base):
-    """Links an NFT to a coupon template with issuance rules."""
+    """Links an NFTDefinition to a coupon template with issuance rules."""
 
     __tablename__ = "nft_coupon_bindings"
 
     id: Mapped[int] = mapped_column(
         ID_TYPE, primary_key=True, index=True, autoincrement=True
     )
-    nft_id: Mapped[int] = mapped_column(ID_TYPE, ForeignKey("nfts.id"), nullable=False)
+    definition_id: Mapped[int] = mapped_column(
+        "nft_id", ID_TYPE, ForeignKey("nfts.id"), nullable=False
+    )
     template_id: Mapped[int] = mapped_column(
         ID_TYPE, ForeignKey("coupon_templates.id"), nullable=False
     )
@@ -136,32 +139,32 @@ class NFTCouponBinding(Base):
     )
 
     template: Mapped["CouponTemplate"] = relationship(back_populates="bindings")
-    nft: Mapped["NFT"] = relationship()
+    definition: Mapped["NFTDefinition"] = relationship()
 
     @classmethod
-    def get_active_for_nft(
-        cls, session: Session, nft_id: int
+    def get_active_for_definition(
+        cls, session: Session, definition_id: int
     ) -> list["NFTCouponBinding"]:
         stmt = (
             select(cls)
-            .where(cls.nft_id == nft_id, cls.active.is_(True))
+            .where(cls.definition_id == definition_id, cls.active.is_(True))
             .order_by(cls.id)
         )
         return list(session.scalars(stmt))
 
     @classmethod
-    def get_binding(
-        cls, session: Session, nft_id: int, template_id: int
+    def get_by_definition_and_template(
+        cls, session: Session, definition_id: int, template_id: int
     ) -> Optional["NFTCouponBinding"]:
         stmt = select(cls).where(
-            cls.nft_id == nft_id,
+            cls.definition_id == definition_id,
             cls.template_id == template_id,
         )
         return session.scalar(stmt)
 
 
 class CouponInstance(Base):
-    """Represents an issued coupon tied to an NFT and optionally a user."""
+    """Represents an issued coupon tied to an NFTDefinition and optionally a user."""
 
     __tablename__ = "coupon_instances"
 
@@ -171,10 +174,11 @@ class CouponInstance(Base):
     template_id: Mapped[int] = mapped_column(
         ID_TYPE, ForeignKey("coupon_templates.id"), nullable=False
     )
-    nft_id: Mapped[Optional[int]] = mapped_column(
-        ID_TYPE, ForeignKey("nfts.id"), nullable=True
+    definition_id: Mapped[Optional[int]] = mapped_column(
+        "nft_id", ID_TYPE, ForeignKey("nfts.id"), nullable=True
     )
-    display_nft_id: Mapped[Optional[int]] = mapped_column(
+    display_definition_id: Mapped[Optional[int]] = mapped_column(
+        "display_nft_id",
         ID_TYPE,
         ForeignKey("nfts.id", ondelete="SET NULL"),
         nullable=True,
@@ -183,7 +187,8 @@ class CouponInstance(Base):
     user_id: Mapped[Optional[int]] = mapped_column(
         ID_TYPE, ForeignKey("users.id"), nullable=True
     )
-    ownership_id: Mapped[Optional[int]] = mapped_column(
+    nft_instance_id: Mapped[Optional[int]] = mapped_column(
+        "ownership_id",
         ID_TYPE, ForeignKey("user_nft_ownership.id"), nullable=True
     )
     serial_number: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -214,10 +219,14 @@ class CouponInstance(Base):
     image_url: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
 
     template: Mapped["CouponTemplate"] = relationship(back_populates="instances")
-    nft: Mapped[Optional["NFT"]] = relationship("NFT", foreign_keys=[nft_id])
-    display_nft: Mapped[Optional["NFT"]] = relationship("NFT", foreign_keys=[display_nft_id])
+    definition: Mapped[Optional["NFTDefinition"]] = relationship(
+        "NFTDefinition", foreign_keys=[definition_id]
+    )
+    display_definition: Mapped[Optional["NFTDefinition"]] = relationship(
+        "NFTDefinition", foreign_keys=[display_definition_id]
+    )
     user: Mapped[Optional["User"]] = relationship(back_populates="coupons")
-    ownership: Mapped[Optional["UserNFTOwnership"]] = relationship(
+    nft_instance: Mapped[Optional["NFTInstance"]] = relationship(
         back_populates="coupon_instances"
     )
 
@@ -272,7 +281,8 @@ class CouponStore(Base):
         ID_TYPE, primary_key=True, index=True, autoincrement=True
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
-    nft_id: Mapped[int] = mapped_column(
+    definition_id: Mapped[int] = mapped_column(
+        "nft_id",
         ID_TYPE, ForeignKey("nfts.id", ondelete="CASCADE"), nullable=False, unique=True, index=True
     )
     usage_restrictions: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
@@ -284,7 +294,7 @@ class CouponStore(Base):
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
 
-    nft: Mapped["NFT"] = relationship()
+    definition: Mapped["NFTDefinition"] = relationship()
 
     __table_args__ = (
         UniqueConstraint("name", name="uq_coupon_stores_name"),

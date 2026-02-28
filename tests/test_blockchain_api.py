@@ -1,6 +1,6 @@
 import os
 import unittest
-from unittest.mock import patch
+from unittest.mock import patch, mock_open
 
 from nictbw.blockchain.api import ChainClient
 
@@ -99,6 +99,108 @@ class TestChainClient(unittest.TestCase):
             ChainClient(base_fqdn="api.example.com")
         self.assertIn("network unreachable", str(ctx.exception))
         mock_get_jwt.assert_not_called()
+
+    @patch("nictbw.blockchain.api.get_jwt_token", return_value="jwt-token")
+    @patch("nictbw.blockchain.api.open_session")
+    def test_nft_instances_property_requests_user_instances(
+        self, mock_open_session, mock_get_jwt
+    ):
+        session = DummySession(DummyResponse(json_data=[{"id": 1}]))
+        mock_open_session.return_value = (session, "csrf")
+        client = ChainClient(base_fqdn="host")
+
+        result = client.nft_instances
+
+        self.assertEqual(result, [{"id": 1}])
+        self.assertEqual(
+            session.calls[-1]["url"], "https://host/api/v1/user/nfts/info"
+        )
+
+    @patch("nictbw.blockchain.api.get_jwt_token", return_value="jwt-token")
+    @patch("nictbw.blockchain.api.open_session")
+    def test_get_user_nft_instances_requests_admin_endpoint(
+        self, mock_open_session, mock_get_jwt
+    ):
+        session = DummySession(DummyResponse(json_data=[{"origin": "abc"}]))
+        mock_open_session.return_value = (session, "csrf")
+        client = ChainClient(base_fqdn="host")
+
+        result = client.get_user_nft_instances("alice")
+
+        self.assertEqual(result, [{"origin": "abc"}])
+        self.assertEqual(
+            session.calls[-1]["url"], "https://host/api/v1/admin/nfts/info/alice"
+        )
+
+    @patch("nictbw.blockchain.api.get_jwt_token", return_value="jwt-token")
+    @patch("nictbw.blockchain.api.open_session")
+    def test_get_nft_instance_info_requests_expected_path(
+        self, mock_open_session, mock_get_jwt
+    ):
+        session = DummySession(DummyResponse(content=b"binary-data"))
+        mock_open_session.return_value = (session, "csrf")
+        client = ChainClient(base_fqdn="host")
+
+        result = client.get_nft_instance_info("origin-123")
+
+        self.assertEqual(result, b"binary-data")
+        self.assertEqual(
+            session.calls[-1]["url"], "https://host/api/v1/admin/nft/data/origin-123"
+        )
+        self.assertFalse(hasattr(client, "get_nft_info"))
+
+    @patch("nictbw.blockchain.api.get_jwt_token", return_value="jwt-token")
+    @patch("nictbw.blockchain.api.open_session")
+    def test_get_sorted_user_nft_instances_sorts_by_key(
+        self, mock_open_session, mock_get_jwt
+    ):
+        payload = [
+            {"created_at": "2024-01-03T00:00:00Z", "id": 3},
+            {"created_at": "2024-01-01T00:00:00Z", "id": 1},
+            {"created_at": "2024-01-02T00:00:00Z", "id": 2},
+        ]
+        session = DummySession(DummyResponse(json_data=payload))
+        mock_open_session.return_value = (session, "csrf")
+        client = ChainClient(base_fqdn="host")
+
+        asc = client.get_sorted_user_nft_instances("alice")
+        desc = client.get_sorted_user_nft_instances("alice", reverse=True)
+
+        self.assertEqual([item["id"] for item in asc], [1, 2, 3])
+        self.assertEqual([item["id"] for item in desc], [3, 2, 1])
+
+    @patch("nictbw.blockchain.api.get_jwt_token", return_value="jwt-token")
+    @patch("nictbw.blockchain.api.open_session")
+    def test_create_nft_instance_posts_expected_payload(
+        self, mock_open_session, mock_get_jwt
+    ):
+        session = DummySession(DummyResponse(json_data={"status": "ok"}))
+        mock_open_session.return_value = (session, "csrf")
+        client = ChainClient(base_fqdn="host")
+
+        with patch("builtins.open", mock_open(read_data=b"file-bytes")) as mocked_open:
+            result = client.create_nft_instance(
+                app="nict",
+                name="badge",
+                file_path="/tmp/badge.png",
+                recipient_paymail="alice@example.com",
+                additional_info={"k": "v"},
+            )
+
+        self.assertEqual(result, {"status": "ok"})
+        mocked_open.assert_called_once_with("/tmp/badge.png", "rb")
+        self.assertEqual(session.calls[-1]["method"], "POST")
+        self.assertEqual(session.calls[-1]["url"], "https://host/api/v1/nft/create")
+        self.assertEqual(
+            session.calls[-1]["data"],
+            {
+                "app": "nict",
+                "name": "badge",
+                "recipient_paymail": "alice@example.com",
+                "additional_info": {"k": "v"},
+            },
+        )
+        self.assertIsNotNone(session.calls[-1]["files"])
 
 
 if __name__ == "__main__":

@@ -11,19 +11,21 @@ from .id_type import ID_TYPE
 
 if TYPE_CHECKING:
     from .user import User
-    from .nft import NFT
+    from .nft import NFTDefinition
     from .coupon import CouponInstance
     from .prize_draw import PrizeDrawResult, RaffleEntry
 
 
-class UserNFTOwnership(Base):
+class NFTInstance(Base):
     """Association table recording which user owns which NFT definition."""
 
     __tablename__ = "user_nft_ownership"
 
     id: Mapped[int] = mapped_column(ID_TYPE, primary_key=True, index=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(ID_TYPE, ForeignKey("users.id"), nullable=False)
-    nft_id: Mapped[int] = mapped_column(ID_TYPE, ForeignKey("nfts.id"), nullable=False)
+    definition_id: Mapped[int] = mapped_column(
+        "nft_id", ID_TYPE, ForeignKey("nfts.id"), nullable=False
+    )
     bingo_period_id: Mapped[Optional[int]] = mapped_column(
         Integer,
         ForeignKey("bingo_periods.id", ondelete="SET NULL"),
@@ -31,7 +33,9 @@ class UserNFTOwnership(Base):
         index=True,
     )
     serial_number: Mapped[int] = mapped_column(Integer, nullable=False)
-    unique_nft_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    unique_instance_id: Mapped[str] = mapped_column(
+        "unique_nft_id", String(255), nullable=False
+    )
     acquired_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
@@ -55,19 +59,19 @@ class UserNFTOwnership(Base):
     other_meta: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
-    user: Mapped["User"] = relationship(back_populates="ownerships")
-    nft: Mapped["NFT"] = relationship(back_populates="ownerships")
+    user: Mapped["User"] = relationship(back_populates="nft_instances")
+    definition: Mapped["NFTDefinition"] = relationship(back_populates="instances")
     prize_draw_results: Mapped[list["PrizeDrawResult"]] = relationship(
         "PrizeDrawResult",
-        back_populates="ownership",
+        back_populates="nft_instance",
     )
     raffle_entries: Mapped[list["RaffleEntry"]] = relationship(
         "RaffleEntry",
-        back_populates="ownership",
+        back_populates="nft_instance",
     )
     coupon_instances: Mapped[list["CouponInstance"]] = relationship(
         "CouponInstance",
-        back_populates="ownership",
+        back_populates="nft_instance",
     )
 
     __table_args__ = (
@@ -75,22 +79,19 @@ class UserNFTOwnership(Base):
     )
 
     @classmethod
-    def get_by_user_and_nft(
+    def get_by_user_and_definition(
         cls,
         session,
         user: "User | int",
-        nft: "NFT | int",
-    ) -> Optional["UserNFTOwnership"]:
-        """Retrieve ownership record linking ``user`` to ``nft``."""
+        definition: "NFTDefinition | int",
+    ) -> Optional["NFTInstance"]:
+        """Retrieve the NFT-instance record linking ``user`` to ``definition``."""
 
-        def _to_id(obj: "int | User | NFT") -> int:
+        def _to_id(obj: "int | User | NFTDefinition") -> int:
             return obj if isinstance(obj, int) else obj.id
 
         user_id = _to_id(user)
-        nft_id = _to_id(nft)
+        definition_id = _to_id(definition)
         return session.query(cls).filter(
-            cls.user_id == user_id, cls.nft_id == nft_id
+            cls.user_id == user_id, cls.definition_id == definition_id
         ).one_or_none()
-
-
-NFTInstance = UserNFTOwnership
