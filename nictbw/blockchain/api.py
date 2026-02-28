@@ -136,11 +136,11 @@ class ChainClient:
             headers=self.auth_headers,
         )
 
-    def get_nft_info(
+    def get_nft_instance_info(
         self, nft_origin: str, data_format: Optional[str] = "binary"
     ) -> Any:
         """
-        Retrieve NFT data by origin.
+        Retrieve NFT instance data by origin.
 
         data_format: "binary" (default) or "base64".
         """

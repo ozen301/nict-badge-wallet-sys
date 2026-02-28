@@ -27,6 +27,7 @@ Core semantics in `v1.0.0`:
 - `ChainClient.get_user_nfts(username)` -> `ChainClient.get_user_nft_instances(username)`
 - `ChainClient.get_sorted_user_nfts(...)` -> `ChainClient.get_sorted_user_nft_instances(...)`
 - `ChainClient.create_nft(...)` -> `ChainClient.create_nft_instance(...)`
+- `ChainClient.get_nft_info(nft_origin, ...)` -> `ChainClient.get_nft_instance_info(nft_origin, ...)`
 
 ### NFTInstance API changes
 - `NFTInstance.nft_id` -> `NFTInstance.definition_id`

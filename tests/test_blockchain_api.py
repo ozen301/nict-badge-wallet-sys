@@ -134,6 +134,23 @@ class TestChainClient(unittest.TestCase):
 
     @patch("nictbw.blockchain.api.get_jwt_token", return_value="jwt-token")
     @patch("nictbw.blockchain.api.open_session")
+    def test_get_nft_instance_info_requests_expected_path(
+        self, mock_open_session, mock_get_jwt
+    ):
+        session = DummySession(DummyResponse(content=b"binary-data"))
+        mock_open_session.return_value = (session, "csrf")
+        client = ChainClient(base_fqdn="host")
+
+        result = client.get_nft_instance_info("origin-123")
+
+        self.assertEqual(result, b"binary-data")
+        self.assertEqual(
+            session.calls[-1]["url"], "https://host/api/v1/admin/nft/data/origin-123"
+        )
+        self.assertFalse(hasattr(client, "get_nft_info"))
+
+    @patch("nictbw.blockchain.api.get_jwt_token", return_value="jwt-token")
+    @patch("nictbw.blockchain.api.open_session")
     def test_get_sorted_user_nft_instances_sorts_by_key(
         self, mock_open_session, mock_get_jwt
     ):
