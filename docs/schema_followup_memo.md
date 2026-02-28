@@ -7,7 +7,7 @@ Context: Python API semantics are now instance-first, while the DB schema still 
 The current code now treats:
 - `nfts` rows as NFT definitions (`NFTDefinition`)
 - `user_nft_ownership` rows as NFT instances (`NFTInstance`)
-- prize draw evaluations as instance-based (`instance_id` in Python API, mapped to DB `ownership_id`)
+- prize draw evaluations as instance-based (`nft_instance_id` in Python API, mapped to DB `ownership_id`)
 
 However, the DB still enforces old constraints, so some correct instance-level operations are blocked or forced to hard-fail.
 
@@ -37,7 +37,7 @@ However, the DB still enforces old constraints, so some correct instance-level o
 
 5. Align dependent FK column names
 - In tables referencing `nfts.id`, decide whether column names should be `definition_id` (instead of `nft_id`) where semantics are definition-level.
-- In tables referencing instance rows, rename DB columns to `instance_id` where feasible.
+- In tables referencing instance rows, rename DB columns to `nft_instance_id` where feasible.
 
 6. Revisit `nft_templates` role
 - If templates stay unused in production flows, either:
@@ -71,7 +71,7 @@ However, the DB still enforces old constraints, so some correct instance-level o
 - Prize draw currently raises `ValueError` when multiple instances of one definition would collide on `(nft_id, draw_type_id)`.
 - Batch draw pre-validates instance sets and rejects same-definition multi-instance batches under current schema.
 
-These guards should be deleted once uniqueness is moved to `(ownership_id, draw_type_id)` (future DB rename target: `instance_id`).
+These guards should be deleted once uniqueness is moved to `(ownership_id, draw_type_id)` (future DB rename target: `nft_instance_id`).
 
 ## Verification Checklist After Schema Migration
 

@@ -318,8 +318,8 @@ def _instances_in_completed_bingo_lines(session: Session) -> list["NFTInstance"]
         for line in completed_lines:
             for idx in line:
                 cell = cells_by_idx.get(idx)
-                if cell is not None and cell.matched_instance is not None:
-                    eligible.append(cell.matched_instance)
+                if cell is not None and cell.matched_nft_instance is not None:
+                    eligible.append(cell.matched_nft_instance)
 
     return _unique_instances_preserve_insertion(eligible)
 

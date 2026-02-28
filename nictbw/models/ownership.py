@@ -63,15 +63,15 @@ class NFTInstance(Base):
     definition: Mapped["NFTDefinition"] = relationship(back_populates="instances")
     prize_draw_results: Mapped[list["PrizeDrawResult"]] = relationship(
         "PrizeDrawResult",
-        back_populates="instance",
+        back_populates="nft_instance",
     )
     raffle_entries: Mapped[list["RaffleEntry"]] = relationship(
         "RaffleEntry",
-        back_populates="instance",
+        back_populates="nft_instance",
     )
     coupon_instances: Mapped[list["CouponInstance"]] = relationship(
         "CouponInstance",
-        back_populates="instance",
+        back_populates="nft_instance",
     )
 
     __table_args__ = (

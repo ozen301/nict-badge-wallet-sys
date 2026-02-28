@@ -114,7 +114,7 @@ class PrizeDrawWorkflowTests(unittest.TestCase):
             self.assertEqual(second_result.draw_top_digits, "8434236848")
             self.assertEqual(second_result.winning_top_digits, "7471127736")
             self.assertEqual(second_result.user_id, user.id)
-            self.assertIsNotNone(second_result.instance_id)
+            self.assertIsNotNone(second_result.nft_instance_id)
 
     def test_run_prize_draw_batch_uses_latest_winning_number(self) -> None:
         with self.Session.begin() as session:
@@ -406,7 +406,7 @@ class PrizeDrawWorkflowSelectionTests(unittest.TestCase):
                             line_defs[idx].id if idx < 3 else filler_def.id
                         ),
                         definition_id=definition_id,
-                        matched_instance_id=instance_id,
+                        matched_nft_instance_id=instance_id,
                         state="unlocked" if unlocked else "locked",
                         unlocked_at=datetime.now(timezone.utc) if unlocked else None,
                     )
@@ -440,7 +440,7 @@ class PrizeDrawWorkflowSelectionTests(unittest.TestCase):
 
             self.assertEqual(len(all_results), 3)
             self.assertEqual(len(winners), 1)
-            self.assertIn(winners[0].instance_id, {inst.id for inst in instances[:3]})
+            self.assertIn(winners[0].nft_instance_id, {inst.id for inst in instances[:3]})
 
     def test_run_final_attendance_prize_draw_filters_by_prefix(self) -> None:
         with self.Session.begin() as session:
@@ -504,8 +504,8 @@ class PrizeDrawWorkflowSelectionTests(unittest.TestCase):
 
             self.assertEqual(len(all_results), 1)
             self.assertEqual(len(winners), 1)
-            self.assertEqual(winners[0].instance_id, attendance_instance.id)
-            self.assertNotEqual(winners[0].instance_id, other_instance.id)
+            self.assertEqual(winners[0].nft_instance_id, attendance_instance.id)
+            self.assertNotEqual(winners[0].nft_instance_id, other_instance.id)
 
     def test_rank_prize_draw_results_with_ties_includes_cutoff(self) -> None:
         base_time = datetime(2024, 1, 1, tzinfo=timezone.utc)
@@ -514,7 +514,7 @@ class PrizeDrawWorkflowSelectionTests(unittest.TestCase):
             winning_number_id=1,
             user_id=1,
             definition_id=1,
-            instance_id=1,
+            nft_instance_id=1,
             draw_number="top",
             similarity_score=0.9,
             evaluated_at=base_time,
@@ -524,7 +524,7 @@ class PrizeDrawWorkflowSelectionTests(unittest.TestCase):
             winning_number_id=1,
             user_id=1,
             definition_id=2,
-            instance_id=1,
+            nft_instance_id=1,
             draw_number="tie-a",
             similarity_score=0.8,
             evaluated_at=base_time.replace(hour=1),
@@ -534,7 +534,7 @@ class PrizeDrawWorkflowSelectionTests(unittest.TestCase):
             winning_number_id=1,
             user_id=1,
             definition_id=3,
-            instance_id=1,
+            nft_instance_id=1,
             draw_number="tie-b",
             similarity_score=0.8,
             evaluated_at=base_time.replace(hour=2),

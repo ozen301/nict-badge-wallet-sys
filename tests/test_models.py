@@ -37,6 +37,7 @@ from nictbw.models import (
     PrizeDrawType,
     PrizeDrawWinningNumber,
     PrizeDrawResult,
+    RaffleEntry,
 )
 
 
@@ -674,7 +675,7 @@ class DBTestCase(unittest.TestCase):
             task = BingoCardIssueTask(
                 user_id=user.id,
                 center_definition_id=definition.id,
-                instance_id=ownership.id,
+                nft_instance_id=ownership.id,
                 unique_instance_ref=ownership.unique_instance_id,
             )
             session.add(task)
@@ -688,7 +689,7 @@ class DBTestCase(unittest.TestCase):
                 BingoCardIssueTask(
                     user_id=user.id,
                     center_definition_id=definition.id,
-                    instance_id=ownership.id,
+                    nft_instance_id=ownership.id,
                     unique_nft_ref=ownership.unique_instance_id,
                 )
             with self.assertRaises(TypeError):
@@ -698,6 +699,7 @@ class DBTestCase(unittest.TestCase):
                     ownership_id=ownership.id,
                     unique_instance_ref=ownership.unique_instance_id,
                 )
+            self.assertFalse(hasattr(BingoCardIssueTask, "ownership_id"))
 
     def test_bingo_completed_lines(self):
         card = BingoCard(user_id=1, issued_at=datetime.now(timezone.utc))
@@ -790,7 +792,7 @@ class DBTestCase(unittest.TestCase):
             self.assertEqual(card.state, "completed")
             self.assertIsNotNone(card.completed_at)
             self.assertTrue(all(c.state == "unlocked" for c in card.cells))
-            self.assertTrue(all(c.matched_instance_id is not None for c in card.cells))
+            self.assertTrue(all(c.matched_nft_instance_id is not None for c in card.cells))
 
     def test_user_unlock_cells_for_definition(self):
         now = datetime.now(timezone.utc)
@@ -853,18 +855,18 @@ class DBTestCase(unittest.TestCase):
             result = user.unlock_cells_for_definition(session, nft_main)
             self.assertTrue(result)
             self.assertEqual(cell.state, "unlocked")
-            self.assertEqual(cell.matched_instance_id, user.nft_instances[0].id)
+            self.assertEqual(cell.matched_nft_instance_id, user.nft_instances[0].id)
 
             # Reset and test using the NFTDefinition's ID
             cell.state = "locked"
             cell.definition_id = None
-            cell.matched_instance_id = None
+            cell.matched_nft_instance_id = None
             session.flush()
 
             result = user.unlock_cells_for_definition(session, nft_main.id)
             self.assertTrue(result)
             self.assertEqual(cell.state, "unlocked")
-            self.assertEqual(cell.matched_instance_id, user.nft_instances[0].id)
+            self.assertEqual(cell.matched_nft_instance_id, user.nft_instances[0].id)
 
     def test_bingocard_generate_for_user(self):
         now = datetime.now(timezone.utc)
@@ -1023,7 +1025,7 @@ class DBTestCase(unittest.TestCase):
             self.assertEqual(unlocked, 0)
             self.assertEqual(cell.state, "unlocked")
             self.assertEqual(cell.definition_id, nft_unlock.id)
-            self.assertEqual(cell.matched_instance_id, ownership.id)
+            self.assertEqual(cell.matched_nft_instance_id, ownership.id)
 
     def test_ownership_get_by_user_and_definition(self):
         now = datetime.now(timezone.utc)
@@ -1328,7 +1330,7 @@ class DBTestCase(unittest.TestCase):
                 winning_number_id=winning_number.id,
                 user_id=user.id,
                 definition_id=nft.id,
-                instance_id=ownership.id,
+                nft_instance_id=ownership.id,
                 draw_number="101000",
                 similarity_score=0.66,
                 threshold_used=3.0,
@@ -1361,6 +1363,209 @@ class DBTestCase(unittest.TestCase):
             session.add(duplicate)
             with self.assertRaises(IntegrityError):
                 session.commit()
+
+    def test_removed_legacy_instance_aliases(self):
+        self.assertFalse(hasattr(User, "ownerships"))
+        self.assertFalse(hasattr(NFTDefinition, "ownerships"))
+        self.assertFalse(hasattr(BingoCell, "matched_ownership_id"))
+        self.assertFalse(hasattr(BingoCard, "unlock_cells_for_ownership"))
+        self.assertFalse(hasattr(BingoCard, "unlock_cells_for_instance"))
+        self.assertFalse(hasattr(BingoCardIssueTask, "instance_id"))
+        self.assertFalse(hasattr(BingoCell, "matched_instance_id"))
+        self.assertFalse(hasattr(BingoCell, "matched_instance"))
+        self.assertFalse(hasattr(PrizeDrawResult, "ownership_id"))
+        self.assertFalse(hasattr(PrizeDrawResult, "ownership"))
+        self.assertFalse(hasattr(PrizeDrawResult, "instance_id"))
+        self.assertFalse(hasattr(PrizeDrawResult, "instance"))
+        self.assertFalse(hasattr(CouponInstance, "ownership_id"))
+        self.assertFalse(hasattr(CouponInstance, "ownership"))
+        self.assertFalse(hasattr(CouponInstance, "instance_id"))
+        self.assertFalse(hasattr(CouponInstance, "instance"))
+        self.assertFalse(hasattr(NFTClaimRequest, "ownership_id"))
+        self.assertFalse(hasattr(NFTClaimRequest, "ownership"))
+        self.assertFalse(hasattr(NFTClaimRequest, "instance_id"))
+        self.assertFalse(hasattr(NFTClaimRequest, "instance"))
+        self.assertFalse(hasattr(RaffleEntry, "ownership_id"))
+        self.assertFalse(hasattr(RaffleEntry, "ownership"))
+        self.assertFalse(hasattr(RaffleEntry, "instance_id"))
+        self.assertFalse(hasattr(RaffleEntry, "instance"))
+
+        with self.assertRaises(TypeError):
+            BingoCell(
+                bingo_card_id=1,
+                idx=0,
+                target_definition_id=1,
+                matched_ownership_id=1,
+            )
+        with self.assertRaises(TypeError):
+            BingoCell(
+                bingo_card_id=1,
+                idx=0,
+                target_definition_id=1,
+                matched_instance_id=1,
+            )
+
+        with self.assertRaises(TypeError):
+            PrizeDrawResult(
+                draw_type_id=1,
+                user_id=1,
+                definition_id=1,
+                ownership_id=1,
+                draw_number="x",
+            )
+        with self.assertRaises(TypeError):
+            PrizeDrawResult(
+                draw_type_id=1,
+                user_id=1,
+                definition_id=1,
+                ownership=NFTInstance(
+                    user_id=1,
+                    definition_id=1,
+                    serial_number=1,
+                    unique_instance_id="OLD-AAAAAAAAAAAA",
+                    acquired_at=datetime.now(timezone.utc),
+                ),
+                draw_number="x",
+            )
+        with self.assertRaises(TypeError):
+            PrizeDrawResult(
+                draw_type_id=1,
+                user_id=1,
+                definition_id=1,
+                instance_id=1,
+                draw_number="x",
+            )
+        with self.assertRaises(TypeError):
+            PrizeDrawResult(
+                draw_type_id=1,
+                user_id=1,
+                definition_id=1,
+                instance=NFTInstance(
+                    user_id=1,
+                    definition_id=1,
+                    serial_number=1,
+                    unique_instance_id="OLD-EEEEEEEEEEEE",
+                    acquired_at=datetime.now(timezone.utc),
+                ),
+                draw_number="x",
+            )
+
+        with self.assertRaises(TypeError):
+            CouponInstance(
+                template_id=1,
+                serial_number=1,
+                coupon_code="COUPON-OLD",
+                ownership_id=1,
+            )
+        with self.assertRaises(TypeError):
+            CouponInstance(
+                template_id=1,
+                serial_number=1,
+                coupon_code="COUPON-OLD",
+                ownership=NFTInstance(
+                    user_id=1,
+                    definition_id=1,
+                    serial_number=1,
+                    unique_instance_id="OLD-BBBBBBBBBBBB",
+                    acquired_at=datetime.now(timezone.utc),
+                ),
+            )
+        with self.assertRaises(TypeError):
+            CouponInstance(
+                template_id=1,
+                serial_number=1,
+                coupon_code="COUPON-OLD",
+                instance_id=1,
+            )
+        with self.assertRaises(TypeError):
+            CouponInstance(
+                template_id=1,
+                serial_number=1,
+                coupon_code="COUPON-OLD",
+                instance=NFTInstance(
+                    user_id=1,
+                    definition_id=1,
+                    serial_number=1,
+                    unique_instance_id="OLD-FFFFFFFFFFFF",
+                    acquired_at=datetime.now(timezone.utc),
+                ),
+            )
+
+        with self.assertRaises(TypeError):
+            NFTClaimRequest(
+                tmp_id="tmp-old",
+                user_id=1,
+                definition_id=1,
+                prefix="OLD",
+                shared_key="old-shared",
+                ownership_id=1,
+            )
+        with self.assertRaises(TypeError):
+            NFTClaimRequest(
+                tmp_id="tmp-old",
+                user_id=1,
+                definition_id=1,
+                prefix="OLD",
+                shared_key="old-shared",
+                ownership=NFTInstance(
+                    user_id=1,
+                    definition_id=1,
+                    serial_number=1,
+                    unique_instance_id="OLD-CCCCCCCCCCCC",
+                    acquired_at=datetime.now(timezone.utc),
+                ),
+            )
+        with self.assertRaises(TypeError):
+            NFTClaimRequest(
+                tmp_id="tmp-old",
+                user_id=1,
+                definition_id=1,
+                prefix="OLD",
+                shared_key="old-shared",
+                instance_id=1,
+            )
+        with self.assertRaises(TypeError):
+            NFTClaimRequest(
+                tmp_id="tmp-old",
+                user_id=1,
+                definition_id=1,
+                prefix="OLD",
+                shared_key="old-shared",
+                instance=NFTInstance(
+                    user_id=1,
+                    definition_id=1,
+                    serial_number=1,
+                    unique_instance_id="OLD-GGGGGGGGGGGG",
+                    acquired_at=datetime.now(timezone.utc),
+                ),
+            )
+
+        with self.assertRaises(TypeError):
+            RaffleEntry(user_id=1, ownership_id=1)
+        with self.assertRaises(TypeError):
+            RaffleEntry(
+                user_id=1,
+                ownership=NFTInstance(
+                    user_id=1,
+                    definition_id=1,
+                    serial_number=1,
+                    unique_instance_id="OLD-DDDDDDDDDDDD",
+                    acquired_at=datetime.now(timezone.utc),
+                ),
+            )
+        with self.assertRaises(TypeError):
+            RaffleEntry(user_id=1, instance_id=1)
+        with self.assertRaises(TypeError):
+            RaffleEntry(
+                user_id=1,
+                instance=NFTInstance(
+                    user_id=1,
+                    definition_id=1,
+                    serial_number=1,
+                    unique_instance_id="OLD-HHHHHHHHHHHH",
+                    acquired_at=datetime.now(timezone.utc),
+                ),
+            )
 
 
 if __name__ == "__main__":

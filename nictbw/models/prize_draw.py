@@ -243,7 +243,7 @@ class RaffleEntry(Base):
     bingo_card_id: Mapped[Optional[int]] = mapped_column(
         ID_TYPE, ForeignKey("bingo_cards.id", ondelete="SET NULL"), nullable=True
     )
-    instance_id: Mapped[Optional[int]] = mapped_column(
+    nft_instance_id: Mapped[Optional[int]] = mapped_column(
         "ownership_id",
         ID_TYPE, ForeignKey("user_nft_ownership.id", ondelete="SET NULL"), nullable=True
     )
@@ -261,7 +261,7 @@ class RaffleEntry(Base):
     bingo_card: Mapped[Optional["BingoCard"]] = relationship(
         "BingoCard", back_populates="raffle_entries"
     )
-    instance: Mapped[Optional["NFTInstance"]] = relationship(
+    nft_instance: Mapped[Optional["NFTInstance"]] = relationship(
         "NFTInstance", back_populates="raffle_entries"
     )
     raffle_event: Mapped[Optional["RaffleEvent"]] = relationship(
@@ -315,7 +315,7 @@ class PrizeDrawResult(Base):
     )
     """NFT definition associated with the evaluated NFT instance."""
 
-    instance_id: Mapped[Optional[int]] = mapped_column(
+    nft_instance_id: Mapped[Optional[int]] = mapped_column(
         "ownership_id",
         ID_TYPE, ForeignKey("user_nft_ownership.id", ondelete="SET NULL"), nullable=True
     )
@@ -363,7 +363,7 @@ class PrizeDrawResult(Base):
     definition: Mapped["NFTDefinition"] = relationship(back_populates="prize_draw_results")
     """Relationship to the NFT definition associated with the evaluated instance."""
 
-    instance: Mapped[Optional["NFTInstance"]] = relationship(
+    nft_instance: Mapped[Optional["NFTInstance"]] = relationship(
         back_populates="prize_draw_results"
     )
     """Relationship to the evaluated NFT instance."""
@@ -386,8 +386,8 @@ class PrizeDrawResult(Base):
         user_id: Optional[int] = None,
         definition: Optional["NFTDefinition"] = None,
         definition_id: Optional[int] = None,
-        instance: Optional["NFTInstance"] = None,
-        instance_id: Optional[int] = None,
+        nft_instance: Optional["NFTInstance"] = None,
+        nft_instance_id: Optional[int] = None,
         draw_number: str,
         similarity_score: Optional[float] = None,
         draw_top_digits: Optional[str] = None,
@@ -416,10 +416,10 @@ class PrizeDrawResult(Base):
             self.definition = definition
         if definition_id is not None:
             self.definition_id = definition_id
-        if instance is not None:
-            self.instance = instance
-        if instance_id is not None:
-            self.instance_id = instance_id
+        if nft_instance is not None:
+            self.nft_instance = nft_instance
+        if nft_instance_id is not None:
+            self.nft_instance_id = nft_instance_id
         self.draw_number = draw_number
         self.similarity_score = similarity_score
         self.draw_top_digits = draw_top_digits

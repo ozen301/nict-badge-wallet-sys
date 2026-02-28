@@ -113,7 +113,7 @@ the `PrizeDrawEngine` service.
 
 1. Evaluate specific `NFTInstance` records.
 2. Derive the deterministic draw number from `NFTInstance.nft_origin`.
-3. Persist `PrizeDrawResult` with `instance_id` set to the evaluated instance.
+3. Persist `PrizeDrawResult` with `nft_instance_id` set to the evaluated instance.
 4. Run the scoring algorithm (when a winning number is provided) and
    save the result (in "win", "lose", or "pending" string format) expected by the database model.
 5. Return the result wrapped in a `PrizeDrawEvaluation` object.

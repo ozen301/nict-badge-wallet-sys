@@ -234,7 +234,7 @@ class User(Base):
             )
         ).all()
         for card in cards:
-            if card.unlock_cells_for_instance(session, instance):
+            if card.unlock_cells_for_nft_instance(session, instance):
                 unlocked_any = True
 
         return unlocked_any
@@ -347,7 +347,7 @@ class User(Base):
                     instance = instance_map.get(cell.target_definition_id)
                     if instance is not None:
                         cell.definition_id = instance.definition_id
-                        cell.matched_instance_id = instance.id
+                        cell.matched_nft_instance_id = instance.id
                         cell.state = "unlocked"
                         cell.unlocked_at = datetime.now(timezone.utc)
                         unlocked += 1

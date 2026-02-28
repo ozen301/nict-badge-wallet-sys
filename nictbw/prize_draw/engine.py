@@ -280,7 +280,7 @@ class PrizeDrawEngine:
         # This keeps the write path stable until the DB constraint is updated.
         result = self._session.scalar(
             select(PrizeDrawResult).where(
-                PrizeDrawResult.instance_id == nft_instance.id,
+                PrizeDrawResult.nft_instance_id == nft_instance.id,
                 PrizeDrawResult.draw_type_id == draw_type.id,
             )
         )
@@ -292,8 +292,8 @@ class PrizeDrawEngine:
         )
         if result is None and result_by_definition is not None:
             if (
-                result_by_definition.instance_id is not None
-                and result_by_definition.instance_id != nft_instance.id
+                result_by_definition.nft_instance_id is not None
+                and result_by_definition.nft_instance_id != nft_instance.id
             ):
                 raise ValueError(
                     "Cannot persist prize draw results for multiple NFT instances "
@@ -311,7 +311,7 @@ class PrizeDrawEngine:
                 ),
                 user_id=nft_instance.user_id,
                 definition_id=nft_instance.definition_id,
-                instance_id=nft_instance.id,
+                nft_instance_id=nft_instance.id,
                 draw_number=draw_number,
                 similarity_score=similarity_score,
                 draw_top_digits=draw_top_digits,
@@ -327,7 +327,7 @@ class PrizeDrawEngine:
             )
             result.user_id = nft_instance.user_id
             result.definition_id = nft_instance.definition_id
-            result.instance_id = nft_instance.id
+            result.nft_instance_id = nft_instance.id
             result.draw_number = draw_number
             result.similarity_score = similarity_score
             result.draw_top_digits = draw_top_digits

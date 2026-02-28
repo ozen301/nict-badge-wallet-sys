@@ -39,6 +39,10 @@ Core semantics in `v1.0.0`:
 - `NFTInstance.nft` -> `NFTInstance.definition`
 - `NFTInstance.unique_nft_id` -> `NFTInstance.unique_instance_id`
 
+### User and NFTDefinition relationship changes
+- `User.ownerships` -> `User.nft_instances`
+- `NFTDefinition.ownerships` -> `NFTDefinition.instances`
+
 ### NFTCouponBinding API changes
 - `NFTCouponBinding.nft_id` -> `NFTCouponBinding.definition_id`
 - `NFTCouponBinding.nft` -> `NFTCouponBinding.definition`
@@ -50,6 +54,8 @@ Core semantics in `v1.0.0`:
 - `CouponInstance.display_nft_id` -> `CouponInstance.display_definition_id`
 - `CouponInstance.nft` -> `CouponInstance.definition`
 - `CouponInstance.display_nft` -> `CouponInstance.display_definition`
+- `CouponInstance.ownership_id` -> `CouponInstance.nft_instance_id`
+- `CouponInstance.ownership` -> `CouponInstance.nft_instance`
 
 ### CouponTemplate and CouponStore API changes
 - `CouponTemplate.default_display_nft_id` -> `CouponTemplate.default_display_definition_id`
@@ -59,6 +65,8 @@ Core semantics in `v1.0.0`:
 ### NFTClaimRequest API changes
 - `NFTClaimRequest.nft_id` -> `NFTClaimRequest.definition_id`
 - `NFTClaimRequest.nft` -> `NFTClaimRequest.definition`
+- `NFTClaimRequest.ownership_id` -> `NFTClaimRequest.nft_instance_id`
+- `NFTClaimRequest.ownership` -> `NFTClaimRequest.nft_instance`
 
 ### NFTCondition and NFTTemplate API changes
 - `NFTCondition.required_nft_id` -> `NFTCondition.required_definition_id`
@@ -81,6 +89,12 @@ Core semantics in `v1.0.0`:
 ### PrizeDrawResult API changes
 - `PrizeDrawResult.nft_id` -> `PrizeDrawResult.definition_id`
 - `PrizeDrawResult.nft` -> `PrizeDrawResult.definition`
+- `PrizeDrawResult.ownership_id` -> `PrizeDrawResult.nft_instance_id`
+- `PrizeDrawResult.ownership` -> `PrizeDrawResult.nft_instance`
+
+### RaffleEntry API changes
+- `RaffleEntry.ownership_id` -> `RaffleEntry.nft_instance_id`
+- `RaffleEntry.ownership` -> `RaffleEntry.nft_instance`
 
 ### Bingo API naming changes
 - `BingoCell.target_template_id` -> `BingoCell.target_definition_id`
@@ -99,9 +113,10 @@ Core semantics in `v1.0.0`:
   - `included_templates` -> `included_definitions`
   - `excluded_templates` -> `excluded_definitions`
 - `BingoCardIssueTask.center_nft_id` -> `BingoCardIssueTask.center_definition_id`
-- `BingoCardIssueTask.ownership_id` -> `BingoCardIssueTask.instance_id`
+- `BingoCardIssueTask.ownership_id` -> `BingoCardIssueTask.nft_instance_id`
 - `BingoCardIssueTask.unique_nft_ref` -> `BingoCardIssueTask.unique_instance_ref`
-- `BingoCell.matched_ownership_id` -> `BingoCell.matched_instance_id`
+- `BingoCell.matched_ownership_id` -> `BingoCell.matched_nft_instance_id`
+- `BingoCard.unlock_cells_for_ownership(...)` -> `BingoCard.unlock_cells_for_nft_instance(...)`
 - `PreGeneratedBingoCard.center_nft_id` -> `PreGeneratedBingoCard.center_definition_id`
 - `PreGeneratedBingoCard.cell_nft_ids` -> `PreGeneratedBingoCard.cell_definition_ids`
 
@@ -113,7 +128,7 @@ Core semantics in `v1.0.0`:
 
 ### Prize draw evaluation
 - Draw number is derived from `NFTInstance.nft_origin` on the supplied instance.
-- `PrizeDrawResult.instance_id` is the primary semantic reference to the evaluated instance.
+- `PrizeDrawResult.nft_instance_id` is the primary semantic reference to the evaluated instance.
 
 ### Temporary schema guard (important)
 Schema is intentionally unchanged in this release. Because `prize_draw_results` is still unique on `(nft_id, draw_type_id)`, evaluating multiple instances of the same definition in the same draw cannot be stored independently yet.

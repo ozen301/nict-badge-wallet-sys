@@ -314,7 +314,7 @@ class BingoCard(Base):
                     idx=idx,
                     target_definition_id=definition_id,
                     definition_id=instance.definition_id,
-                    matched_instance_id=instance.id,
+                    matched_nft_instance_id=instance.id,
                     state="unlocked",
                     unlocked_at=datetime.now(timezone.utc),
                 )
@@ -371,8 +371,8 @@ class BingoCard(Base):
                 result.append((a, b, c))
         return result
 
-    def unlock_cells_for_instance(
-        self, session: Session, instance: "NFTInstance"
+    def unlock_cells_for_nft_instance(
+        self, session: Session, nft_instance: "NFTInstance"
     ) -> bool:
         """Unlock cells matched by the given NFT instance.
 
@@ -380,7 +380,7 @@ class BingoCard(Base):
         ----------
         session : Session
             Active SQLAlchemy session (unused but kept for API symmetry).
-        instance : NFTInstance
+        nft_instance : NFTInstance
             NFT instance to match against locked cells.
 
         Returns
@@ -390,11 +390,11 @@ class BingoCard(Base):
         """
 
         unlocked_any = False
-        definition_id = instance.definition_id
+        definition_id = nft_instance.definition_id
         for cell in self.cells:
             if cell.state == "locked" and cell.target_definition_id == definition_id:
-                cell.definition_id = instance.definition_id
-                cell.matched_instance_id = instance.id
+                cell.definition_id = nft_instance.definition_id
+                cell.matched_nft_instance_id = nft_instance.id
                 cell.state = "unlocked"
                 cell.unlocked_at = datetime.now(timezone.utc)
                 unlocked_any = True
@@ -423,7 +423,7 @@ class BingoCardIssueTask(Base):
         nullable=False,
         index=True,
     )
-    instance_id: Mapped[int] = mapped_column(
+    nft_instance_id: Mapped[int] = mapped_column(
         "ownership_id",
         ID_TYPE,
         ForeignKey("user_nft_ownership.id", ondelete="CASCADE"),
@@ -469,7 +469,7 @@ class BingoCell(Base):
         idx: int,
         target_definition_id: int,
         definition_id: Optional[int] = None,
-        matched_instance_id: Optional[int] = None,
+        matched_nft_instance_id: Optional[int] = None,
         state: str = "locked",
         unlocked_at: Optional[datetime] = None,
     ):
@@ -477,7 +477,7 @@ class BingoCell(Base):
         self.idx = idx
         self.target_definition_id = target_definition_id
         self.definition_id = definition_id
-        self.matched_instance_id = matched_instance_id
+        self.matched_nft_instance_id = matched_nft_instance_id
         self.state = state
         self.unlocked_at = unlocked_at
 
@@ -498,7 +498,7 @@ class BingoCell(Base):
     definition_id: Mapped[Optional[int]] = mapped_column(
         "nft_id", ID_TYPE, ForeignKey("nfts.id", ondelete="SET NULL"), nullable=True, index=True
     )
-    matched_instance_id: Mapped[Optional[int]] = mapped_column(
+    matched_nft_instance_id: Mapped[Optional[int]] = mapped_column(
         "matched_ownership_id",
         ID_TYPE, ForeignKey("user_nft_ownership.id", ondelete="SET NULL"), nullable=True
     )
@@ -514,7 +514,7 @@ class BingoCell(Base):
     definition: Mapped[Optional["NFTDefinition"]] = relationship(
         "NFTDefinition", foreign_keys=[definition_id]
     )
-    matched_instance: Mapped[Optional["NFTInstance"]] = relationship(
+    matched_nft_instance: Mapped[Optional["NFTInstance"]] = relationship(
         "NFTInstance"
     )
 
@@ -555,7 +555,7 @@ class BingoCell(Base):
             "state": self.state,
             "unlocked_at": dt_iso(self.unlocked_at),
             "definition_id": self.definition_id,
-            "matched_instance_id": self.matched_instance_id,
+            "matched_nft_instance_id": self.matched_nft_instance_id,
             "target_definition": definition_obj,
         }
         if not compact:
