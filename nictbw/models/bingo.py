@@ -55,7 +55,8 @@ class BingoPeriodReward(Base):
     period_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("bingo_periods.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    reward_nft_id: Mapped[int] = mapped_column(
+    reward_definition_id: Mapped[int] = mapped_column(
+        "reward_nft_id",
         ID_TYPE, ForeignKey("nfts.id", ondelete="RESTRICT"), nullable=False, index=True
     )
     enabled: Mapped[bool] = mapped_column(
@@ -66,7 +67,7 @@ class BingoPeriodReward(Base):
     )
 
     period: Mapped["BingoPeriod"] = relationship(back_populates="rewards")
-    reward_nft: Mapped["NFTDefinition"] = relationship("NFTDefinition")
+    reward_definition: Mapped["NFTDefinition"] = relationship("NFTDefinition")
 
     __table_args__ = (
         UniqueConstraint("period_id", name="uq_bingo_period_rewards_period"),

@@ -66,6 +66,8 @@ Core semantics in `v1.0.0`:
 - `BingoCell.target_template` -> `BingoCell.target_definition`
 - `BingoCell.nft_id` -> `BingoCell.definition_id`
 - `BingoCell.nft` -> `BingoCell.definition`
+- `BingoPeriodReward.reward_nft_id` -> `BingoPeriodReward.reward_definition_id`
+- `BingoPeriodReward.reward_nft` -> `BingoPeriodReward.reward_definition`
 - `BingoCell.to_json()` key changed:
   - old: `nft_id`
   - new: `definition_id`

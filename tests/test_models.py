@@ -23,6 +23,8 @@ from nictbw.models import (
     NFTDefinition,
     NFTTemplate,
     NFTInstance,
+    BingoPeriod,
+    BingoPeriodReward,
     BingoCard,
     BingoCell,
     CouponTemplate,
@@ -470,6 +472,45 @@ class DBTestCase(unittest.TestCase):
 
             with self.assertRaises(ValueError):
                 nft.issue_dbwise_to_user(session, user_two)
+
+    def test_bingo_period_reward_definition_fields(self):
+        now = datetime.now(timezone.utc)
+        with self.Session() as session:
+            admin = Admin(email="period-admin@example.com", password_hash="x")
+            session.add(admin)
+            session.flush()
+
+            definition = NFTDefinition(
+                prefix="BPR-DEF",
+                shared_key="bpr-shared",
+                name="Bingo Reward Definition",
+                nft_type="default",
+                created_by_admin_id=admin.id,
+                created_at=now,
+                updated_at=now,
+            )
+            period = BingoPeriod(
+                name="Period 1",
+                start_time=now,
+                end_time=now,
+            )
+            session.add_all([definition, period])
+            session.flush()
+
+            reward = BingoPeriodReward(
+                period_id=period.id,
+                reward_definition_id=definition.id,
+            )
+            session.add(reward)
+            session.commit()
+
+            reloaded = session.get(BingoPeriodReward, reward.id)
+            assert reloaded is not None
+            self.assertEqual(reloaded.reward_definition_id, definition.id)
+            self.assertEqual(reloaded.reward_definition.id, definition.id)
+
+            with self.assertRaises(TypeError):
+                BingoPeriodReward(period_id=period.id, reward_nft_id=definition.id)
 
     def test_bingo_completed_lines(self):
         card = BingoCard(user_id=1, issued_at=datetime.now(timezone.utc))
