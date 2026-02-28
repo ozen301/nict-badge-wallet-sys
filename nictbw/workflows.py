@@ -131,7 +131,7 @@ def create_and_issue_instance(
     if isinstance(definition_or_template, NFTTemplate):
         if shared_key is None:
             raise ValueError("shared_key is required when instantiating from a template")
-        ownership = definition_or_template.instantiate_nft(
+        ownership = definition_or_template.instantiate_instance(
             session,
             user,
             shared_key=shared_key,

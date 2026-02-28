@@ -216,9 +216,11 @@ class DBTestCase(unittest.TestCase):
             self.assertEqual(ownership.unique_nft_id, "ABC-1234567890ab")
             self.assertEqual(ownership.acquired_at, nft.created_at)
 
-    def test_user_nfts_returns_instances(self):
+    def test_user_nft_instances_returns_instances(self):
         now = datetime.now(timezone.utc)
         with self.Session() as session:
+            self.assertFalse(hasattr(User, "nfts"))
+
             admin = Admin(email="nfts-admin@example.com", password_hash="x")
             user = User(in_app_id="u-nfts", paymail="wallet-nfts")
             session.add_all([admin, user])
@@ -239,13 +241,15 @@ class DBTestCase(unittest.TestCase):
             ownership = nft.issue_dbwise_to_user(session, user, nft_origin="origin-user")
             session.flush()
 
-            self.assertEqual(len(user.nfts), 1)
-            self.assertIsInstance(user.nfts[0], NFTInstance)
-            self.assertEqual(user.nfts[0].id, ownership.id)
+            self.assertEqual(len(user.nft_instances), 1)
+            self.assertIsInstance(user.nft_instances[0], NFTInstance)
+            self.assertEqual(user.nft_instances[0].id, ownership.id)
 
-    def test_template_instantiate_nft_creates_instance(self):
+    def test_template_instantiate_instance_creates_instance(self):
         now = datetime.now(timezone.utc)
         with self.Session() as session:
+            self.assertFalse(hasattr(NFTTemplate, "instantiate_nft"))
+
             admin = Admin(email="template-admin@example.com", password_hash="x")
             user = User(in_app_id="tpl-user", paymail="tpl-wallet")
             session.add_all([admin, user])
@@ -264,7 +268,7 @@ class DBTestCase(unittest.TestCase):
             session.add(template)
             session.flush()
 
-            instance = template.instantiate_nft(
+            instance = template.instantiate_instance(
                 session,
                 user,
                 shared_key="tpl-shared",

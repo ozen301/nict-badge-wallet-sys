@@ -195,7 +195,7 @@ class User(Base):
         return session.scalar(select(cls).where(cls.on_chain_id == on_chain_id))
 
     @property
-    def nfts(self) -> list[NFTInstance]:
+    def nft_instances(self) -> list[NFTInstance]:
         """Get NFT instances owned by this user."""
         return list(self.ownerships)
 

@@ -21,6 +21,8 @@ Core semantics in `v1.0.0`:
 - `UserNFTOwnership.get_by_user_and_nft(...)` -> `NFTInstance.get_by_user_and_definition(...)`
 - `User.unlock_cells_for_nft(...)` -> `User.unlock_cells_for_definition(...)`
 - `User.sync_nfts_from_chain(...)` -> `User.sync_nft_instances_from_chain(...)`
+- `User.nfts` -> `User.nft_instances`
+- `NFTTemplate.instantiate_nft(...)` -> `NFTTemplate.instantiate_instance(...)`
 
 ### ChainClient API changes
 - `ChainClient.nfts` -> `ChainClient.nft_instances`
@@ -99,7 +101,7 @@ Core semantics in `v1.0.0`:
 ## Behavioral Changes
 
 ### User holdings
-- `User.nfts` now returns NFT instances (`list[NFTInstance]`), not definitions.
+- `User.nfts` is removed; use `User.nft_instances` for NFT instances (`list[NFTInstance]`).
 - Access definition fields via `instance.definition`.
 
 ### Prize draw evaluation

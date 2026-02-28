@@ -143,8 +143,8 @@ class CreateAndIssueInstanceWorkflowTestCase(unittest.TestCase):
             self.assertIsInstance(instance, NFTInstance)
             self.assertEqual(instance.user_id, user.id)
             self.assertEqual(instance.definition_id, definition.id)
-            self.assertEqual(len(user.nfts), 1)
-            self.assertEqual(user.nfts[0].id, instance.id)
+            self.assertEqual(len(user.nft_instances), 1)
+            self.assertEqual(user.nft_instances[0].id, instance.id)
 
     def test_template_input_requires_shared_key(self):
         with self.Session.begin() as session:

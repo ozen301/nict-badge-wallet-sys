@@ -298,7 +298,7 @@ class NFTTemplate(Base):
         UniqueConstraint("prefix", name="nft_templates_prefix_key"),
     )
 
-    def instantiate_nft(
+    def instantiate_instance(
         self,
         session: Session,
         user: "User",
