@@ -173,10 +173,11 @@ class CouponInstance(Base):
     template_id: Mapped[int] = mapped_column(
         ID_TYPE, ForeignKey("coupon_templates.id"), nullable=False
     )
-    nft_id: Mapped[Optional[int]] = mapped_column(
-        ID_TYPE, ForeignKey("nfts.id"), nullable=True
+    definition_id: Mapped[Optional[int]] = mapped_column(
+        "nft_id", ID_TYPE, ForeignKey("nfts.id"), nullable=True
     )
-    display_nft_id: Mapped[Optional[int]] = mapped_column(
+    display_definition_id: Mapped[Optional[int]] = mapped_column(
+        "display_nft_id",
         ID_TYPE,
         ForeignKey("nfts.id", ondelete="SET NULL"),
         nullable=True,
@@ -216,8 +217,12 @@ class CouponInstance(Base):
     image_url: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
 
     template: Mapped["CouponTemplate"] = relationship(back_populates="instances")
-    nft: Mapped[Optional["NFTDefinition"]] = relationship("NFTDefinition", foreign_keys=[nft_id])
-    display_nft: Mapped[Optional["NFTDefinition"]] = relationship("NFTDefinition", foreign_keys=[display_nft_id])
+    definition: Mapped[Optional["NFTDefinition"]] = relationship(
+        "NFTDefinition", foreign_keys=[definition_id]
+    )
+    display_definition: Mapped[Optional["NFTDefinition"]] = relationship(
+        "NFTDefinition", foreign_keys=[display_definition_id]
+    )
     user: Mapped[Optional["User"]] = relationship(back_populates="coupons")
     ownership: Mapped[Optional["NFTInstance"]] = relationship(
         back_populates="coupon_instances"
