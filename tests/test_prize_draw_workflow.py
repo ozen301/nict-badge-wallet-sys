@@ -392,9 +392,11 @@ class PrizeDrawWorkflowSelectionTests(unittest.TestCase):
             cells: list[BingoCell] = []
             for idx in range(9):
                 unlocked = idx in (0, 1, 2)
-                nft_id = instances[idx].definition_id if unlocked else None
+                definition_id = instances[idx].definition_id if unlocked else None
                 ownership_id = (
-                    ownership_by_nft[nft_id].id if unlocked and nft_id is not None else None
+                    ownership_by_nft[definition_id].id
+                    if unlocked and definition_id is not None
+                    else None
                 )
                 cells.append(
                     BingoCell(
@@ -403,7 +405,7 @@ class PrizeDrawWorkflowSelectionTests(unittest.TestCase):
                         target_definition_id=(
                             line_defs[idx].id if idx < 3 else filler_def.id
                         ),
-                        nft_id=nft_id,
+                        definition_id=definition_id,
                         matched_ownership_id=ownership_id,
                         state="unlocked" if unlocked else "locked",
                         unlocked_at=datetime.now(timezone.utc) if unlocked else None,

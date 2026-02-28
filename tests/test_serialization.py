@@ -94,7 +94,7 @@ class SerializationTestCase(unittest.TestCase):
             self.assertEqual(d["idx"], 0)
             self.assertEqual(d["state"], "locked")
             self.assertIsNone(d["unlocked_at"])
-            self.assertIsNone(d["nft_id"])
+            self.assertIsNone(d["definition_id"])
             self.assertIn("target_definition", d)
             self.assertIsInstance(d["target_definition"], dict)
             self.assertEqual(d["target_definition"]["id"], nft.id)

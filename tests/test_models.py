@@ -515,7 +515,7 @@ class DBTestCase(unittest.TestCase):
 
             # Reset and test using the NFTDefinition's ID
             cell.state = "locked"
-            cell.nft_id = None
+            cell.definition_id = None
             cell.matched_ownership_id = None
             session.flush()
 
@@ -680,7 +680,7 @@ class DBTestCase(unittest.TestCase):
             session.commit()
             self.assertEqual(unlocked, 0)
             self.assertEqual(cell.state, "unlocked")
-            self.assertEqual(cell.nft_id, nft_unlock.id)
+            self.assertEqual(cell.definition_id, nft_unlock.id)
             self.assertEqual(cell.matched_ownership_id, ownership.id)
 
     def test_ownership_get_by_user_and_definition(self):

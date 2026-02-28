@@ -43,7 +43,11 @@ Core semantics in `v1.0.0`:
 ### Bingo API naming changes
 - `BingoCell.target_template_id` -> `BingoCell.target_definition_id`
 - `BingoCell.target_template` -> `BingoCell.target_definition`
+- `BingoCell.nft_id` -> `BingoCell.definition_id`
+- `BingoCell.nft` -> `BingoCell.definition`
 - `BingoCell.to_json()` key changed:
+  - old: `nft_id`
+  - new: `definition_id`
   - old: `target_template`
   - new: `target_definition`
 - `BingoCard.generate_for_user(...)` args:

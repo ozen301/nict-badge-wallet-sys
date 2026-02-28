@@ -312,7 +312,7 @@ class BingoCard(Base):
                     bingo_card_id=card.id,
                     idx=idx,
                     target_definition_id=definition_id,
-                    nft_id=ownership.definition_id,
+                    definition_id=ownership.definition_id,
                     matched_ownership_id=ownership.id,
                     state="unlocked",
                     unlocked_at=datetime.now(timezone.utc),
@@ -392,7 +392,7 @@ class BingoCard(Base):
         definition_id = ownership.definition_id
         for cell in self.cells:
             if cell.state == "locked" and cell.target_definition_id == definition_id:
-                cell.nft_id = ownership.definition_id
+                cell.definition_id = ownership.definition_id
                 cell.matched_ownership_id = ownership.id
                 cell.state = "unlocked"
                 cell.unlocked_at = datetime.now(timezone.utc)
@@ -464,7 +464,7 @@ class BingoCell(Base):
         bingo_card_id: int,
         idx: int,
         target_definition_id: int,
-        nft_id: Optional[int] = None,
+        definition_id: Optional[int] = None,
         matched_ownership_id: Optional[int] = None,
         state: str = "locked",
         unlocked_at: Optional[datetime] = None,
@@ -472,7 +472,7 @@ class BingoCell(Base):
         self.bingo_card_id = bingo_card_id
         self.idx = idx
         self.target_definition_id = target_definition_id
-        self.nft_id = nft_id
+        self.definition_id = definition_id
         self.matched_ownership_id = matched_ownership_id
         self.state = state
         self.unlocked_at = unlocked_at
@@ -491,8 +491,8 @@ class BingoCell(Base):
         nullable=False,
         index=True,
     )
-    nft_id: Mapped[Optional[int]] = mapped_column(
-        ID_TYPE, ForeignKey("nfts.id", ondelete="SET NULL"), nullable=True, index=True
+    definition_id: Mapped[Optional[int]] = mapped_column(
+        "nft_id", ID_TYPE, ForeignKey("nfts.id", ondelete="SET NULL"), nullable=True, index=True
     )
     matched_ownership_id: Mapped[Optional[int]] = mapped_column(
         ID_TYPE, ForeignKey("user_nft_ownership.id", ondelete="SET NULL"), nullable=True
@@ -506,7 +506,9 @@ class BingoCell(Base):
     target_definition: Mapped["NFTDefinition"] = relationship(
         "NFTDefinition", foreign_keys=[target_definition_id]
     )
-    nft: Mapped[Optional["NFTDefinition"]] = relationship("NFTDefinition", foreign_keys=[nft_id])
+    definition: Mapped[Optional["NFTDefinition"]] = relationship(
+        "NFTDefinition", foreign_keys=[definition_id]
+    )
     matched_ownership: Mapped[Optional["NFTInstance"]] = relationship(
         "NFTInstance"
     )
@@ -521,7 +523,7 @@ class BingoCell(Base):
     def __repr__(self) -> str:
         return (
             f"<BingoCell(id={self.id}, idx={self.idx}, target_definition_id={self.target_definition_id}, "
-            f"nft_id={self.nft_id}, state='{self.state}')>"
+            f"definition_id={self.definition_id}, state='{self.state}')>"
         )
 
     def to_json(self, *, compact: bool = False) -> dict[str, Any]:
@@ -538,8 +540,8 @@ class BingoCell(Base):
         # Wildcard cells special handling 
         # (this is required by the transit API's bingo_wildcard.py feature)
         if self.idx in {4, 7}:
-            if self.state == "unlocked" and self.nft is not None:
-                definition_obj = self.nft.to_json(compact=compact)
+            if self.state == "unlocked" and self.definition is not None:
+                definition_obj = self.definition.to_json(compact=compact)
 
         full = {
             "id": self.id,
@@ -547,7 +549,7 @@ class BingoCell(Base):
             "idx": self.idx,
             "state": self.state,
             "unlocked_at": dt_iso(self.unlocked_at),
-            "nft_id": self.nft_id,
+            "definition_id": self.definition_id,
             "matched_ownership_id": self.matched_ownership_id,
             "target_definition": definition_obj,
         }

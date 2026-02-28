@@ -351,7 +351,7 @@ class User(Base):
                 if cell.state == "locked":
                     ownership = ownership_map.get(cell.target_definition_id)
                     if ownership is not None:
-                        cell.nft_id = ownership.definition_id
+                        cell.definition_id = ownership.definition_id
                         cell.matched_ownership_id = ownership.id
                         cell.state = "unlocked"
                         cell.unlocked_at = datetime.now(timezone.utc)
