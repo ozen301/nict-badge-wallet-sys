@@ -36,13 +36,13 @@ This value is compared with a **winning number** to determine outcomes — insta
 ### Data Model
 - **PrizeDrawType** – defines algorithm and thresholds.  
 - **PrizeDrawWinningNumber** – stores winning numbers.  
-- **PrizeDrawResult** – links NFT, user, and draw outcome.
-- Coupons are now API-managed; this repository returns winning NFT/user pairs only.
+- **PrizeDrawResult** – stores outcomes for specific NFT instances (with associated definition and user context).
+- Coupons are now API-managed; this repository returns winning NFT-instance/user pairs only.
 
 ### Draw Execution (current)
-- Bingo draws: entries are NFTs that sit on any completed bingo line; each NFT is one entry.
-- Final-day draw: entries are only the final-day attendance-stamp NFTs (independent of bingo lines).
-- Ranking uses the existing per-NFT draw-number algorithm; ties at the cutoff all win.
+- Bingo draws: entries are NFT instances that sit on any completed bingo line; each instance is one entry.
+- Final-day draw: entries are only the final-day attendance-stamp NFT instances (independent of bingo lines).
+- Ranking uses the existing per-instance draw-number algorithm; ties at the cutoff all win.
 - The API orchestrates draw scheduling/events and handles coupon issuance/carry-over. This repo exposes workflows to select entries and compute winners.
 
 ---
@@ -54,9 +54,14 @@ This value is compared with a **winning number** to determine outcomes — insta
 - When schema changes, bump `pyproject.toml` version, tag a release, and update API dependency.
 
 ## Recent Integration Notes
-- Released `v0.2.0` from this repo (pyproject version updated to 0.2.0).
+- Released `v1.0.0` from this repo (pyproject version updated to 1.0.0).
+- `v1.0.0` is a hard-break semantic refactor:
+  - `NFTDefinition` is definition metadata (`nfts` table).
+  - `NFTInstance` is issued/owned instances (`user_nft_ownership` table).
+  - Prize draws evaluate NFT instances.
+- DB schema is intentionally unchanged in `v1.0.0`; follow-up schema tasks are tracked in `docs/schema_followup_memo.md`.
 - Added API adapter: `_api_ref/nft_transit_api/app/models.py` statically re-exports `nictbw.models` (Pylance-friendly).
-- API `app/db.py` uses `nictbw.models.Base`; API `requirements.txt` pins `nict-bw` to `v0.2.0`.
+- API `app/db.py` uses `nictbw.models.Base`; API dependency should be pinned to the released `v1.0.0` tag.
 - Compatibility tweaks in `nictbw`: `BingoCard.is_expired` added; broken `RaffleEntry.__init__` removed.
 - API main has newer period-based bingo changes (BingoPeriodReward, user_id+period_id uniqueness) not in prod; avoid merging until prod schema is updated.
 - API docs updated: `_api_ref/nft_transit_api/docs/ja/DEVELOPMENT.md` includes schema update procedure.

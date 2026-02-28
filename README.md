@@ -131,7 +131,7 @@ See [docs/workflows.md](./docs/workflows.md) for common workflows. The workflows
 Check the Jupyter notebook [docs/code_examples.ipynb](./docs/code_examples.ipynb) for practical usage of these workflows. The notebook provides runnable examples including:
 - Setting up the database engine and models
 - Basic CRUD with SQLAlchemy 2.0
-- Using the models defined in this project to create users, NFTs, etc.
+- Using the models defined in this project to create users, NFT definitions/instances, etc.
 - Common workflows such as user registration, NFT issuance, prize draw operations, etc.
 
 ---
