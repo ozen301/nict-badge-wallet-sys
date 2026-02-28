@@ -6,7 +6,7 @@ from sqlalchemy.orm import sessionmaker
 
 from nictbw.blockchain.api import ChainClient
 from nictbw.models import Admin, Base, NFTDefinition, NFTInstance, NFTTemplate, User
-from nictbw.workflows import create_and_issue_nft, register_user
+from nictbw.workflows import create_and_issue_instance, register_user
 
 
 class DummyClient(ChainClient):
@@ -106,7 +106,7 @@ class RegisterUserWorkflowTestCase(unittest.TestCase):
         self.assertEqual(client.calls[0]["username"], "fallback-user")
 
 
-class CreateAndIssueNFTWorkflowTestCase(unittest.TestCase):
+class CreateAndIssueInstanceWorkflowTestCase(unittest.TestCase):
     def setUp(self):
         self.engine = create_engine("sqlite+pysqlite:///:memory:", future=True)
         Base.metadata.create_all(self.engine)
@@ -133,7 +133,7 @@ class CreateAndIssueNFTWorkflowTestCase(unittest.TestCase):
             session.add(definition)
             session.flush()
 
-            instance = create_and_issue_nft(
+            instance = create_and_issue_instance(
                 session=session,
                 user=user,
                 shared_key=None,
@@ -162,7 +162,7 @@ class CreateAndIssueNFTWorkflowTestCase(unittest.TestCase):
             session.flush()
 
             with self.assertRaises(ValueError):
-                create_and_issue_nft(
+                create_and_issue_instance(
                     session=session,
                     user=user,
                     shared_key=None,
@@ -184,7 +184,7 @@ class CreateAndIssueNFTWorkflowTestCase(unittest.TestCase):
             session.add(template)
             session.flush()
 
-            instance = create_and_issue_nft(
+            instance = create_and_issue_instance(
                 session=session,
                 user=user,
                 shared_key="wf-shared-key",

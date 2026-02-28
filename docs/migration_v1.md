@@ -54,8 +54,9 @@ Core semantics in `v1.0.0`:
 - `NFTTemplate.prohibited_nft_id` -> `NFTTemplate.prohibited_definition_id`
 
 ### Workflow signature changes
-- `create_and_issue_nft(..., nft_template=...)` -> `create_and_issue_nft(..., definition_or_template=...)`
-- `create_and_issue_nft(...)` return type:
+- `create_and_issue_nft(..., nft_template=...)` -> `create_and_issue_instance(..., definition_or_template=...)`
+- `create_and_issue_nft(...)` -> `create_and_issue_instance(...)`
+- `create_and_issue_instance(...)` return type:
   - old mental model: definition-like
   - `v1.0.0`: returns `NFTInstance`
 
@@ -142,6 +143,6 @@ result = run_prize_draw(session, instance, draw_type)
 
 ## Upgrade Checklist
 1. Update imports and renamed method calls.
-2. Update workflow call arguments (`definition_or_template`, `instances`, `attendance_definition_id`).
+2. Update workflow names/arguments (`create_and_issue_instance`, `definition_or_template`, `instances`, `attendance_definition_id`).
 3. Update bingo JSON consumers (`target_definition` key).
 4. Re-run your integration tests against `v1.0.0`.

@@ -113,7 +113,7 @@ def register_user(
     return user
 
 
-def create_and_issue_nft(
+def create_and_issue_instance(
     session: Session,
     user: User,
     shared_key: Optional[str],

@@ -31,7 +31,7 @@ This is wrapped up in the `nictbw.workflows.register_user` function.
 2. Add the definition to the active session and commit.
 
 ## NFT Issuance to a User
-This is wrapped up in the `nictbw.workflows.create_and_issue_nft` function.
+This is wrapped up in the `nictbw.workflows.create_and_issue_instance` function.
 
 1. Retrieve the desired `NFTDefinition` definition via its unique `prefix`, and the target `User` typically via the `in_app_id` or `paymail`.
 2. Associate the NFT definition with the recipient `User` using `NFTDefinition.issue_dbwise_to_user`, which creates a `NFTInstance` record.
@@ -64,7 +64,7 @@ minted or transferred on-chain without corresponding local records.
 ## User Bingo Card Info Update
 This is wrapped up in the `nictbw.workflows.update_user_bingo_info` function, which essentially calls the `User.ensure_bingo_cards` and `User.ensure_bingo_cells` method.
 
-However, normally it is not necessary to call these methods directly, as the bingo card and cell info is automatically updated when the user gets a new NFT issued via the `create_and_issue_nft` workflow. This workflow is only needed when the bingo card or cell info gets out of sync for some reason.
+However, normally it is not necessary to call these methods directly, as the bingo card and cell info is automatically updated when the user gets a new NFT issued via the `create_and_issue_instance` workflow. This workflow is only needed when the bingo card or cell info gets out of sync for some reason.
 
 1. Query for the `NFTDefinition` definitions that have the `triggers_bingo_card` flag set to
    `True` and owned by the user.
