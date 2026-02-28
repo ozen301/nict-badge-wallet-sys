@@ -277,7 +277,7 @@ class User(Base):
         return self.unlock_bingo_cells(session, ownership)
 
     def ensure_bingo_cards(self, session: Session) -> int:
-        """Create bingo cards for owned templates that trigger them.
+        """Create bingo cards for owned definitions that trigger them.
 
         Returns
         -------
@@ -289,7 +289,7 @@ class User(Base):
         from .bingo import BingoCard, BingoCell
         from .nft import NFTDefinition
 
-        triggering_nfts = session.scalars(
+        triggering_definitions = session.scalars(
             select(NFTDefinition)
             .join(NFTInstance)
             .where(
@@ -299,21 +299,21 @@ class User(Base):
             .distinct()
         ).all()
 
-        # For each template, check if a corresponding bingo card already exists
+        # For each definition, check if a corresponding bingo card already exists.
         created = 0
-        for nft in triggering_nfts:
+        for definition in triggering_definitions:
             exists = session.scalar(
                 select(BingoCard)
                 .join(BingoCell)
                 .where(
                     BingoCard.user_id == self.id,
                     BingoCell.idx == 4,
-                    BingoCell.target_definition_id == nft.id,
+                    BingoCell.target_definition_id == definition.id,
                 )
             )
-            # If not, create one
+            # If not, create one.
             if exists is None:
-                BingoCard.generate_for_user(session, self, nft)
+                BingoCard.generate_for_user(session, self, definition)
                 created += 1
 
         return created
@@ -498,8 +498,8 @@ class User(Base):
                     default_admin_id = 0
             return default_admin_id
 
-        touched_nft_ids: set[int] = set()
-        nft_updated_at_map: dict[int, datetime] = {}
+        touched_definition_ids: set[int] = set()
+        definition_updated_at_map: dict[int, datetime] = {}
 
         for item in chain_items:
             if not isinstance(item, dict):
@@ -547,9 +547,11 @@ class User(Base):
             created_at = _parse_datetime(item.get("created_at"))
             updated_at = _parse_datetime(item.get("updated_at"))
 
-            nft = session.scalar(select(NFTDefinition).where(NFTDefinition.prefix == prefix))
-            if nft is None:
-                nft = NFTDefinition(
+            definition = session.scalar(
+                select(NFTDefinition).where(NFTDefinition.prefix == prefix)
+            )
+            if definition is None:
+                definition = NFTDefinition(
                     prefix=prefix,
                     shared_key=shared_key,
                     name=name,
@@ -563,26 +565,28 @@ class User(Base):
                     created_at=created_at,
                     updated_at=updated_at,
                 )
-                session.add(nft)
+                session.add(definition)
                 session.flush()
             else:
-                nft.name = name
-                nft.nft_type = nft_type
-                nft.category = category
-                nft.subcategory = subcategory
-                nft.description = description
-                nft.image_url = image_url
-                nft.shared_key = shared_key
-                nft.created_at = created_at
-                nft.updated_at = updated_at
+                definition.name = name
+                definition.nft_type = nft_type
+                definition.category = category
+                definition.subcategory = subcategory
+                definition.description = description
+                definition.image_url = image_url
+                definition.shared_key = shared_key
+                definition.created_at = created_at
+                definition.updated_at = updated_at
 
-            touched_nft_ids.add(nft.id)
-            nft_updated_at_map[nft.id] = updated_at
+            touched_definition_ids.add(definition.id)
+            definition_updated_at_map[definition.id] = updated_at
 
             meta_json = json.dumps(metadata, ensure_ascii=False) if metadata else None
             current_location = item.get("current_nft_location") or origin
 
-            ownership = NFTInstance.get_by_user_and_definition(session, self.id, nft.id)
+            ownership = NFTInstance.get_by_user_and_definition(
+                session, self.id, definition.id
+            )
             provided_unique_id = item.get("unique_nft_id")
             if ownership is None:
                 if provided_unique_id:
@@ -592,14 +596,14 @@ class User(Base):
 
                 ownership = NFTInstance(
                     user_id=self.id,
-                    definition_id=nft.id,
-                    serial_number=nft.minted_count,
+                    definition_id=definition.id,
+                    serial_number=definition.minted_count,
                     unique_nft_id=unique_nft_id,
                     acquired_at=created_at,
                     status="succeeded",
                 )
                 session.add(ownership)
-                nft.minted_count += 1
+                definition.minted_count += 1
             elif provided_unique_id:
                 ownership.unique_nft_id = str(provided_unique_id)[:255]
 
@@ -616,32 +620,32 @@ class User(Base):
             ownership.token_id = item.get("token_id")
             ownership.other_meta = meta_json
 
-        for nft_id in touched_nft_ids:
-            nft_obj = session.get(NFTDefinition, nft_id)
-            if nft_obj is None:
+        for definition_id in touched_definition_ids:
+            definition_obj = session.get(NFTDefinition, definition_id)
+            if definition_obj is None:
                 continue
             count = session.scalar(
-                select(func.count()).where(NFTInstance.definition_id == nft_id)
+                select(func.count()).where(NFTInstance.definition_id == definition_id)
             )
-            nft_obj.minted_count = int(count or 0)
-            updated_at = nft_updated_at_map.get(nft_id)
+            definition_obj.minted_count = int(count or 0)
+            updated_at = definition_updated_at_map.get(definition_id)
             if updated_at is not None:
-                nft_obj.updated_at = updated_at
+                definition_obj.updated_at = updated_at
 
         session.flush()
 
-        if nft_updated_at_map:
+        if definition_updated_at_map:
             from sqlalchemy import update
             from sqlalchemy.orm.attributes import set_committed_value
 
-            for nft_id, updated_at in nft_updated_at_map.items():
+            for definition_id, updated_at in definition_updated_at_map.items():
                 session.execute(
                     update(NFTDefinition)
-                    .where(NFTDefinition.id == nft_id)
+                    .where(NFTDefinition.id == definition_id)
                     .values(updated_at=updated_at)
                 )
-                nft_obj = session.get(NFTDefinition, nft_id)
-                if nft_obj is not None:
-                    set_committed_value(nft_obj, "updated_at", updated_at)
+                definition_obj = session.get(NFTDefinition, definition_id)
+                if definition_obj is not None:
+                    set_committed_value(definition_obj, "updated_at", updated_at)
 
         session.flush()
