@@ -101,10 +101,8 @@ winning numbers or evaluating NFT instances.
 This is wrapped up in the `nictbw.workflows.submit_winning_number` helper.
 
 1. Retrieve the persisted `PrizeDrawType` that should own the winning number to be submitted.
-2. Call `submit_winning_number(session, draw_type, value, metadata=..., effective_at=..., expires_at=...)`
-   supplying the external winning value and any optional metadata windowing information.
-3. The helper serializes the metadata (if provided), persists the
-   `PrizeDrawWinningNumber`, flushes the session, and returns the `PrizeDrawWinningNumber` entity so the
+2. Call `submit_winning_number(session, draw_type, value)` supplying the winning value.
+3. The helper persists the `PrizeDrawWinningNumber`, flushes the session, and returns the entity so the
    caller can reuse its identifier.
 
 ## Prize Draw Evaluation
@@ -116,10 +114,9 @@ the `PrizeDrawEngine` service.
 3. Persist `PrizeDrawResult` with `nft_instance_id` set to the evaluated instance.
 4. Run the scoring algorithm (when a winning number is provided) and
    save the result (in "win", "lose", or "pending" string format) expected by the database model.
-5. Return the result wrapped in a `PrizeDrawEvaluation` object.
+5. Return the persisted `PrizeDrawResult` object.
 
-Re-running the workflow for the same `(nft_instance, draw_type, winning_number)` combination will overwrite the previous
-   result as designed.
+Re-running the workflow for the same `(nft_instance, draw_type)` updates the existing persisted result row.
 
 When `run_prize_draw_batch` is called without explicitly passing `nft_instances`, it automatically collects `NFTInstance`s that sit on completed bingo lines and evaluates only those candidates.
 
