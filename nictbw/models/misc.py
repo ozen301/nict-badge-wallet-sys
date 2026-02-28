@@ -34,7 +34,8 @@ class NFTClaimRequest(Base):
     user_id: Mapped[int] = mapped_column(
         ID_TYPE, ForeignKey("users.id"), nullable=False, index=True
     )
-    nft_id: Mapped[int] = mapped_column(
+    definition_id: Mapped[int] = mapped_column(
+        "nft_id",
         ID_TYPE, ForeignKey("nfts.id"), nullable=False, index=True
     )
     prefix: Mapped[str] = mapped_column(String(100), nullable=False)
@@ -72,7 +73,7 @@ class NFTClaimRequest(Base):
     )
 
     user = relationship("User")
-    nft = relationship("NFTDefinition")
+    definition = relationship("NFTDefinition")
     ownership = relationship("NFTInstance", foreign_keys=[ownership_id])
 
     __table_args__ = (

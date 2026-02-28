@@ -28,6 +28,7 @@ from nictbw.models import (
     CouponTemplate,
     CouponStore,
     CouponInstance,
+    NFTClaimRequest,
     PrizeDrawType,
     PrizeDrawWinningNumber,
     PrizeDrawResult,
@@ -353,6 +354,50 @@ class DBTestCase(unittest.TestCase):
 
             with self.assertRaises(TypeError):
                 CouponStore(name="legacy-store", store_name="Legacy Store", nft_id=definition.id)
+
+    def test_nft_claim_request_definition_fields(self):
+        now = datetime.now(timezone.utc)
+        with self.Session() as session:
+            admin = Admin(email="claim-admin@example.com", password_hash="x")
+            user = User(in_app_id="claim-user", paymail="claim-wallet")
+            session.add_all([admin, user])
+            session.flush()
+
+            definition = NFTDefinition(
+                prefix="CLM-DEF",
+                shared_key="claim-definition",
+                name="Claim Definition",
+                nft_type="default",
+                created_by_admin_id=admin.id,
+                created_at=now,
+                updated_at=now,
+            )
+            session.add(definition)
+            session.flush()
+
+            claim = NFTClaimRequest(
+                tmp_id="tmp-claim-1",
+                user_id=user.id,
+                definition_id=definition.id,
+                prefix=definition.prefix,
+                shared_key=definition.shared_key,
+            )
+            session.add(claim)
+            session.commit()
+
+            reloaded = session.get(NFTClaimRequest, claim.id)
+            assert reloaded is not None
+            self.assertEqual(reloaded.definition_id, definition.id)
+            self.assertEqual(reloaded.definition.id, definition.id)
+
+            with self.assertRaises(TypeError):
+                NFTClaimRequest(
+                    tmp_id="tmp-claim-legacy",
+                    user_id=user.id,
+                    nft_id=definition.id,
+                    prefix=definition.prefix,
+                    shared_key=definition.shared_key,
+                )
 
     def test_generate_unique_id_retries_on_collision(self):
         now = datetime.now(timezone.utc)
