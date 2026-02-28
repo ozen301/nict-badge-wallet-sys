@@ -286,7 +286,7 @@ class PrizeDrawEngine:
         )
         result_by_definition = self._session.scalar(
             select(PrizeDrawResult).where(
-                PrizeDrawResult.nft_id == nft_instance.nft_id,
+                PrizeDrawResult.definition_id == nft_instance.nft_id,
                 PrizeDrawResult.draw_type_id == draw_type.id,
             )
         )
@@ -310,7 +310,7 @@ class PrizeDrawEngine:
                     winning_number.id if winning_number is not None else None
                 ),
                 user_id=nft_instance.user_id,
-                nft_id=nft_instance.nft_id,
+                definition_id=nft_instance.nft_id,
                 ownership_id=nft_instance.id,
                 draw_number=draw_number,
                 similarity_score=similarity_score,
@@ -326,7 +326,7 @@ class PrizeDrawEngine:
                 winning_number.id if winning_number is not None else None
             )
             result.user_id = nft_instance.user_id
-            result.nft_id = nft_instance.nft_id
+            result.definition_id = nft_instance.nft_id
             result.ownership_id = nft_instance.id
             result.draw_number = draw_number
             result.similarity_score = similarity_score

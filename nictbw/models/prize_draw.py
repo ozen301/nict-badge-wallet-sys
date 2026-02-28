@@ -305,8 +305,12 @@ class PrizeDrawResult(Base):
     )
     """User who owned the evaluated NFT instance at evaluation time."""
 
-    nft_id: Mapped[int] = mapped_column(
-        ID_TYPE, ForeignKey("nfts.id", ondelete="CASCADE"), nullable=False, index=True
+    definition_id: Mapped[int] = mapped_column(
+        "nft_id",
+        ID_TYPE,
+        ForeignKey("nfts.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     """NFT definition associated with the evaluated NFT instance."""
 
@@ -354,7 +358,7 @@ class PrizeDrawResult(Base):
     user: Mapped["User"] = relationship(back_populates="prize_draw_results")
     """Relationship to the user evaluated."""
 
-    nft: Mapped["NFTDefinition"] = relationship(back_populates="prize_draw_results")
+    definition: Mapped["NFTDefinition"] = relationship(back_populates="prize_draw_results")
     """Relationship to the NFT definition associated with the evaluated instance."""
 
     ownership: Mapped[Optional["NFTInstance"]] = relationship(
@@ -378,8 +382,8 @@ class PrizeDrawResult(Base):
         winning_number_id: Optional[int] = None,
         user: Optional["User"] = None,
         user_id: Optional[int] = None,
-        nft: Optional["NFTDefinition"] = None,
-        nft_id: Optional[int] = None,
+        definition: Optional["NFTDefinition"] = None,
+        definition_id: Optional[int] = None,
         ownership: Optional["NFTInstance"] = None,
         ownership_id: Optional[int] = None,
         draw_number: str,
@@ -406,10 +410,10 @@ class PrizeDrawResult(Base):
             self.user = user
         if user_id is not None:
             self.user_id = user_id
-        if nft is not None:
-            self.nft = nft
-        if nft_id is not None:
-            self.nft_id = nft_id
+        if definition is not None:
+            self.definition = definition
+        if definition_id is not None:
+            self.definition_id = definition_id
         if ownership is not None:
             self.ownership = ownership
         if ownership_id is not None:
@@ -424,10 +428,10 @@ class PrizeDrawResult(Base):
             self.evaluated_at = evaluated_at
 
     def __repr__(self) -> str:  # pragma: no cover - repr is trivial
-        return "<PrizeDrawResult(id={id}, draw_type_id={dt}, nft_id={nft}, user_id={user_id}, similarity_score={similarity_score}, outcome={outcome})>".format(
+        return "<PrizeDrawResult(id={id}, draw_type_id={dt}, definition_id={definition}, user_id={user_id}, similarity_score={similarity_score}, outcome={outcome})>".format(
             id=self.id,
             dt=self.draw_type_id,
-            nft=self.nft_id,
+            definition=self.definition_id,
             user_id=self.user_id,
             similarity_score=self.similarity_score,
             outcome=self.outcome,

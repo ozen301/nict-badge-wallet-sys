@@ -511,7 +511,7 @@ class PrizeDrawWorkflowSelectionTests(unittest.TestCase):
             draw_type_id=1,
             winning_number_id=1,
             user_id=1,
-            nft_id=1,
+            definition_id=1,
             ownership_id=1,
             draw_number="top",
             similarity_score=0.9,
@@ -521,7 +521,7 @@ class PrizeDrawWorkflowSelectionTests(unittest.TestCase):
             draw_type_id=1,
             winning_number_id=1,
             user_id=1,
-            nft_id=2,
+            definition_id=2,
             ownership_id=1,
             draw_number="tie-a",
             similarity_score=0.8,
@@ -531,7 +531,7 @@ class PrizeDrawWorkflowSelectionTests(unittest.TestCase):
             draw_type_id=1,
             winning_number_id=1,
             user_id=1,
-            nft_id=3,
+            definition_id=3,
             ownership_id=1,
             draw_number="tie-b",
             similarity_score=0.8,
@@ -544,7 +544,7 @@ class PrizeDrawWorkflowSelectionTests(unittest.TestCase):
         )
 
         self.assertEqual(len(winners), 3)
-        self.assertEqual([w.nft_id for w in winners], [1, 2, 3])
+        self.assertEqual([w.definition_id for w in winners], [1, 2, 3])
 
 
 if __name__ == "__main__":

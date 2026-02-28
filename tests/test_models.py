@@ -985,7 +985,7 @@ class DBTestCase(unittest.TestCase):
                 draw_type_id=draw_type.id,
                 winning_number_id=winning_number.id,
                 user_id=user.id,
-                nft_id=nft.id,
+                definition_id=nft.id,
                 ownership_id=ownership.id,
                 draw_number="101000",
                 similarity_score=0.66,
@@ -1011,7 +1011,7 @@ class DBTestCase(unittest.TestCase):
                 draw_type_id=draw_type.id,
                 winning_number_id=winning_number.id,
                 user_id=user.id,
-                nft_id=nft.id,
+                definition_id=nft.id,
                 draw_number="101111",
                 outcome="win",
             )

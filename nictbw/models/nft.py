@@ -126,7 +126,7 @@ class NFTDefinition(Base):
         UniqueConstraint("prefix", name="nfts_prefix_key"),
     )
 
-    prize_draw_results = relationship("PrizeDrawResult", back_populates="nft")
+    prize_draw_results = relationship("PrizeDrawResult", back_populates="definition")
     ownerships = relationship("NFTInstance", back_populates="nft")
     template = relationship("NFTTemplate")
     bingo_period = relationship("BingoPeriod")

@@ -32,6 +32,10 @@ Core semantics in `v1.0.0`:
 - `run_final_attendance_prize_draw(..., attendance_template_id=...)` ->
   `run_final_attendance_prize_draw(..., attendance_definition_id=...)`
 
+### PrizeDrawResult API changes
+- `PrizeDrawResult.nft_id` -> `PrizeDrawResult.definition_id`
+- `PrizeDrawResult.nft` -> `PrizeDrawResult.definition`
+
 ### Bingo API naming changes
 - `BingoCell.target_template_id` -> `BingoCell.target_definition_id`
 - `BingoCell.target_template` -> `BingoCell.target_definition`
