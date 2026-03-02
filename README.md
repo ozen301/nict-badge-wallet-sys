@@ -8,9 +8,8 @@ This repository implements the **Badge & Wallet System** for the NICT project ca
 nict-badge-wallet-sys/
 ├─ alembic/             # Alembic env + migration scripts
 ├─ docs/
+│  ├─ archive/             # Archived docs from v1.0.0 refactor and rollout
 │  ├─ code_examples.ipynb  # Jupyter notebook with code examples
-│  ├─ migration_v1.md      # v1.0.0 breaking-change migration guide
-│  ├─ schema_followup_memo.md # Planned DB schema follow-up tasks
 │  ├─ workflows.md         # Common workflows documentation
 ├─ nictbw/
 │  ├─ blockchain/       # Blockchain API interaction
@@ -124,7 +123,7 @@ When the API needs a schema update:
 ---
 
 ## Documentation and Examples
-If you are upgrading from pre-`v1.0.0` APIs, read [docs/migration_v1.md](./docs/migration_v1.md) first.
+If you are upgrading from pre-`v1.0.0` APIs, read [docs/migration_v1.md](./docs/archive/migration_v1.md) first.
 
 See [docs/workflows.md](./docs/workflows.md) for common workflows. The workflows encapsulate typical sequences of operations using the models defined in this project.
 
