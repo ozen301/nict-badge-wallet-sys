@@ -56,8 +56,10 @@ class BingoPeriodReward(Base):
         Integer, ForeignKey("bingo_periods.id", ondelete="CASCADE"), nullable=False, index=True
     )
     reward_definition_id: Mapped[int] = mapped_column(
-        "reward_nft_id",
-        ID_TYPE, ForeignKey("nfts.id", ondelete="RESTRICT"), nullable=False, index=True
+        ID_TYPE,
+        ForeignKey("nft_definitions.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
     )
     enabled: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=True, server_default=text("true")
@@ -417,21 +419,17 @@ class BingoCardIssueTask(Base):
         ID_TYPE, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
     center_definition_id: Mapped[int] = mapped_column(
-        "center_nft_id",
         ID_TYPE,
-        ForeignKey("nfts.id", ondelete="CASCADE"),
+        ForeignKey("nft_definitions.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
     nft_instance_id: Mapped[int] = mapped_column(
-        "ownership_id",
         ID_TYPE,
-        ForeignKey("user_nft_ownership.id", ondelete="CASCADE"),
+        ForeignKey("nft_instances.id", ondelete="CASCADE"),
         nullable=False,
     )
-    unique_instance_ref: Mapped[str] = mapped_column(
-        "unique_nft_ref", String(255), nullable=False
-    )
+    unique_instance_ref: Mapped[str] = mapped_column(String(255), nullable=False)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
     attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     next_run_at: Mapped[datetime] = mapped_column(
@@ -454,7 +452,7 @@ class BingoCardIssueTask(Base):
             name="bingo_issue_status_enum",
         ),
         UniqueConstraint(
-            "ownership_id", name="bingo_card_issue_tasks_ownership_id_key"
+            "nft_instance_id", name="bingo_card_issue_tasks_nft_instance_id_key"
         ),
         Index("ix_bingo_issue_status_run", "status", "next_run_at"),
     )
@@ -489,18 +487,21 @@ class BingoCell(Base):
     )
     idx: Mapped[int] = mapped_column(Integer, nullable=False)
     target_definition_id: Mapped[int] = mapped_column(
-        "target_template_id",
         ID_TYPE,
-        ForeignKey("nfts.id", ondelete="RESTRICT"),
+        ForeignKey("nft_definitions.id", ondelete="RESTRICT"),
         nullable=False,
         index=True,
     )
     definition_id: Mapped[Optional[int]] = mapped_column(
-        "nft_id", ID_TYPE, ForeignKey("nfts.id", ondelete="SET NULL"), nullable=True, index=True
+        ID_TYPE,
+        ForeignKey("nft_definitions.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
     )
     matched_nft_instance_id: Mapped[Optional[int]] = mapped_column(
-        "matched_ownership_id",
-        ID_TYPE, ForeignKey("user_nft_ownership.id", ondelete="SET NULL"), nullable=True
+        ID_TYPE,
+        ForeignKey("nft_instances.id", ondelete="SET NULL"),
+        nullable=True,
     )
     state: Mapped[str] = mapped_column(String(20), nullable=False, default="locked")
     unlocked_at: Mapped[Optional[datetime]] = mapped_column(
@@ -581,9 +582,9 @@ class PreGeneratedBingoCard(Base):
     id: Mapped[int] = mapped_column(ID_TYPE, primary_key=True, index=True, autoincrement=True)
     period_id: Mapped[int] = mapped_column(Integer, ForeignKey("bingo_periods.id"), nullable=False)
     center_definition_id: Mapped[int] = mapped_column(
-        "center_nft_id", ID_TYPE, ForeignKey("nfts.id"), nullable=False
+        ID_TYPE, ForeignKey("nft_definitions.id"), nullable=False
     )
-    cell_definition_ids: Mapped[list] = mapped_column("cell_nft_ids", JSON, nullable=False)
+    cell_definition_ids: Mapped[list] = mapped_column(JSON, nullable=False)
     status: Mapped[str] = mapped_column(String(20), default="available", index=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)

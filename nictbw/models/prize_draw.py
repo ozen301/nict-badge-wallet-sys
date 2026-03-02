@@ -244,8 +244,9 @@ class RaffleEntry(Base):
         ID_TYPE, ForeignKey("bingo_cards.id", ondelete="SET NULL"), nullable=True
     )
     nft_instance_id: Mapped[Optional[int]] = mapped_column(
-        "ownership_id",
-        ID_TYPE, ForeignKey("user_nft_ownership.id", ondelete="SET NULL"), nullable=True
+        ID_TYPE,
+        ForeignKey("nft_instances.id", ondelete="SET NULL"),
+        nullable=True,
     )
     raffle_event_id: Mapped[Optional[int]] = mapped_column(
         Integer, ForeignKey("raffle_events.id", ondelete="SET NULL"), nullable=True
@@ -307,17 +308,17 @@ class PrizeDrawResult(Base):
     """User who owned the evaluated NFT instance at evaluation time."""
 
     definition_id: Mapped[int] = mapped_column(
-        "nft_id",
         ID_TYPE,
-        ForeignKey("nfts.id", ondelete="CASCADE"),
+        ForeignKey("nft_definitions.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
     """NFT definition associated with the evaluated NFT instance."""
 
-    nft_instance_id: Mapped[Optional[int]] = mapped_column(
-        "ownership_id",
-        ID_TYPE, ForeignKey("user_nft_ownership.id", ondelete="SET NULL"), nullable=True
+    nft_instance_id: Mapped[int] = mapped_column(
+        ID_TYPE,
+        ForeignKey("nft_instances.id", ondelete="SET NULL"),
+        nullable=False,
     )
     """Primary reference to the evaluated NFT instance."""
 
@@ -369,7 +370,9 @@ class PrizeDrawResult(Base):
     """Relationship to the evaluated NFT instance."""
 
     __table_args__ = (
-        UniqueConstraint("nft_id", "draw_type_id", name="uq_prize_draw_result_unique"),
+        UniqueConstraint(
+            "nft_instance_id", "draw_type_id", name="uq_prize_draw_result_instance"
+        ),
         Index("ix_prize_draw_results_outcome", "outcome"),
     )
 

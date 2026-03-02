@@ -35,8 +35,7 @@ class NFTClaimRequest(Base):
         ID_TYPE, ForeignKey("users.id"), nullable=False, index=True
     )
     definition_id: Mapped[int] = mapped_column(
-        "nft_id",
-        ID_TYPE, ForeignKey("nfts.id"), nullable=False, index=True
+        ID_TYPE, ForeignKey("nft_definitions.id"), nullable=False, index=True
     )
     prefix: Mapped[str] = mapped_column(String(100), nullable=False)
     shared_key: Mapped[str] = mapped_column(String(255), nullable=False)
@@ -49,8 +48,7 @@ class NFTClaimRequest(Base):
     next_run_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     nft_instance_id: Mapped[Optional[int]] = mapped_column(
-        "ownership_id",
-        ID_TYPE, ForeignKey("user_nft_ownership.id"), nullable=True
+        ID_TYPE, ForeignKey("nft_instances.id"), nullable=True
     )
     transaction_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     bingo_line_completed: Mapped[bool] = mapped_column(
