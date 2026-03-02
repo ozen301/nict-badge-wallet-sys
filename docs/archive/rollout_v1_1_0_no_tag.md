@@ -5,6 +5,12 @@ Date: 2026-03-02
 This runbook covers Phase 9 operations for deploying schema/code alignment to production.
 Per branch policy, **do not tag in this branch**. Tag only on `main` after squash merge.
 
+> [!NOTE] Execution Record
+> - Production rollout completed.
+> - Post-deploy drift check completed successfully:
+>  - `conda activate nict && python scripts/check_schema_drift.py` -> exit code `0`.
+> - Tagging still deferred to `main`.
+
 ## Scope
 - Applies Migration A + Migration B schema plan with coordinated code deployment.
 - Assumes `nict-bw` code changes through Phase 8 are already merged.

@@ -1,5 +1,8 @@
 ## Plan: Full Schema Alignment Migration (v1.1.0)
 
+> [!NOTE] Execution status (2026-03-03): 
+> Phases 1 through 9 completed. Production schema updated successfully. Drift check now returns zero drift. Release tagging remains deferred to `main` after squash merge.
+
 **TL;DR:** Two Alembic migrations bring the Postgres schema in line with the v1.0.0 ORM. Migration A (non-breaking) backfills `prize_draw_results.ownership_id` to NOT NULL and adds new unique indexes. Migration B (breaking) drops legacy constraints, renames 2 tables, renames 26 columns across 14 tables, and cascades FK/index name changes. ORM code then drops all `mapped_column("db_name", ...)` overrides, removes 3 temporary guards, and updates tests. Version bumps to 1.1.0.
 
 **Steps**

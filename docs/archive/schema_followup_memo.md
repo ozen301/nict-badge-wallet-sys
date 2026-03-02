@@ -1,6 +1,6 @@
-# Schema Follow-Up Memo (Completed in Code / Pending Production Rollout)
+# Schema Follow-Up Memo (Completed in Code and Production)
 
-Date: 2026-03-02
+Date: 2026-03-03
 
 ## Summary
 The schema/code alignment work planned after the v1.0.0 semantic refactor has been completed in this repository through Phase 8 preparation.
@@ -37,11 +37,11 @@ Completed in this branch:
   - this is expected while DB schema is still pre-rename.
 
 ## Production Rollout Status
-- Rollout is prepared but not executed in this branch.
+- Production schema rollout has been executed successfully.
+- Post-rollout drift check completed with zero drift.
 - Release tag is intentionally deferred per workflow: tag on `main` after squash merge.
 
 ## Post-Merge Actions
-1. Execute production/staging runbook for Migration B + code deploy during maintenance window.
-2. Re-run `python scripts/check_schema_drift.py` against the upgraded DB and confirm zero drift.
-3. Tag `v1.1.0` on `main` after squash merge.
-4. Update dependent API/service package pins to `v1.1.0`.
+1. Tag `v1.1.0` on `main` after squash merge.
+2. Update dependent API/service package pins to `v1.1.0`.
+3. Keep this memo as the canonical migration history record for v1.1.0.
