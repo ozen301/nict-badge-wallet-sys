@@ -198,7 +198,7 @@ class PrizeDrawWorkflowTests(unittest.TestCase):
             results = run_prize_draw_batch(session, draw_type, nft_instances=[])
             self.assertEqual(results, [])
 
-    def test_run_prize_draw_batch_raises_on_same_definition_instances(self) -> None:
+    def test_run_prize_draw_batch_allows_same_definition_instances(self) -> None:
         with self.Session.begin() as session:
             user_one, admin = self._seed_user_and_admin(session)
             user_two = User(in_app_id="draw-user-2", paymail="draw-user-2@wallet")
@@ -233,14 +233,21 @@ class PrizeDrawWorkflowTests(unittest.TestCase):
             session.flush()
             submit_winning_number(session, draw_type, value="conflict")
 
-            with self.assertRaises(ValueError):
-                run_prize_draw_batch(
-                    session,
-                    draw_type,
-                    nft_instances=[instance_one, instance_two],
-                )
+            results = run_prize_draw_batch(
+                session,
+                draw_type,
+                nft_instances=[instance_one, instance_two],
+            )
 
-    def test_run_prize_draw_raises_on_conflicting_existing_definition_result(self) -> None:
+            self.assertEqual(len(results), 2)
+            self.assertNotEqual(results[0].id, results[1].id)
+            self.assertEqual(
+                {results[0].nft_instance_id, results[1].nft_instance_id},
+                {instance_one.id, instance_two.id},
+            )
+            self.assertTrue(all(r.draw_type_id == draw_type.id for r in results))
+
+    def test_run_prize_draw_persists_independent_results_per_instance(self) -> None:
         with self.Session.begin() as session:
             user_one, admin = self._seed_user_and_admin(session)
             user_two = User(in_app_id="draw-user-3", paymail="draw-user-3@wallet")
@@ -275,20 +282,23 @@ class PrizeDrawWorkflowTests(unittest.TestCase):
             session.flush()
             winning_number = submit_winning_number(session, draw_type, value="single")
 
-            run_prize_draw(
+            first = run_prize_draw(
                 session,
                 instance_one,
                 draw_type,
                 winning_number=winning_number,
             )
+            second = run_prize_draw(
+                session,
+                instance_two,
+                draw_type,
+                winning_number=winning_number,
+            )
 
-            with self.assertRaises(ValueError):
-                run_prize_draw(
-                    session,
-                    instance_two,
-                    draw_type,
-                    winning_number=winning_number,
-                )
+            self.assertNotEqual(first.id, second.id)
+            self.assertEqual(first.definition_id, second.definition_id)
+            self.assertNotEqual(first.nft_instance_id, second.nft_instance_id)
+            self.assertEqual(first.draw_type_id, second.draw_type_id)
 
     def test_select_top_prize_draw_results_orders_by_similarity(self) -> None:
         with self.Session.begin() as session:

@@ -204,19 +204,39 @@ class DBTestCase(unittest.TestCase):
                 "nictbw.models.nft.generate_unique_instance_id",
                 return_value="ABC-1234567890ab",
             ):
-                nft.issue_dbwise_to_user(session, user, acquired_at=nft.created_at)
+                first_instance = nft.issue_dbwise_to_user(
+                    session, user, acquired_at=nft.created_at
+                )
+
+            with patch(
+                "nictbw.models.nft.generate_unique_instance_id",
+                return_value="ABC-1234567890ac",
+            ):
+                second_instance = nft.issue_dbwise_to_user(
+                    session, user, acquired_at=nft.created_at
+                )
             session.commit()
 
-            # Verify minted_count incremented
-            self.assertEqual(nft.minted_count, 1)
-            # Ownership created and linked
-            self.assertEqual(len(user.nft_instances), 1)
-            ownership: NFTInstance = user.nft_instances[0]
-            self.assertEqual(ownership.user_id, user.id)
-            self.assertEqual(ownership.definition_id, nft.id)
-            self.assertEqual(ownership.serial_number, 0)
-            self.assertEqual(ownership.unique_instance_id, "ABC-1234567890ab")
-            self.assertEqual(ownership.acquired_at, nft.created_at)
+            # Verify minted_count incremented for both issues
+            self.assertEqual(nft.minted_count, 2)
+            # Two instances are created for the same user+definition
+            self.assertEqual(len(user.nft_instances), 2)
+
+            first = session.get(NFTInstance, first_instance.id)
+            second = session.get(NFTInstance, second_instance.id)
+            assert first is not None
+            assert second is not None
+
+            self.assertEqual(first.user_id, user.id)
+            self.assertEqual(second.user_id, user.id)
+            self.assertEqual(first.definition_id, nft.id)
+            self.assertEqual(second.definition_id, nft.id)
+            self.assertEqual(first.serial_number, 0)
+            self.assertEqual(second.serial_number, 1)
+            self.assertEqual(first.unique_instance_id, "ABC-1234567890ab")
+            self.assertEqual(second.unique_instance_id, "ABC-1234567890ac")
+            self.assertEqual(first.acquired_at, nft.created_at)
+            self.assertEqual(second.acquired_at, nft.created_at)
 
     def test_user_nft_instances_returns_instances(self):
         now = datetime.now(timezone.utc)
