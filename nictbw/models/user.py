@@ -579,10 +579,23 @@ class User(Base):
             meta_json = json.dumps(metadata, ensure_ascii=False) if metadata else None
             current_location = item.get("current_nft_location") or origin
 
-            instance = NFTInstance.get_by_user_and_definition(
-                session, self.id, definition.id
-            )
             provided_unique_id = item.get("unique_nft_id")
+            instance = None
+            if provided_unique_id:
+                instance = session.scalar(
+                    select(NFTInstance).where(
+                        NFTInstance.user_id == self.id,
+                        NFTInstance.unique_instance_id == str(provided_unique_id)[:255],
+                    )
+                )
+            if instance is None and origin:
+                instance = session.scalar(
+                    select(NFTInstance).where(
+                        NFTInstance.user_id == self.id,
+                        NFTInstance.nft_origin == origin,
+                    )
+                )
+
             if instance is None:
                 if provided_unique_id:
                     unique_instance_id = str(provided_unique_id)[:255]

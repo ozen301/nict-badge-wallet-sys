@@ -58,9 +58,8 @@ class CouponTemplate(Base):
     usage_restrictions: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     image_url: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
     default_display_definition_id: Mapped[Optional[int]] = mapped_column(
-        "default_display_nft_id",
         ID_TYPE,
-        ForeignKey("nfts.id", ondelete="SET NULL"),
+        ForeignKey("nft_definitions.id", ondelete="SET NULL"),
         nullable=True,
         index=True,
     )
@@ -127,7 +126,7 @@ class NFTCouponBinding(Base):
         ID_TYPE, primary_key=True, index=True, autoincrement=True
     )
     definition_id: Mapped[int] = mapped_column(
-        "nft_id", ID_TYPE, ForeignKey("nfts.id"), nullable=False
+        ID_TYPE, ForeignKey("nft_definitions.id"), nullable=False
     )
     template_id: Mapped[int] = mapped_column(
         ID_TYPE, ForeignKey("coupon_templates.id"), nullable=False
@@ -175,12 +174,11 @@ class CouponInstance(Base):
         ID_TYPE, ForeignKey("coupon_templates.id"), nullable=False
     )
     definition_id: Mapped[Optional[int]] = mapped_column(
-        "nft_id", ID_TYPE, ForeignKey("nfts.id"), nullable=True
+        ID_TYPE, ForeignKey("nft_definitions.id"), nullable=True
     )
     display_definition_id: Mapped[Optional[int]] = mapped_column(
-        "display_nft_id",
         ID_TYPE,
-        ForeignKey("nfts.id", ondelete="SET NULL"),
+        ForeignKey("nft_definitions.id", ondelete="SET NULL"),
         nullable=True,
         index=True,
     )
@@ -188,8 +186,7 @@ class CouponInstance(Base):
         ID_TYPE, ForeignKey("users.id"), nullable=True
     )
     nft_instance_id: Mapped[Optional[int]] = mapped_column(
-        "ownership_id",
-        ID_TYPE, ForeignKey("user_nft_ownership.id"), nullable=True
+        ID_TYPE, ForeignKey("nft_instances.id"), nullable=True
     )
     serial_number: Mapped[int] = mapped_column(Integer, nullable=False)
     coupon_code: Mapped[str] = mapped_column(String(128), nullable=False)
@@ -282,8 +279,11 @@ class CouponStore(Base):
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     definition_id: Mapped[int] = mapped_column(
-        "nft_id",
-        ID_TYPE, ForeignKey("nfts.id", ondelete="CASCADE"), nullable=False, unique=True, index=True
+        ID_TYPE,
+        ForeignKey("nft_definitions.id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,
+        index=True,
     )
     usage_restrictions: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     available_stores: Mapped[Optional[str]] = mapped_column(Text, nullable=True)

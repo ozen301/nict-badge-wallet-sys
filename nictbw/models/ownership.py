@@ -3,7 +3,17 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Optional, TYPE_CHECKING
 
-from sqlalchemy import BigInteger, DateTime, Integer, String, Text, ForeignKey, UniqueConstraint
+from sqlalchemy import (
+    BigInteger,
+    DateTime,
+    Integer,
+    String,
+    Text,
+    ForeignKey,
+    Index,
+    UniqueConstraint,
+    text,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base
@@ -19,12 +29,12 @@ if TYPE_CHECKING:
 class NFTInstance(Base):
     """Association table recording which user owns which NFT definition."""
 
-    __tablename__ = "user_nft_ownership"
+    __tablename__ = "nft_instances"
 
     id: Mapped[int] = mapped_column(ID_TYPE, primary_key=True, index=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(ID_TYPE, ForeignKey("users.id"), nullable=False)
     definition_id: Mapped[int] = mapped_column(
-        "nft_id", ID_TYPE, ForeignKey("nfts.id"), nullable=False
+        ID_TYPE, ForeignKey("nft_definitions.id"), nullable=False
     )
     bingo_period_id: Mapped[Optional[int]] = mapped_column(
         Integer,
@@ -33,9 +43,7 @@ class NFTInstance(Base):
         index=True,
     )
     serial_number: Mapped[int] = mapped_column(Integer, nullable=False)
-    unique_instance_id: Mapped[str] = mapped_column(
-        "unique_nft_id", String(255), nullable=False
-    )
+    unique_instance_id: Mapped[str] = mapped_column(String(255), nullable=False)
     acquired_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
@@ -75,7 +83,13 @@ class NFTInstance(Base):
     )
 
     __table_args__ = (
-        UniqueConstraint("user_id", "nft_id", name="uq_user_nft_once"),
+        UniqueConstraint("unique_instance_id", name="uq_nft_instance_unique_id"),
+        Index(
+            "uq_nft_instance_blockchain_id",
+            "blockchain_nft_id",
+            unique=True,
+            postgresql_where=text("blockchain_nft_id IS NOT NULL"),
+        ),
     )
 
     @classmethod
@@ -85,13 +99,16 @@ class NFTInstance(Base):
         user: "User | int",
         definition: "NFTDefinition | int",
     ) -> Optional["NFTInstance"]:
-        """Retrieve the NFT-instance record linking ``user`` to ``definition``."""
+        """Retrieve one NFT-instance record linking ``user`` to ``definition``."""
 
         def _to_id(obj: "int | User | NFTDefinition") -> int:
             return obj if isinstance(obj, int) else obj.id
 
         user_id = _to_id(user)
         definition_id = _to_id(definition)
-        return session.query(cls).filter(
-            cls.user_id == user_id, cls.definition_id == definition_id
-        ).one_or_none()
+        return (
+            session.query(cls)
+            .filter(cls.user_id == user_id, cls.definition_id == definition_id)
+            .order_by(cls.id.asc())
+            .first()
+        )

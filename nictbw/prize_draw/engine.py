@@ -275,33 +275,13 @@ class PrizeDrawEngine:
             The upserted ORM entity with updated fields.
         """
 
-        # Prefer reusing the row for the specific NFT instance. If none exists we
-        # fall back to schema-compatible uniqueness on (nft_id, draw_type_id).
-        # This keeps the write path stable until the DB constraint is updated.
+        # Reuse the row for the specific NFT instance and draw type.
         result = self._session.scalar(
             select(PrizeDrawResult).where(
                 PrizeDrawResult.nft_instance_id == nft_instance.id,
                 PrizeDrawResult.draw_type_id == draw_type.id,
             )
         )
-        result_by_definition = self._session.scalar(
-            select(PrizeDrawResult).where(
-                PrizeDrawResult.definition_id == nft_instance.definition_id,
-                PrizeDrawResult.draw_type_id == draw_type.id,
-            )
-        )
-        if result is None and result_by_definition is not None:
-            if (
-                result_by_definition.nft_instance_id is not None
-                and result_by_definition.nft_instance_id != nft_instance.id
-            ):
-                raise ValueError(
-                    "Cannot persist prize draw results for multiple NFT instances "
-                    "sharing the same definition with the current schema "
-                    "constraint (nft_id, draw_type_id). Migrate to an "
-                    "instance-based uniqueness constraint to evaluate all instances."
-                )
-            result = result_by_definition
 
         if result is None:
             result = PrizeDrawResult(

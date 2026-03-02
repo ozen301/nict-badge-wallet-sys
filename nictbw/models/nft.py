@@ -41,12 +41,8 @@ class NFTCondition(Base):
     latitude: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     longitude: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     radius: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-    required_definition_id: Mapped[Optional[int]] = mapped_column(
-        "required_nft_id", BigInteger, nullable=True
-    )
-    prohibited_definition_id: Mapped[Optional[int]] = mapped_column(
-        "prohibited_nft_id", BigInteger, nullable=True
-    )
+    required_definition_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
+    prohibited_definition_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
     other_conditions: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
@@ -61,7 +57,7 @@ class NFTCondition(Base):
 class NFTDefinition(Base):
     """NFT definition model stored in the ``nfts`` table."""
 
-    __tablename__ = "nfts"
+    __tablename__ = "nft_definitions"
 
     id: Mapped[int] = mapped_column(ID_TYPE, primary_key=True, index=True, autoincrement=True)
     template_id: Mapped[Optional[int]] = mapped_column(
@@ -213,10 +209,6 @@ class NFTDefinition(Base):
         if self.max_supply is not None and self.minted_count >= self.max_supply:
             raise ValueError("Max supply for this NFT definition has been reached")
 
-        existing = NFTInstance.get_by_user_and_definition(session, user, self)
-        if existing is not None:
-            raise ValueError("User already owns this NFT definition")
-
         if not inspect(self).persistent:
             session.add(self)
             session.flush()
@@ -271,12 +263,8 @@ class NFTTemplate(Base):
     latitude: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     longitude: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     radius: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-    required_definition_id: Mapped[Optional[int]] = mapped_column(
-        "required_nft_id", BigInteger, nullable=True
-    )
-    prohibited_definition_id: Mapped[Optional[int]] = mapped_column(
-        "prohibited_nft_id", BigInteger, nullable=True
-    )
+    required_definition_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
+    prohibited_definition_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
     other_conditions: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     triggers_bingo_card: Mapped[bool] = mapped_column(Boolean, default=False)
     is_public: Mapped[bool] = mapped_column(
