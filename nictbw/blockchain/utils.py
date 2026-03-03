@@ -98,3 +98,69 @@ def get_jwt_token(session: requests.Session) -> str:
 
     jwt_token = response.json()["access"]
     return jwt_token
+
+
+def raw_tx_hex_to_bytes(raw_tx_hex: str) -> bytes:
+    """Convert a raw transaction hex string into binary bytes.
+
+    Parameters
+    ----------
+    raw_tx_hex : str
+        Raw transaction payload in hexadecimal form. A leading ``0x`` prefix
+        is allowed.
+
+    Returns
+    -------
+    bytes
+        Transaction bytes suitable for binary storage (e.g., ``LargeBinary``).
+
+    Raises
+    ------
+    ValueError
+        If input is empty, has odd hex length, or contains invalid characters.
+    """
+    if not isinstance(raw_tx_hex, str):
+        raise ValueError("raw_tx_hex must be a string")
+
+    normalized = raw_tx_hex.strip()
+    if normalized.startswith(("0x", "0X")):
+        normalized = normalized[2:]
+
+    if not normalized:
+        raise ValueError("raw_tx_hex is empty")
+    if len(normalized) % 2 != 0:
+        raise ValueError("raw_tx_hex must have an even number of characters")
+
+    try:
+        return bytes.fromhex(normalized)
+    except ValueError as exc:
+        raise ValueError("raw_tx_hex contains invalid hexadecimal data") from exc
+
+
+def raw_tx_bytes_to_hex(raw_tx_bytes: bytes, *, prefix: bool = False) -> str:
+    """Convert raw transaction bytes into a hexadecimal string.
+
+    Parameters
+    ----------
+    raw_tx_bytes : bytes
+        Raw transaction payload bytes from storage.
+    prefix : bool, optional
+        When ``True``, prepend ``0x`` to the returned hex string.
+
+    Returns
+    -------
+    str
+        Lowercase hexadecimal representation of ``raw_tx_bytes``.
+
+    Raises
+    ------
+    ValueError
+        If ``raw_tx_bytes`` is not bytes-like data.
+    """
+    if not isinstance(raw_tx_bytes, (bytes, bytearray, memoryview)):
+        raise ValueError("raw_tx_bytes must be bytes-like")
+
+    encoded = bytes(raw_tx_bytes).hex()
+    if prefix:
+        return f"0x{encoded}"
+    return encoded
