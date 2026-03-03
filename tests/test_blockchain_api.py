@@ -202,6 +202,23 @@ class TestChainClient(unittest.TestCase):
         )
         self.assertIsNotNone(session.calls[-1]["files"])
 
+    @patch("nictbw.blockchain.api.get_jwt_token", return_value="jwt-token")
+    @patch("nictbw.blockchain.api.open_session")
+    @patch("nictbw.blockchain.api._default_nft_file_path", return_value="/tmp/default.png")
+    def test_create_nft_instance_uses_runtime_default_path(
+        self, mock_default_path, mock_open_session, mock_get_jwt
+    ):
+        session = DummySession(DummyResponse(json_data={"status": "ok"}))
+        mock_open_session.return_value = (session, "csrf")
+        client = ChainClient(base_fqdn="host")
+
+        with patch("builtins.open", mock_open(read_data=b"file-bytes")) as mocked_open:
+            result = client.create_nft_instance(app="nict", name="badge")
+
+        self.assertEqual(result, {"status": "ok"})
+        mock_default_path.assert_called_once_with()
+        mocked_open.assert_called_once_with("/tmp/default.png", "rb")
+
 
 if __name__ == "__main__":
     unittest.main()
