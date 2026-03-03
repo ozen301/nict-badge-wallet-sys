@@ -113,7 +113,7 @@ This repository is the source of truth for the database schema used by the trans
 When updating the schema:
 1. Update the ORM models and add an Alembic migration in this repo.
 2. Run tests and `python scripts/check_schema_drift.py`.
-3. Bump `pyproject.toml` version and tag a release (e.g., `v1.0.0`).
+3. Bump `pyproject.toml` version and tag a release (e.g., `v1.3.0`).
 4. Apply the migration to production from this repo.
 
 When the API needs a schema update:
