@@ -7,6 +7,7 @@ from sqlalchemy import (
     BigInteger,
     DateTime,
     Integer,
+    LargeBinary,
     String,
     Text,
     ForeignKey,
@@ -60,6 +61,7 @@ class NFTInstance(Base):
         DateTime(timezone=True), nullable=True
     )
     transaction_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    raw_tx_data: Mapped[Optional[bytes]] = mapped_column(LargeBinary, nullable=True)
     contract_address: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     token_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     nft_id_hash: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)

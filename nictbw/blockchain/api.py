@@ -1,9 +1,30 @@
 import os
+from pathlib import Path
 from dotenv import load_dotenv
 from urllib.parse import urljoin
 from typing import Any, Optional, Mapping
 
 from .utils import open_session, get_jwt_token
+
+
+DEFAULT_NFT_FILE_NAME = "yenpoint_logo.png"
+
+
+def _default_nft_file_path() -> str:
+    """Resolve the default NFT file path across source and editable-build layouts."""
+    module_dir = Path(__file__).resolve().parent
+    module_candidate = module_dir / DEFAULT_NFT_FILE_NAME
+    if module_candidate.exists():
+        return str(module_candidate)
+
+    for parent in module_dir.parents:
+        source_candidate = parent / "nictbw" / "blockchain" / DEFAULT_NFT_FILE_NAME
+        if source_candidate.exists():
+            return str(source_candidate)
+
+    raise FileNotFoundError(
+        "Default NFT file not found. Pass 'file_path' explicitly to create_nft_instance()."
+    )
 
 
 class ChainClient:
@@ -172,7 +193,7 @@ class ChainClient:
         self,
         app: str,
         name: str,
-        file_path: str = os.path.join(os.path.dirname(__file__), "yenpoint_logo.png"),
+        file_path: Optional[str] = None,
         recipient_paymail: Optional[str] = None,
         additional_info: Optional[dict] = None,
     ) -> dict:
@@ -184,7 +205,7 @@ class ChainClient:
             Application identifier to tag the NFT instance.
         name : str
             Human-readable name of the NFT instance.
-        file_path : str, default: module ``yenpoint_logo.png``
+        file_path : Optional[str], default: module ``yenpoint_logo.png``
             Path to the file to attach and mint as NFT content.
         recipient_paymail : Optional[str]
             If provided, transfer the minted NFT to this paymail.
@@ -197,7 +218,8 @@ class ChainClient:
         dict
             Response payload in JSON format from the service containing transaction and NFT info.
         """
-        with open(file_path, "rb") as f:
+        resolved_file_path = file_path or _default_nft_file_path()
+        with open(resolved_file_path, "rb") as f:
             response = self._request(
                 "POST",
                 "api/v1/nft/create",

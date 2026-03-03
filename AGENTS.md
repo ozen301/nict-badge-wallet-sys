@@ -54,6 +54,13 @@ This value is compared with a **winning number** to determine outcomes — insta
 - When schema changes, bump `pyproject.toml` version, tag a release, and update API dependency.
 
 ## Recent Integration Notes
+- Prepared `v1.2.0` release from this repo (pyproject version updated to `1.2.0`).
+- Added `nft_instances.raw_tx_data` (`LargeBinary`) to store raw transaction bytes.
+- Added migration `c9e12a7d4b20` to add/drop `raw_tx_data`.
+- Added blockchain utility helpers in `nictbw/blockchain/utils.py`:
+  - `raw_tx_hex_to_bytes(raw_tx_hex)`
+  - `raw_tx_bytes_to_hex(raw_tx_bytes, prefix=False)`
+- Raw transaction persistence wiring in sync/mint workflow is intentionally deferred.
 - Released `v1.0.0` from this repo (pyproject version updated to 1.0.0).
 - `v1.0.0` is a hard-break semantic refactor:
   - `NFTDefinition` is definition metadata (`nfts` table).
