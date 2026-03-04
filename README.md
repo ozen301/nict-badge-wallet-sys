@@ -42,7 +42,7 @@ cd nict-badge-wallet-sys
 pip install -e . --config-settings editable_mode=strict
 ```
 
-Using `uv` (additional option):
+Using `uv`:
 ```bash
 git clone https://github.com/ozen301/nict-badge-wallet-sys.git
 cd nict-badge-wallet-sys
@@ -70,7 +70,9 @@ Current tables: admins, app_banners, bingo_card_issue_tasks, bingo_cards, bingo_
 
 ---
 
-## Switch Databases
+## Database
+
+### Switching databases
 Simply change the `DB_URL` variable in `.env`:
 
 ```python
@@ -82,10 +84,10 @@ DB_URL="postgresql+psycopg://user:password@localhost:5432/nictdevdb"  # PostgreS
 
 Any URL supported by SQLAlchemy is valid here.
 
-## Database migrations (Alembic)
+### Migrations (Alembic)
 We use [Alembic](https://alembic.sqlalchemy.org/) to keep the SQL schema in sync with the ORM models. Older revisions were archived in `alembic/versions_legacy` when the API-aligned baseline was created, while current migrations are stored in `alembic/versions`.
 
-Common commands (run from the repo root):
+Common commands:
 
 ```bash
 # Create a new migration after editing the SQLAlchemy models
@@ -98,7 +100,7 @@ alembic upgrade head
 alembic downgrade -1
 ```
 
-### One-time DB_URL override
+#### One-time DB_URL override
 You can override the database URL for one-time commands without editing `.env` by prefixing the command with the desired `DB_URL`. For example, to run migrations on a temporary SQLite DB:
 
 ```bash
@@ -107,9 +109,7 @@ DB_URL=sqlite:///./temp.db alembic upgrade head
 
 That shell prefix temporarily sets `DB_URL` only for the single command, so your `.env` and running services stay untouched.
 
-
-
-### Schema drift guard
+#### Schema drift guard
 To detect drift between the ORM metadata and the live database schema, run:
 
 ```bash
@@ -118,7 +118,7 @@ python scripts/check_schema_drift.py
 
 The script exits non-zero when differences are detected and prints the operations Alembic would generate.
 
-## Schema governance
+### Schema governance
 This repository is the source of truth for the database schema used by the transit API.
 
 When updating the schema:
