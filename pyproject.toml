@@ -4,16 +4,24 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "nict-bw"
-version = "1.2.0"
+version = "1.2.1"
 requires-python = ">=3.11"
 dependencies = [
     "sqlalchemy>=2.0",
     "python-dotenv>=1.0",
     "requests>=2.31",
     "alembic>=1.13",
-    "psycopg[binary]>=3.1"
+    "psycopg[binary]>=3.1",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.2",
 ]
 
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["nictbw*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

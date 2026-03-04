@@ -21,8 +21,10 @@ nict-badge-wallet-sys/
 ├─ tests/               # unit tests
 ├─ alembic.ini          # Alembic CLI configuration
 ├─ .env.example         # environment variables example
+├─ .python-version      # pinned local Python version for uv/pyenv users
 ├─ README.md
-└─ pyproject.toml
+├─ pyproject.toml
+└─ uv.lock              # uv lockfile for reproducible environments
 ```
 
 ---
@@ -33,11 +35,20 @@ nict-badge-wallet-sys/
 - Python >= 3.11
 
 ### 1. Install the library (in editable mode)
+Using `pip`:
 ```bash
 git clone https://github.com/ozen301/nict-badge-wallet-sys.git
 cd nict-badge-wallet-sys
 pip install -e . --config-settings editable_mode=strict
 ```
+
+Using `uv` (additional option):
+```bash
+git clone https://github.com/ozen301/nict-badge-wallet-sys.git
+cd nict-badge-wallet-sys
+uv sync --dev
+```
+`uv sync` installs the current project by default, and does so in editable mode unless `--no-editable` is used.
 
 ### 2. Configure .env file
 Copy `.env.example` to `.env` and modify as needed.
@@ -112,7 +123,7 @@ This repository is the source of truth for the database schema used by the trans
 
 When updating the schema:
 1. Update the ORM models and add an Alembic migration in this repo.
-2. Run tests and `python scripts/check_schema_drift.py`.
+2. Run tests (`uv run pytest -q` or `python -m pytest -q tests`) and `python scripts/check_schema_drift.py`.
 3. Bump `pyproject.toml` version and tag a release (e.g., `v1.3.0`).
 4. Apply the migration to production from this repo.
 
